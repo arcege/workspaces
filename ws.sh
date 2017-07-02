@@ -33,77 +33,77 @@ fi
 # existing, it doesn't seem unreasonable, especially when a new shell
 # could be spawned with WS_DIR set differently.
 declare -r WS_DIR  # make it read-only
-declare _ws_current
-declare -a _ws_stack
-declare -i _ws_stkpos
+declare _ws__current
+declare -a _ws__stack
+declare -i _ws__stkpos
 
-if [ ${#_ws_stack[@]} -eq 0 ]; then
+if [ ${#_ws__stack[@]} -eq 0 ]; then
     # if the stack is not empty, assume some things are already configured
-    _ws_current=""
-    _ws_stack=()
-    _ws_stkpos=0
+    _ws__current=""
+    _ws__stack=()
+    _ws__stkpos=0
 fi
 
-_ws__stack () {
+_ws_stack () {
     # implement a stack
     case $1 in
         last)
-            if [ $_ws_stkpos -gt 0 ]; then
-                echo "${_ws_stack[$_ws_stkpos]}"
+            if [ $_ws__stkpos -gt 0 ]; then
+                echo "${_ws__stack[$_ws__stkpos]}"
             else
                 return 1
             fi
             ;;
         push)
-            let _ws_stkpos++
-            _ws_stack[$_ws_stkpos]="$2"
+            let _ws__stkpos++
+            _ws__stack[$_ws__stkpos]="$2"
             ;;
         pop)
-            # should run __ws__stack last before running pop as we don't return it
-            if [ $_ws_stkpos -gt 0 ]; then
-                unset _ws_stack[$_ws_stkpos]
-                let _ws_stkpos--
+            # should run __ws_stack last before running pop as we don't return it
+            if [ $_ws__stkpos -gt 0 ]; then
+                unset _ws__stack[$_ws__stkpos]
+                let _ws__stkpos--
             else
                 return 1
             fi
             ;;
         size):
-            echo $_ws_stkpos
+            echo $_ws__stkpos
             ;;
         state)
-            echo "stack.pos=$_ws_stkpos"
-            echo "stack=${_ws_stack[*]}"
+            echo "stack.pos=$_ws__stkpos"
+            echo "stack=${_ws__stack[*]}"
             ;;
         *) echo "ws_stack: invalid op: $1" >&2; return 2;;
     esac
 }
 
-_ws__validate () {
-    local index linkptr wsdir=$(_ws__getdir "$_ws_current")
-    linkptr=$(_ws__getlink)
-    if [ ${#_ws_stack[*]} -ne $_ws_stkpos ]; then
-        _ws_stkpos=$index
+_ws_validate () {
+    local index linkptr wsdir=$(_ws_getdir "$_ws__current")
+    linkptr=$(_ws_getlink)
+    if [ ${#_ws__stack[*]} -ne $_ws__stkpos ]; then
+        _ws__stkpos=$index
     fi
     if [ ! -d "$linkptr" ]; then
         echo "Error: $HOME/workspace pointing nowhere; removing" >&2
         rm -f $HOME/workspace
     fi
-    if [ x${_ws_current:+X} = xX -a ! -d "$wsdir" ]; then
-        echo "Error: $_ws_current is not a valid workspace; leaving" >&2
-        _ws__leave
+    if [ x${_ws__current:+X} = xX -a ! -d "$wsdir" ]; then
+        echo "Error: $_ws__current is not a valid workspace; leaving" >&2
+        _ws_leave
     fi
 }
 
-_ws__getdir () {
+_ws_getdir () {
     # print the workspace directory for a name, return 1 if it does not exist
-    local wsdir="$WS_DIR/${1:-$_ws_current}"
+    local wsdir="$WS_DIR/${1:-$_ws__current}"
     echo "$wsdir"
     if [ ! -d "$wsdir" ]; then
         return 1
     fi
 }
 
-_ws__getlink () {
+_ws_getlink () {
     # print the referent or return 1 if exists and is not a symlink
     if [ -h $HOME/workspace ]; then
         readlink $HOME/workspace
@@ -112,7 +112,7 @@ _ws__getlink () {
     fi
 }
 
-_ws__resetlink () {
+_ws_resetlink () {
     # change the symlink, or error if exists and is not a symlink
     if [ -z "$1" -o ! -d "$1" ]; then
         echo "Error: invalid workspace" >&2
@@ -126,7 +126,7 @@ _ws__resetlink () {
     fi
 }
 
-_ws__generate_config () {
+_ws_generate_config () {
     # Create an empty configuration script in the workspace
     cat <<'EOF' > $1/.ws.sh
 :
@@ -144,14 +144,14 @@ esac
 EOF
 }
 
-_ws__config () {
+_ws_config () {
     # run $HOME/.ws.sh script, passing either "enter" or "leave"
     # run $WORKSPACE/.ws.sh script, passing either "enter" or "leave"
     # calls to .ws.sh are NOT sandboxed as they should affect the environment
     # the 'leave' should try to put back anything that was change by 'enter'
-    if [ x${_ws_current:+X} = xX ]; then
+    if [ x${_ws__current:+X} = xX ]; then
         local op="${1:-enter}"
-        local wsdir=$(_ws__getdir)
+        local wsdir=$(_ws_getdir)
         if [ -f "$HOME/.ws.sh" ]; then
             source "$HOME/.ws.sh" "$op"
         fi
@@ -161,59 +161,59 @@ _ws__config () {
     fi
 }
 
-_ws__enter () {
+_ws_enter () {
     # enter the workspace, setting the environment variables and chdir
     # if link=true, then update ~/workspace
     local wsdir wsname=${1:-""}
-    wsdir="$(_ws__getdir "$wsname")"
+    wsdir="$(_ws_getdir "$wsname")"
     if [ -z "$wsname" ]; then
-        if [ -n "$_ws_current" ]; then
-            echo "$_ws_current"
+        if [ -n "$_ws__current" ]; then
+            echo "$_ws__current"
             return 0
         fi
     elif [ ! -d "$wsdir" ]; then
         echo "No workspace exists for $wsname" >&2
         return 1
     else
-        _ws__config leave
-        if [ -n "$_ws_current" ]; then
-            _ws__stack push "$_ws_current:$PWD"
+        _ws_config leave
+        if [ -n "$_ws__current" ]; then
+            _ws_stack push "$_ws__current:$PWD"
         else
-            _ws__stack push "$WORKSPACE:$PWD"
+            _ws_stack push "$WORKSPACE:$PWD"
         fi
-        _ws_current="$wsname"
+        _ws__current="$wsname"
         export WORKSPACE="$wsdir"
         cd "$wsdir"
-        _ws__config enter
+        _ws_config enter
     fi
 }
 
-_ws__leave () {
+_ws_leave () {
     local oldws oldIFS wsname wsdir
-    if [ x{$_ws_current:+X} != xX ]; then
-        _ws__config leave
-        oldws=$(_ws__stack last)
+    if [ x{$_ws__current:+X} != xX ]; then
+        _ws_config leave
+        oldws=$(_ws_stack last)
         oldIFS="$IFS"
         IFS=":"
         set -- $oldws
         IFS="$oldIFS"
         case $1 in
             ""|/*) wsname=""; wsdir="$1";;
-            *) wsname="$1"; wsdir=$(_ws__getdir "$wsname");;
+            *) wsname="$1"; wsdir=$(_ws_getdir "$wsname");;
         esac
-        _ws_current="$wsname"
-        _ws__stack pop
+        _ws__current="$wsname"
+        _ws_stack pop
         if [ $? -eq 0 ]; then
             export WORKSPACE="$wsdir"
         fi
         cd "$2"  # return to old directory
-        _ws__config enter
+        _ws_config enter
     fi
 }
 
-_ws__create () {
+_ws_create () {
     local wsdir wsname=${1:-""}
-    wsdir="$(_ws__getdir "$wsname")"
+    wsdir="$(_ws_getdir "$wsname")"
     if [ -z "$wsname" ]; then
         echo "No name given" >&2
         return 1
@@ -222,13 +222,13 @@ _ws__create () {
         return 1
     else
         mkdir "$wsdir"
-        _ws__generate_config "$wsdir"
+        _ws_generate_config "$wsdir"
     fi
 }
 
-_ws__destroy () {
+_ws_destroy () {
     local linkptr wsdir wsname=${1:-""}
-    wsdir="$(_ws__getdir "$wsname")"
+    wsdir="$(_ws_getdir "$wsname")"
     if [ -z "$wsname" ]; then
         echo "No name given" >&2
         return 1
@@ -236,11 +236,11 @@ _ws__destroy () {
         echo "No workspace exists" >&2
         return 1
     else
-        if [ "$wsname" = "$_ws_current" ]; then
-            _ws__leave
+        if [ "$wsname" = "$_ws__current" ]; then
+            _ws_leave
         fi
         rm -rf "$wsdir"
-        linkptr=$(_ws__getlink)
+        linkptr=$(_ws_getlink)
         if [ $? -eq 0 -a "x$linkptr" = "x$wsdir" ]; then
             rm -f $HOME/workspace
             echo "~/workspace removed"
@@ -248,15 +248,15 @@ _ws__destroy () {
     fi
 }
 
-_ws__relink () {
-    local wsdir wsname="${1:-$_ws_current}"
+_ws_relink () {
+    local wsdir wsname="${1:-$_ws__current}"
     if [ -z "$wsname" ]; then
         echo "No name given" >&2
         return 1
     else
-        wsdir="$(_ws__getdir $wsname)"
+        wsdir="$(_ws_getdir $wsname)"
         if [ $? -eq 0 ]; then
-            _ws__resetlink "$wsdir"
+            _ws_resetlink "$wsdir"
         else
             echo "No workspace exists" >&2
             return 1
@@ -264,9 +264,9 @@ _ws__relink () {
     fi
 }
 
-_ws__list () {
+_ws_list () {
     local link sedscript
-    link=$(_ws__getlink)
+    link=$(_ws_getlink)
     if [ $? -eq 1 ]; then
         sedscript=':noop'
     else
@@ -295,50 +295,50 @@ ws [<cmd>] [<name>]
 EOF
             ;;
         enter)
-            _ws__enter "$2"
+            _ws_enter "$2"
             ;;
         leave)
-            _ws__leave
+            _ws_leave
             ;;
         create)
-            _ws__create "$2"
-            _ws__enter "$2"
+            _ws_create "$2"
+            _ws_enter "$2"
             ;;
         destroy)
-            _ws__destroy "$2"
+            _ws_destroy "$2"
             ;;
         current)
-            _ws__enter ""
+            _ws_enter ""
             ;;
         relink)
-            _ws__relink "$2"
+            _ws_relink "$2"
             ;;
         list)
-            _ws__list
+            _ws_list
             ;;
         state)
-            echo "root=$WS_DIR" "ws='$_ws_current'"
-            _ws__stack state
-            _ws__list | tr '\n' ' '; echo
+            echo "root=$WS_DIR" "ws='$_ws__current'"
+            _ws_stack state
+            _ws_list | tr '\n' ' '; echo
             ;;
         validate)
-            _ws__validate
+            _ws_validate
             ;;
         initialize)
             mkdir -p $WS_DIR
             # we don't want to delete it
-            _ws__create default
-            _ws__resetlink $(_ws__getdir default)
-            _ws__generate_config "${HOME}"
+            _ws_create default
+            _ws_resetlink $(_ws_getdir default)
+            _ws_generate_config "${HOME}"
             ;;
         *)
-            _ws__enter "$1"
+            _ws_enter "$1"
             ;;
     esac
 }
 
 if echo $- | fgrep -q i; then  # only for interactive
-    _ws__complete () {
+    _ws_complete () {
         # handle bash completion
         local cur prev options commands
         COMPREPLY=()
@@ -361,6 +361,6 @@ if echo $- | fgrep -q i; then  # only for interactive
     }
 
     # activate bash completion
-    complete -F _ws__complete ws
+    complete -F _ws_complete ws
 fi
 
