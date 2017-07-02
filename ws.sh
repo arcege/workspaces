@@ -3,8 +3,6 @@
 # Environment variables are set to the desired workspace.
 
 # process arguments and options
-# options
-#  --link|-L   - (re)create link ~/workspace, with enter or create
 # operations
 #   enter [name]    - set envvars and change to workspace directory, if no
 #                     name given, then show current workspace
@@ -12,6 +10,7 @@
 #   create <name>   - create a new workspace
 #   destroy <name>  - delete an existing workspace
 #   current         - show the current workspace (same as enter operator with no name)
+#   relink          - (re)create ~/workspace symbolic link
 #   list            - show workspaces, '*' shows which is linked with
 #                     with ~/workspace
 #   initialize      - (re)create the environment
@@ -35,6 +34,7 @@ declare -a _ws_stack
 declare -i _ws_stkpos
 
 if [ ${#_ws_stack[@]} -eq 0 ]; then
+    # if the stack is not empty, assume some things are already configured
     _ws_current=""
     _ws_stack=()
     _ws_stkpos=0
@@ -67,14 +67,14 @@ _ws__stack () {
             echo $_ws_stkpos
             ;;
         state)
-            echo "stack.pos=${_ws_stkpos}"
+            echo "stack.pos=$_ws_stkpos"
             echo "stack=${_ws_stack[*]}"
             ;;
         *) echo "ws_stack: invalid op: $1" >&2; return 2;;
     esac
 }
 
-_ws__validate() {
+_ws__validate () {
     local index linkptr wsdir=$(_ws__getdir "$_ws_current")
     linkptr=$(_ws__getlink)
     if [ ${#_ws_stack[*]} -ne $_ws_stkpos ]; then
@@ -86,11 +86,11 @@ _ws__validate() {
     fi
     if [ x${_ws_current:+X} = xX -a ! -d "$wsdir" ]; then
         echo "Error: $_ws_current is not a valid workspace; leaving" >&2
-        _ws_leave
+        _ws__leave
     fi
 }
 
-_ws__getdir() {
+_ws__getdir () {
     # print the workspace directory for a name, return 1 if it does not exist
     local wsdir="$_ws_rootdir/${1:-$_ws_current}"
     if [ -d "$wsdir" ]; then
@@ -100,14 +100,16 @@ _ws__getdir() {
     fi
 }
 
-_ws__getlink() {
+_ws__getlink () {
     # print the referent or return 1 if exists and is not a symlink
     if [ -h $HOME/workspace ]; then
         readlink $HOME/workspace
+    else
+        return 1
     fi
 }
 
-_ws__resetlink() {
+_ws__resetlink () {
     # change the symlink, or error if exists and is not a symlink
     if [ -z "$1" -o ! -d "$1" ]; then
         echo "Error: invalid workspace" >&2
@@ -121,7 +123,7 @@ _ws__resetlink() {
     fi
 }
 
-_ws__generate_config() {
+_ws__generate_config () {
     # Create an empty configuration script in the workspace
     cat <<'EOF' > $1/.ws.sh
 :
@@ -139,9 +141,9 @@ esac
 EOF
 }
 
-_ws__config() {
-    # if there is a .ws.sh script in the workspace, run it with "ws_op" set to
-    # either "enter" or "leave", the default is "enter"
+_ws__config () {
+    # run $HOME/.ws.sh script, passing either "enter" or "leave"
+    # run $WORKSPACE/.ws.sh script, passing either "enter" or "leave"
     # calls to .ws.sh are NOT sandboxed as they should affect the environment
     # the 'leave' should try to put back anything that was change by 'enter'
     if [ x${_ws_current:+X} = xX ]; then
@@ -160,11 +162,10 @@ _ws__enter () {
     # enter the workspace, setting the environment variables and chdir
     # if link=true, then update ~/workspace
     local wsname=${1:-""}
-    local link=${2:-false}
     local wsdir="$_ws_rootdir/$wsname"
     if [ -z "$wsname" ]; then
         if [ -n "$_ws_current" ]; then
-            echo "${_ws_current}"
+            echo "$_ws_current"
             return 0
         fi
     elif [ ! -d "$wsdir" ]; then
@@ -172,9 +173,6 @@ _ws__enter () {
         return 1
     else
         _ws__config leave
-        if [ $link = true ]; then
-            _ws__resetlink "$wsdir"
-        fi
         if [ -n "$_ws_current" ]; then
             _ws__stack push "$_ws_current:$PWD"
         else
@@ -212,7 +210,6 @@ _ws__leave () {
 
 _ws__create () {
     local wsname=${1:-""}
-    local link=${2:-false}
     local wsdir="$_ws_rootdir/$wsname"
     if [ -z "$wsname" ]; then
         echo "No name given" >&2
@@ -222,15 +219,12 @@ _ws__create () {
         return 1
     else
         mkdir "$wsdir"
-        if $link; then
-            _ws__resetlink "$wsdir"
-        fi
         _ws__generate_config "$wsdir"
     fi
 }
 
 _ws__destroy () {
-    local wsname=${1:=""}
+    local wsname=${1:-""}
     local wsdir="$_ws_rootdir/$wsname"
     if [ -z "$wsname" ]; then
         echo "No name given" >&2
@@ -251,47 +245,55 @@ _ws__destroy () {
     fi
 }
 
-_ws__list () {
-    local linkptr=$(_ws__getlink)
-    ls -1 $_ws_rootdir | while read wsname; do
-        local wsdir="$_ws_rootdir/$wsname"
-        if [ "$linkptr" = "$wsdir" ]; then
-            echo "${wsname}*"
-        else
-            echo "${wsname}"
-        fi
-    done
+_ws__relink () {
+    local wsname="${1:-$_ws_current}"
+    if [ -z "$wsname" ]; then
+        echo "No name given" >&2
+        return 1
+    else
+        local wsdir="$(_ws__getdir $wsname)"
+        _ws__resetlink "$wsdir"
+    fi
 }
 
-ws() {
-    local link=false
+_ws__list () {
+    local link
+    link=$(_ws__getlink)
+    if [ $? -eq 1 ]; then
+        sedscript=':noop'
+    else
+        sedscript="/$(basename $link)/s/\$/*/"
+    fi
+    ls -1 $_ws_rootdir | sed -e "$sedscript"
+}
+
+ws () {
     if [ "x$1" = x--help -o "x$1" = x-h ]; then
         set -- help
-    elif [ "x$1" = x--link -o "x$1" = x-L ]; then
-        link=true
-        shift
     fi
     case $1 in
         help)
-            echo "ws [--link|-L] [<cmd>] [<name>]"
-            echo "  --link|-L                  - reset ~/workspace to workspace, only for entry and create"
-            echo "  enter [<name>]             - show the current workspace or enter one"
-            echo "  leave                      - leave current workspace"
-            echo "  create <name>              - create a new workspace"
-            echo "  destroy name               - destroy a workspace"
-            echo "  current                    - show current workspace (same as \`ws enter\`)"
-            echo "  list                       - show available workspaces"
-            echo "  initialize                 - create the workspaces structure"
-            echo "  <name>                     - same as 'ws enter [<name>]'"
+            cat <<'EOF'
+ws [<cmd>] [<name>]
+  enter [<name>]             - show the current workspace or enter one
+  leave                      - leave current workspace
+  create <name>              - create a new workspace
+  destroy name               - destroy a workspace
+  current                    - show current workspace (same as \`ws enter\`)
+  relink [<name>]            - reset ~/workspace symlink
+  list                       - show available workspaces
+  initialize                 - create the workspaces structure
+  [<name>]                   - same as 'ws enter [<name>]'
+EOF
             ;;
         enter)
-            _ws__enter "$2" $link
+            _ws__enter "$2"
             ;;
         leave)
             _ws__leave
             ;;
         create)
-            _ws__create "$2" $link
+            _ws__create "$2"
             _ws__enter "$2"
             ;;
         destroy)
@@ -300,11 +302,14 @@ ws() {
         current)
             _ws__enter ""
             ;;
+        relink)
+            _ws__relink "$2"
+            ;;
         list)
             _ws__list
             ;;
         state)
-            echo root=${_ws_rootdir} ws=$_ws_current
+            echo "root=$_ws_rootdir" "ws='$_ws_current'"
             _ws__stack state
             _ws__list | tr '\n' ' '; echo
             ;;
@@ -316,10 +321,10 @@ ws() {
             # we don't want to delete it
             _ws__create default
             _ws__resetlink $(_ws__getdir default)
-            _ws__generate_config "$HOME"
+            _ws__generate_config "${HOME}"
             ;;
         *)
-            _ws__enter "$1" $link
+            _ws__enter "$1"
             ;;
     esac
 }
@@ -331,16 +336,16 @@ if echo $- | fgrep -q i; then  # only for interactive
         COMPREPLY=()
         cur="${COMP_WORDS[COMP_CWORD]}"
         prev="${COMP_WORDS[COMP_CWORD-1]}"
-        options="-L --link"
-        commands="create current destroy enter help initialize leave list"
+        options="-h --help"
+        commands="create current destroy enter help initialize leave list relink"
         results=$(ws list | tr -d '*' | tr '\n' ' ')
         if [ $COMP_CWORD -eq 1 ] || [[ "${prev:0:1}" == "-" ]]; then
             COMPREPLY=( $(compgen -W "$commands $options $results" -- ${cur}) )
             return 0
         else
-            case ${prev} in
+            case $prev in
                 enter|destroy)
-                    COMPREPLY=($(compgen -W "$results" -- ${cur}))
+                    COMPREPLY=($(compgen -W "$results" -- $cur))
                     return 0
                     ;;
             esac

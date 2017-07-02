@@ -24,6 +24,7 @@ The function ws can be called from the shell prompt.
 * create *name*
 * destroy *name*
 * current  -- show current workspace, same as `enter` with no argument
+* relink  -- reset the ~/workspace symlink
 * list  -- show existing workspaces
 * initialize  -- create the structure
 * [*name*]  -- same as `enter [*name*]`
