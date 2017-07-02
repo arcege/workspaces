@@ -93,9 +93,8 @@ _ws__validate () {
 _ws__getdir () {
     # print the workspace directory for a name, return 1 if it does not exist
     local wsdir="$_ws_rootdir/${1:-$_ws_current}"
-    if [ -d "$wsdir" ]; then
-        echo "$wsdir"
-    else
+    echo "$wsdir"
+    if [ ! -d "$wsdir" ]; then
         return 1
     fi
 }
