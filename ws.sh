@@ -27,12 +27,12 @@ if [ -z "$BASH_VERSION" ]; then
 fi
 
 # global constants, per shell
-: ${_ws_rootdir:=$HOME/workspaces}
+: ${WS_DIR:=$HOME/workspaces}
 # it may seem controversial to make such a variable read-only, but when
 # the entire foundation of the program is based on this structure
 # existing, it doesn't seem unreasonable, especially when a new shell
-# could be spawned with _ws_rootdir set differently.
-declare -r _ws_rootdir  # make it read-only
+# could be spawned with WS_DIR set differently.
+declare -r WS_DIR  # make it read-only
 declare _ws_current
 declare -a _ws_stack
 declare -i _ws_stkpos
@@ -96,7 +96,7 @@ _ws__validate () {
 
 _ws__getdir () {
     # print the workspace directory for a name, return 1 if it does not exist
-    local wsdir="$_ws_rootdir/${1:-$_ws_current}"
+    local wsdir="$WS_DIR/${1:-$_ws_current}"
     echo "$wsdir"
     if [ ! -d "$wsdir" ]; then
         return 1
@@ -272,7 +272,7 @@ _ws__list () {
     else
         sedscript="/$(basename $link)/s/\$/*/"
     fi
-    ls -1 $_ws_rootdir | sed -e "$sedscript"
+    ls -1 $WS_DIR | sed -e "$sedscript"
 }
 
 ws () {
@@ -317,7 +317,7 @@ EOF
             _ws__list
             ;;
         state)
-            echo "root=$_ws_rootdir" "ws='$_ws_current'"
+            echo "root=$WS_DIR" "ws='$_ws_current'"
             _ws__stack state
             _ws__list | tr '\n' ' '; echo
             ;;
@@ -325,7 +325,7 @@ EOF
             _ws__validate
             ;;
         initialize)
-            mkdir -p $_ws_rootdir
+            mkdir -p $WS_DIR
             # we don't want to delete it
             _ws__create default
             _ws__resetlink $(_ws__getdir default)
