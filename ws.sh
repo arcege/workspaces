@@ -28,6 +28,10 @@ fi
 
 # global constants, per shell
 : ${_ws_rootdir:=$HOME/workspaces}
+# it may seem controversial to make such a variable read-only, but when
+# the entire foundation of the program is based on this structure
+# existing, it doesn't seem unreasonable, especially when a new shell
+# could be spawned with _ws_rootdir set differently.
 declare -r _ws_rootdir  # make it read-only
 declare _ws_current
 declare -a _ws_stack
@@ -160,8 +164,8 @@ _ws__config () {
 _ws__enter () {
     # enter the workspace, setting the environment variables and chdir
     # if link=true, then update ~/workspace
-    local wsname=${1:-""}
-    local wsdir="$_ws_rootdir/$wsname"
+    local wsdir wsname=${1:-""}
+    wsdir="$(_ws__getdir "$wsname")"
     if [ -z "$wsname" ]; then
         if [ -n "$_ws_current" ]; then
             echo "$_ws_current"
@@ -223,7 +227,8 @@ _ws__create () {
 }
 
 _ws__destroy () {
-    local linkptr wsname=${1:-""} wsdir="$_ws_rootdir/$wsname"
+    local linkptr wsdir wsname=${1:-""}
+    wsdir="$(_ws__getdir "$wsname")"
     if [ -z "$wsname" ]; then
         echo "No name given" >&2
         return 1
