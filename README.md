@@ -115,5 +115,5 @@ Conventionally, the 'enter' argument would set environment variables or
 run commands ('nvm use' for example) for the current shell.
 
 The 'leave' argument would unset environment variables and roll back
-any command settings when "entered" (e.g. `nvm use system`).
+any command settings when "entered" (e.g. 'nvm use system').
 
