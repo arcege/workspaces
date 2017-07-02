@@ -186,10 +186,10 @@ _ws__enter () {
 }
 
 _ws__leave () {
-    local wsname wsdir
+    local oldws oldIFS wsname wsdir
     if [ x{$_ws_current:+X} != xX ]; then
         _ws__config leave
-        local oldws=$(_ws__stack last)
+        oldws=$(_ws__stack last)
         oldIFS="$IFS"
         IFS=":"
         set -- $oldws
@@ -209,8 +209,8 @@ _ws__leave () {
 }
 
 _ws__create () {
-    local wsname=${1:-""}
-    local wsdir="$_ws_rootdir/$wsname"
+    local wsdir wsname=${1:-""}
+    wsdir="$(_ws__getdir "$wsname")"
     if [ -z "$wsname" ]; then
         echo "No name given" >&2
         return 1
@@ -224,8 +224,7 @@ _ws__create () {
 }
 
 _ws__destroy () {
-    local wsname=${1:-""}
-    local wsdir="$_ws_rootdir/$wsname"
+    local linkptr wsname=${1:-""} wsdir="$_ws_rootdir/$wsname"
     if [ -z "$wsname" ]; then
         echo "No name given" >&2
         return 1
@@ -237,8 +236,8 @@ _ws__destroy () {
             _ws__leave
         fi
         rm -rf "$wsdir"
-        local linkptr=$(_ws__getlink)
-        if [ "x$linkptr" = "x$wsdir" ]; then
+        linkptr=$(_ws__getlink)
+        if [ $? -eq 0 -a "x$linkptr" = "x$wsdir" ]; then
             rm -f $HOME/workspace
             echo "~/workspace removed"
         fi
@@ -246,18 +245,23 @@ _ws__destroy () {
 }
 
 _ws__relink () {
-    local wsname="${1:-$_ws_current}"
+    local wsdir wsname="${1:-$_ws_current}"
     if [ -z "$wsname" ]; then
         echo "No name given" >&2
         return 1
     else
-        local wsdir="$(_ws__getdir $wsname)"
-        _ws__resetlink "$wsdir"
+        wsdir="$(_ws__getdir $wsname)"
+        if [ $? -eq 0 ]; then
+            _ws__resetlink "$wsdir"
+        else
+            echo "No workspace exists" >&2
+            return 1
+        fi
     fi
 }
 
 _ws__list () {
-    local link
+    local link sedscript
     link=$(_ws__getlink)
     if [ $? -eq 1 ]; then
         sedscript=':noop'

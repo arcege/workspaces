@@ -39,6 +39,8 @@ The function ws can be called from the shell prompt.
 
 #### current operation ####
 
+#### relink operation ####
+
 #### list operation ####
 
 #### initialie operation ###
