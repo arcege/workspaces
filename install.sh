@@ -1,11 +1,65 @@
-#!/bin/sh
+#!/bin/bash
+
+do_workspace=ignore
+case $1 in
+    -h|--help|help)
+        cat <<EOF
+$0 [opts] [directive]
+  -h|--help  display this message
+  help       display this message
+  replace    use ~/workspace as 'default' workspace
+  erase      delete ~/workspace directory
+  ignore     ignore the ~/workspace directory
+EOF
+        exit 0
+        ;;
+    replace) do_workspace=replace;;
+    erase) do_workspace=erase;;
+    ignore) do_workspace=ignore;;
+    *) echo "unknown directive: $1" >&2; exit 1;;
+esac
 
 mkdir -p $HOME/.bash
 
 cp -p ./ws.sh $HOME/.bash/ws.sh
 
+case $do_workspace in
+    ignore)
+        if [ -d $HOME/workspace ]; then
+            echo ignoring ~/workspace
+        fi
+        ;;
+    replace)
+        # we'll replace the default workspace with
+        # the ~/workspace if it is an existing directory
+        if [ -d $HOME/workspace -a ! -h $HOME/workspace ]; then
+            movingworkspace=true
+            mv $HOME/workspace $HOME/workspace.$$
+        else
+            movingworkspace=false
+        fi
+        ;;
+    erase)
+        rm -rf $HOME/workspace
+        ;;
+esac
+
 source ./ws.sh
 ws initialize
+
+case $do_workspace in
+    replace)
+        if [ $movingworkspace = true ]; then
+            if [ ! -f $HOME/workspace.$$/.wh.sh ]; then
+                mv $HOME/workspaces/default/.ws.sh $HOME/workspace.$$/
+            else
+                rm $HOME/workspaces/default/.ws.sh
+            fi
+            rmdir $HOME/workspaces/default
+            mv $HOME/workspace.$$ $HOME/workspaces/default
+        fi
+        ;;
+esac
 
 # check if .bash processing in one of the profile scripts
 found=false
