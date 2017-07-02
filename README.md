@@ -105,6 +105,7 @@ script ~/.ws.sh.   This operation is performed by the install script.
 ## Configuration ##
 
 There are two configuration scripts that could be run.
+
 * ~/.ws.sh  -- globally called
 * ~/workspace/*wsname*/.ws.sh  -- specific to the workspace
 
@@ -114,5 +115,5 @@ Conventionally, the 'enter' argument would set environment variables or
 run commands ('nvm use' for example) for the current shell.
 
 The 'leave' argument would unset environment variables and roll back
-any command settings when 'entered'.
+any command settings when "entered" (e.g. `nvm use system`).
 
