@@ -126,9 +126,16 @@ _ws_resetlink () {
     fi
 }
 
+_ws_copy_skel () {
+    if [ -f "$WS_DIR/.skel.sh" ]; then
+        cp -p "$WS_DIR/.skel.sh" "$1/.ws.sh"
+    fi
+}
+
 _ws_generate_config () {
     # Create an empty configuration script in the workspace
-    cat <<'EOF' > $1/.ws.sh
+    if [ -n "$1" ]; then
+        cat <<'EOF' > "$1"
 :
 # this is sourced by `ws` (workspaces)
 # commands could be run and the environment/shell could be modified
@@ -142,6 +149,7 @@ case ${1:-enter} in
         ;;
 esac
 EOF
+    fi
 }
 
 _ws_config () {
@@ -150,10 +158,10 @@ _ws_config () {
     # calls to .ws.sh are NOT sandboxed as they should affect the environment
     # the 'leave' should try to put back anything that was change by 'enter'
     if [ x${_ws__current:+X} = xX ]; then
-        local op="${1:-enter}"
-        local wsdir=$(_ws_getdir)
-        if [ -f "$HOME/.ws.sh" ]; then
-            source "$HOME/.ws.sh" "$op"
+        local wsdir op="${1:-enter}"
+        wsdir=$(_ws_getdir)
+        if [ -f "$WS_DIR/.ws.sh" ]; then
+            source "$WS_DIR/.ws.sh" "$op"
         fi
         if [ -f "$wsdir/.ws.sh" ]; then
             source "$wsdir/.ws.sh" "$op"
@@ -222,7 +230,7 @@ _ws_create () {
         return 1
     else
         mkdir "$wsdir"
-        _ws_generate_config "$wsdir"
+        _ws_copy_skel "$wsdir"
     fi
 }
 
@@ -329,10 +337,11 @@ EOF
             ;;
         initialize)
             mkdir -p $WS_DIR
+            _ws_generate_config "${WS_DIR}/.ws.sh"
+            _ws_generate_config "${WS_DIR}/.skel.sh"
             # we don't want to delete it
             _ws_create default
             _ws_resetlink $(_ws_getdir default)
-            _ws_generate_config "${HOME}"
             ;;
         *)
             _ws_enter "$1"
@@ -343,20 +352,20 @@ EOF
 if echo $- | fgrep -q i; then  # only for interactive
     _ws_complete () {
         # handle bash completion
-        local cur prev options commands
+        local cur prev options commands names
         COMPREPLY=()
         cur="${COMP_WORDS[COMP_CWORD]}"
         prev="${COMP_WORDS[COMP_CWORD-1]}"
         options="-h --help"
         commands="create current destroy enter help initialize leave list relink"
-        results=$(ws list | tr -d '*' | tr '\n' ' ')
+        names=$(ws list | tr -d '*' | tr '\n' ' ')
         if [ $COMP_CWORD -eq 1 ] || [[ "${prev:0:1}" == "-" ]]; then
-            COMPREPLY=( $(compgen -W "$commands $options $results" -- ${cur}) )
+            COMPREPLY=( $(compgen -W "$commands $options $names" -- ${cur}) )
             return 0
         else
             case $prev in
                 enter|destroy)
-                    COMPREPLY=($(compgen -W "$results" -- $cur))
+                    COMPREPLY=($(compgen -W "$names" -- $cur))
                     return 0
                     ;;
             esac
