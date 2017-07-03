@@ -138,34 +138,53 @@ _ws_generate_config () {
         cat <<'EOF' > "$1"
 :
 # this is sourced by `ws` (workspaces)
-# commands could be run and the environment/shell could be modified
-# anything set by the enter operation should be wound back by leave
+# commands could be run and the environment/shell could be modified.
+# anything set by the enter operation should be wound back by leave;
+# similarly, anything set by create should be removed by destroy.
+_wsconfig__op=${1:-enter}
+_wsconfig__workspace=$2
 
-case ${1:-enter} in
+# any variables you use here should be unset at the end; local
+# would not work as this is source'd
+case ${_wsconfig__op} in
+    # the current context is NOT this workspace
+    create)
+        ;;
+
+    # the current context is NOT this workspace
+    destroy)
+        ;;
+
+    # the current context IS this workspace
     enter)
         ;;
 
+    # the current context IS this workspace
     leave)
         ;;
 esac
+unset _wsconfig__op _wsconfig__workspace
 EOF
     fi
 }
 
 _ws_config () {
-    # run $HOME/.ws.sh script, passing either "enter" or "leave"
+    # run $HOME/.ws.sh script, passing "create", "destroy", "enter" or "leave"
     # run $WORKSPACE/.ws.sh script, passing either "enter" or "leave"
     # calls to .ws.sh are NOT sandboxed as they should affect the environment
     # the 'leave' should try to put back anything that was change by 'enter'
-    if [ x${_ws__current:+X} = xX ]; then
-        local wsdir op="${1:-enter}"
-        wsdir=$(_ws_getdir)
-        if [ -f "$WS_DIR/.ws.sh" ]; then
-            source "$WS_DIR/.ws.sh" "$op"
-        fi
-        if [ -f "$wsdir/.ws.sh" ]; then
-            source "$wsdir/.ws.sh" "$op"
-        fi
+    local wsdir rc op="${1:-enter}" context=$2
+    case ${op}:${2:+X} in
+        # if no workspace, then just return
+        enter:|leave:) return ;;
+    esac
+    wsdir=$(_ws_getdir "$context")
+    rc=$?
+    if [ -f "$WS_DIR/.ws.sh" ]; then
+        source "$WS_DIR/.ws.sh" "$op" "$wsdir"
+    fi
+    if [ $rc -eq 0 -a -f "$wsdir/.ws.sh" ]; then
+        source "$wsdir/.ws.sh" "$op" "$wsdir"
     fi
 }
 
@@ -183,7 +202,7 @@ _ws_enter () {
         echo "No workspace exists for $wsname" >&2
         return 1
     else
-        _ws_config leave
+        _ws_config leave $_ws__current
         if [ -n "$_ws__current" ]; then
             _ws_stack push "$_ws__current:$PWD"
         else
@@ -192,14 +211,14 @@ _ws_enter () {
         _ws__current="$wsname"
         export WORKSPACE="$wsdir"
         cd "$wsdir"
-        _ws_config enter
+        _ws_config enter $_ws__current
     fi
 }
 
 _ws_leave () {
     local oldws oldIFS wsname wsdir
     if [ x{$_ws__current:+X} != xX ]; then
-        _ws_config leave
+        _ws_config leave $_ws__current
         oldws=$(_ws_stack last)
         oldIFS="$IFS"
         IFS=":"
@@ -215,7 +234,7 @@ _ws_leave () {
             export WORKSPACE="$wsdir"
         fi
         cd "$2"  # return to old directory
-        _ws_config enter
+        _ws_config enter $_ws__current
     fi
 }
 
@@ -231,6 +250,7 @@ _ws_create () {
     else
         mkdir "$wsdir"
         _ws_copy_skel "$wsdir"
+        _ws_config create $wsname
     fi
 }
 
@@ -247,6 +267,7 @@ _ws_destroy () {
         if [ "$wsname" = "$_ws__current" ]; then
             _ws_leave
         fi
+        _ws_config destroy $wsname
         rm -rf "$wsdir"
         linkptr=$(_ws_getlink)
         if [ $? -eq 0 -a "x$linkptr" = "x$wsdir" ]; then
