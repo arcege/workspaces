@@ -272,6 +272,9 @@ _ws_list () {
     else
         sedscript="/$(basename $link)/s/\$/*/"
     fi
+    if [ ! -d $WS_DIR ]; then
+        return 1
+    fi
     ls -1 $WS_DIR | sed -e "$sedscript"
 }
 
