@@ -110,7 +110,8 @@ or to the specified workspace.
 #### list operation ####
 
 Display a list of the workspace names.  The workspace to which ~/workspace
-is pointing will be indicated with an asterisk ("\*").
+is pointing will be indicated with a commat symbol ("@").  The current
+workspace is indicated with an asterisk ("\*").
 
 #### initialize operation ###
 

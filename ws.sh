@@ -11,8 +11,8 @@
 #   destroy <name>  - delete an existing workspace
 #   current         - show the current workspace (same as enter operator with no name)
 #   relink          - (re)create ~/workspace symbolic link
-#   list            - show workspaces, '*' shows which is linked with
-#                     with ~/workspace
+#   list            - show workspaces, '@' shows which is linked with
+#                     with ~/workspace, '*' shows the current workspace
 #   initialize      - (re)create the environment
 #   [name]          - same as enter operator
 #
@@ -295,11 +295,13 @@ _ws_relink () {
 
 _ws_list () {
     local link sedscript
+    sedscript=":noop"
     link=$(_ws_getlink)
-    if [ $? -eq 1 ]; then
-        sedscript=':noop'
-    else
-        sedscript="/$(basename $link)/s/\$/*/"
+    if [ $? -eq 0 ]; then
+        sedscript="${sedscript};/^$(basename $link)\$/s/\$/@/"
+    fi
+    if [ x${_ws__current:+X} = xX ]; then
+        sedscript="${sedscript};/^${_ws__current}@\{0,1\}\$/s/\$/*/"
     fi
     if [ ! -d $WS_DIR ]; then
         return 1
@@ -379,7 +381,7 @@ if echo $- | fgrep -q i; then  # only for interactive
         prev="${COMP_WORDS[COMP_CWORD-1]}"
         options="-h --help"
         commands="create current destroy enter help initialize leave list relink"
-        names=$(ws list | tr -d '*' | tr '\n' ' ')
+        names=$(ws list | tr -d '*@' | tr '\n' ' ')
         if [ $COMP_CWORD -eq 1 ] || [[ "${prev:0:1}" == "-" ]]; then
             COMPREPLY=( $(compgen -W "$commands $options $names" -- ${cur}) )
             return 0
