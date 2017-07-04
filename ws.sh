@@ -28,7 +28,7 @@ if [ -z "$BASH_VERSION" ]; then
 fi
 
 # global constants, per shell
-declare -g WS_VERSION=0.1.1
+declare -g WS_VERSION=0.1.2
 
 : ${WS_DIR:=$HOME/workspaces}
 declare -g WS_DIR

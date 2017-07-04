@@ -37,7 +37,7 @@ command -v _ws_hooks >&3 || fail routine _ws_hooks
 
 # check the global variables
 test "$(declare -p WS_DIR)" = "declare -- WS_DIR=\"$HOME/workspaces\"" || fail declare WS_DIR
-test "$(declare -p WS_VERSION)" = "declare -- WS_VERSION=\"0.1.1\"" || fail declare WS_VERSION
+test "$(declare -p WS_VERSION)" = "declare -- WS_VERSION=\"0.1.2\"" || fail declare WS_VERSION
 test "$(declare -p _ws__current)" = 'declare -- _ws__current=""' || fail declare _ws__current
 test "$(declare -p _ws__stack)" = "declare -a _ws__stack='()'" || fail declare _ws__stack
 test "$(declare -p _ws__stkpos)" = 'declare -i _ws__stkpos="0"' || fail declare _ws__stkpos
