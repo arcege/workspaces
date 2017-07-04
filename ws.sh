@@ -98,6 +98,10 @@ _ws_validate () {
 
 _ws_getdir () {
     # print the workspace directory for a name, return 1 if it does not exist
+    local wsname=${1:-$_ws__current}
+    if [ -z "$wsname" ]; then
+        return 1
+    fi
     local wsdir="$WS_DIR/${1:-$_ws__current}"
     echo "$wsdir"
     if [ ! -d "$wsdir" ]; then
