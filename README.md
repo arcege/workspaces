@@ -140,3 +140,4 @@ any command settings when "entered" (e.g. 'nvm use system').
 The `$WS_DIR/.skel.sh` file is copied into the workspace as .ws.sh.  This allows
 a similar hook file to be applied to all workspaces.
 
+####### Copyright @ 2017 Michael P. Reilly. All rights reserved. #######

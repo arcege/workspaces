@@ -1,4 +1,5 @@
 #!/bin/bash
+# Copyright @ 2017 Michael P. Reilly. All rights reserved.
 # A shell program to handle workspaces in parallel with virtualenv.
 # Environment variables are set to the desired workspace.
 
@@ -33,6 +34,7 @@ fi
 # existing, it doesn't seem unreasonable, especially when a new shell
 # could be spawned with WS_DIR set differently.
 declare -r WS_DIR  # make it read-only
+declare -r WS_VERSION=0.1
 declare _ws__current
 declare -a _ws__stack
 declare -i _ws__stkpos
@@ -325,6 +327,7 @@ ws [<cmd>] [<name>]
   relink [<name>]            - reset ~/workspace symlink
   list                       - show available workspaces
   initialize                 - create the workspaces structure
+  version                    - display version number
   [<name>]                   - same as 'ws enter [<name>]'
 EOF
             ;;
@@ -350,10 +353,16 @@ EOF
         list)
             _ws_list
             ;;
+        version)
+            echo "$WS_VERSION"
+            ;;
         state)
             echo "root=$WS_DIR" "ws='$_ws__current'"
             _ws_stack state
             _ws_list | tr '\n' ' '; echo
+            ;;
+        reload)
+            source $HOME/.bash/ws.sh
             ;;
         validate)
             _ws_validate
