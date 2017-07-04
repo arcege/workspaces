@@ -392,7 +392,7 @@ ws [<cmd>] [<name>]
   leave                      - leave current workspace
   create <name>              - create a new workspace
   destroy name               - destroy a workspace
-  current                    - show current workspace (same as \`ws enter\`)
+  current                    - show current workspace (same as 'ws enter')
   relink [<name>]            - reset ~/workspace symlink
   list                       - show available workspaces
   initialize                 - create the workspaces structure
