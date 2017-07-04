@@ -97,6 +97,14 @@ EOF
     fi
 }
 
+# if already installed, then we should want to upgrade more than
+# install
+if [ -f $HOME/.bash/ws.sh ]; then
+    operation=upgrade
+else
+    operation=ignore
+fi
+
 case $1 in
     -h|--help|help)
         cat <<EOF
@@ -107,10 +115,12 @@ $0 [opts] [directive]
   erase      delete ~/workspace directory
   ignore     ignore the ~/workspace directory
   upgrade    update the software
+Default directive is "${operation}"
 EOF
         exit 0
         ;;
-    ""|ignore) operation=ignore;;
+    "") :;;
+    ignore) operation=ignore;;
     replace) operation=replace;;
     erase) operation=erase;;
     upgrade) operation=upgrade;;
