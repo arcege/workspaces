@@ -28,14 +28,12 @@ if [ -z "$BASH_VERSION" ]; then
 fi
 
 # global constants, per shell
+declare -g WS_VERSION=0.1.1
+
 : ${WS_DIR:=$HOME/workspaces}
-# it may seem controversial to make such a variable read-only, but when
-# the entire foundation of the program is based on this structure
-# existing, it doesn't seem unreasonable, especially when a new shell
-# could be spawned with WS_DIR set differently.
-declare -r WS_DIR  # make it read-only
-declare -r WS_VERSION=0.1
-declare _ws__current
+declare -g WS_DIR
+
+declare -g _ws__current
 declare -a _ws__stack
 declare -i _ws__stkpos
 
@@ -46,8 +44,13 @@ if [ ${#_ws__stack[@]} -eq 0 ]; then
     _ws__stkpos=0
 fi
 
+# implement a stack
+# * last - print the top item on the stack
+# * push - add an item to the stack
+# * pop - remove the top item off the stack
+# * size - return how many items on the stack
+# * state - print the top index and what is on the stack
 _ws_stack () {
-    # implement a stack
     case $1 in
         last)
             if [ $_ws__stkpos -gt 0 ]; then
@@ -80,6 +83,10 @@ _ws_stack () {
     esac
 }
 
+# check if the application is set up properly
+# * verify the stack is correct
+# * verify that ~/workspace points to a directory, if not remove it
+# * verify that the current workspace exists, if not leave it
 _ws_validate () {
     local index linkptr wsdir=$(_ws_getdir "$_ws__current")
     linkptr=$(_ws_getlink)
@@ -96,6 +103,12 @@ _ws_validate () {
     fi
 }
 
+# print the workspace directory
+# arguments:
+#   workspace name, if not given use current workspace
+# result code:
+#   1 if no workspace name given and no current workspace
+#   1 if if workspace does not exist
 _ws_getdir () {
     # print the workspace directory for a name, return 1 if it does not exist
     local wsname=${1:-$_ws__current}
@@ -109,8 +122,11 @@ _ws_getdir () {
     fi
 }
 
+# print where the symlink ~/workspace points to
+# arguments: none
+# result code:
+#   1 if ~/workspace is not a symlink
 _ws_getlink () {
-    # print the referent or return 1 if exists and is not a symlink
     if [ -h $HOME/workspace ]; then
         readlink $HOME/workspace
     else
@@ -118,8 +134,13 @@ _ws_getlink () {
     fi
 }
 
+# change the symlink ~/workspace
+# arguments:
+#   workspace directory
+# result code:
+#   1 if no directory or does not exist
+#   1 if ~/workspace is not a symlink
 _ws_resetlink () {
-    # change the symlink, or error if exists and is not a symlink
     if [ -z "$1" -o ! -d "$1" ]; then
         echo "Error: invalid workspace" >&2
         return 1
@@ -132,12 +153,18 @@ _ws_resetlink () {
     fi
 }
 
+# copy the skel hook script to the workspace
+# arguments:
+#   workspace directory
 _ws_copy_skel () {
     if [ -f "$WS_DIR/.skel.sh" ]; then
         cp -p "$WS_DIR/.skel.sh" "$1/.ws.sh"
     fi
 }
 
+# create an "empty" hook script
+# arguments:
+#   filename
 _ws_generate_hook () {
     # Create an empty hook script in the workspace
     if [ -n "$1" ]; then
@@ -194,9 +221,16 @@ _ws_hooks () {
     fi
 }
 
+# enter a workspace, or show the current
+# the WORKSPACE envvar is set to the workspace
+# directory and change to that directory
+# the current working directory and the workspace
+# are pushed onto a stack
+# arguments:
+#   workspace name (optional)
+# return code:
+#   1 if workspace directory does not exist
 _ws_enter () {
-    # enter the workspace, setting the environment variables and chdir
-    # if link=true, then update ~/workspace
     local wsdir wsname=${1:-""}
     wsdir="$(_ws_getdir "$wsname")"
     if [ -z "$wsname" ]; then
@@ -221,6 +255,11 @@ _ws_enter () {
     fi
 }
 
+# leave a workspace, popping the previous context
+# off the stack, changing to the old working directory
+# and if present, reentering the old workspace
+# arguments: none
+# result code: 0
 _ws_leave () {
     local oldws oldIFS wsname wsdir
     if [ x{$_ws__current:+X} != xX ]; then
@@ -244,6 +283,13 @@ _ws_leave () {
     fi
 }
 
+# create a new workspace, entering workspace
+# copy the skel hook, run 'create' hooks
+# arguments:
+#  workspace name
+# result code:
+#   1 if no workspace name given, or
+#     if workspace already exists
 _ws_create () {
     local wsdir wsname=${1:-""}
     wsdir="$(_ws_getdir "$wsname")"
@@ -260,6 +306,13 @@ _ws_create () {
     fi
 }
 
+# destroy an existing workspace, leaving workspace if current,
+# deleting ~/workspace link if pointing to the workspace
+# arguments:
+#   workspace name
+# result code:
+#   1 if no workspace name given, or
+#     if no workspace directory exists
 _ws_destroy () {
     local linkptr wsdir wsname=${1:-""}
     wsdir="$(_ws_getdir "$wsname")"
@@ -283,6 +336,12 @@ _ws_destroy () {
     fi
 }
 
+# update the ~/workspace symlink to a workspace directory
+# arguments:
+#  workspace name - if not given, use the current workspace
+# result code:
+#   1 if no workspace given and no current workspace, or
+#     if no workspace directory exists
 _ws_relink () {
     local wsdir wsname="${1:-$_ws__current}"
     if [ -z "$wsname" ]; then
@@ -299,6 +358,12 @@ _ws_relink () {
     fi
 }
 
+# display to stdout the list of workspaces
+# the one that ~/workspace points to is marked with '@'
+# the current workspace is marked with '*'
+# arguments: none
+# result code:
+#   1 if WS_DIR does not exist
 _ws_list () {
     local link sedscript
     sedscript=":noop"
@@ -331,6 +396,7 @@ ws [<cmd>] [<name>]
   relink [<name>]            - reset ~/workspace symlink
   list                       - show available workspaces
   initialize                 - create the workspaces structure
+  help|-h|--help             - this message
   version                    - display version number
   [<name>]                   - same as 'ws enter [<name>]'
 EOF
