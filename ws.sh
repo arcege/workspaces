@@ -132,8 +132,8 @@ _ws_copy_skel () {
     fi
 }
 
-_ws_generate_config () {
-    # Create an empty configuration script in the workspace
+_ws_generate_hook () {
+    # Create an empty hook script in the workspace
     if [ -n "$1" ]; then
         cat <<'EOF' > "$1"
 :
@@ -141,12 +141,12 @@ _ws_generate_config () {
 # commands could be run and the environment/shell could be modified.
 # anything set by the enter operation should be wound back by leave;
 # similarly, anything set by create should be removed by destroy.
-_wsconfig__op=${1:-enter}
-_wsconfig__workspace=$2
+_wshook__op=${1:-enter}
+_wshook__workspace=$2
 
 # any variables you use here should be unset at the end; local
 # would not work as this is source'd
-case ${_wsconfig__op} in
+case ${_wshook__op} in
     # the current context is NOT this workspace
     create)
         ;;
@@ -163,12 +163,12 @@ case ${_wsconfig__op} in
     leave)
         ;;
 esac
-unset _wsconfig__op _wsconfig__workspace
+unset _wshook__op _wshook__workspace
 EOF
     fi
 }
 
-_ws_config () {
+_ws_hooks () {
     # run $HOME/.ws.sh script, passing "create", "destroy", "enter" or "leave"
     # run $WORKSPACE/.ws.sh script, passing either "enter" or "leave"
     # calls to .ws.sh are NOT sandboxed as they should affect the environment
@@ -202,7 +202,7 @@ _ws_enter () {
         echo "No workspace exists for $wsname" >&2
         return 1
     else
-        _ws_config leave $_ws__current
+        _ws_hooks leave $_ws__current
         if [ -n "$_ws__current" ]; then
             _ws_stack push "$_ws__current:$PWD"
         else
@@ -211,14 +211,14 @@ _ws_enter () {
         _ws__current="$wsname"
         export WORKSPACE="$wsdir"
         cd "$wsdir"
-        _ws_config enter $_ws__current
+        _ws_hooks enter $_ws__current
     fi
 }
 
 _ws_leave () {
     local oldws oldIFS wsname wsdir
     if [ x{$_ws__current:+X} != xX ]; then
-        _ws_config leave $_ws__current
+        _ws_hooks leave $_ws__current
         oldws=$(_ws_stack last)
         oldIFS="$IFS"
         IFS=":"
@@ -234,7 +234,7 @@ _ws_leave () {
             export WORKSPACE="$wsdir"
         fi
         cd "$2"  # return to old directory
-        _ws_config enter $_ws__current
+        _ws_hooks enter $_ws__current
     fi
 }
 
@@ -250,7 +250,7 @@ _ws_create () {
     else
         mkdir "$wsdir"
         _ws_copy_skel "$wsdir"
-        _ws_config create $wsname
+        _ws_hooks create $wsname
     fi
 }
 
@@ -267,7 +267,7 @@ _ws_destroy () {
         if [ "$wsname" = "$_ws__current" ]; then
             _ws_leave
         fi
-        _ws_config destroy $wsname
+        _ws_hooks destroy $wsname
         rm -rf "$wsdir"
         linkptr=$(_ws_getlink)
         if [ $? -eq 0 -a "x$linkptr" = "x$wsdir" ]; then
@@ -358,8 +358,8 @@ EOF
             ;;
         initialize)
             mkdir -p $WS_DIR
-            _ws_generate_config "${WS_DIR}/.ws.sh"
-            _ws_generate_config "${WS_DIR}/.skel.sh"
+            _ws_generate_hook "${WS_DIR}/.ws.sh"
+            _ws_generate_hook "${WS_DIR}/.skel.sh"
             # we don't want to delete it
             _ws_create default
             _ws_resetlink $(_ws_getdir default)

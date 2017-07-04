@@ -9,7 +9,7 @@ directory.
 This implementation is for Bash only.
 
 The readonly shell variable `WS_DIR` is set to `$HOME/workspaces` and
-is the root of the workspaces and configuration scripts.
+is the root of the workspaces and hook scripts.
 
 ## Installation ##
 
@@ -18,7 +18,7 @@ Run `./install.sh`.
 This will place the ws.sh script in ~/.bash/ and ensure that the profile
 scripts source it, making a `ws` function available.
 
-It will also install a default configuration script in ~/workspaces/.ws.sh
+It will also install a default hook script in ~/workspaces/.ws.sh
 and a skeleton script in ~/workspaces/.skel.sh.
 
 ### What to do with ~/workspace ###
@@ -54,9 +54,8 @@ When an argument is given, the `enter` operation will set the WORKSPACE
 environment variable to the workspace directory and change the shell's
 working directory there.
 
-As a pre-operation, the configuration files are run with the 'leave'
-argument. And as a post-operation, the configuration files are run with the
-'enter' argument.
+As a pre-operation, the hook files are run with the 'leave' argument. And
+as a post-operation, the hook files are run with the 'enter' argument.
 
 If no argument is given, then the function is the same as the `current`
 operation, showing the current workspace name.
@@ -70,9 +69,8 @@ when leaving a workspace.
 Leave the current workspace, if entered.  Unset the WORKSPACE and return
 to the directory before the `enter` operation was called.
 
-As a pre-operation, the configuration scripts are run with the 'leave'
-argument.  And as a post-operation, the configuration files are run with the
-'enter' argument.
+As a pre-operation, the hook scripts are run with the 'leave' argument.
+And as a post-operation, the hook files are run with the 'enter' argument.
 
 As mentioned with the `enter` operation, the previous context is popped off
 of a stack, that includes the workspace and the previous working directory.
@@ -80,11 +78,11 @@ of a stack, that includes the workspace and the previous working directory.
 #### create operation ####
 
 The `create` operation is very simple, the workspace directory is created,
-a default (empty) configuration script named ".ws.sh" is placed there, and
-the workspace is entered (as with the `enter` operation).
+a default (empty) hook script named ".ws.sh" is placed there, and the
+workspace is entered (as with the `enter` operation).
 
-As a post-operation, the configuration scripts are run with the 'create'
-argument.  This is performed before the `enter` operation.
+As a post-operation, the hook scripts are run with the 'create' argument.
+This is performed before the `enter` operation.
 
 #### destroy operation ####
 
@@ -95,8 +93,8 @@ removing it as well.
 If the current workspace is being destroyed, then a `leave` operation is
 performed as well.
 
-As a post-operation, the configuration scripts are run with the 'destroy'
-argument.  This is performed after the `leave` operation, if performed.
+As a post-operation, the hook scripts are run with the 'destroy' argument.
+This is performed after the `leave` operation, if performed.
 
 #### current operation ####
 
@@ -117,12 +115,12 @@ is pointing will be indicated with an asterisk ("\*").
 #### initialize operation ###
 
 Create the ~/workspaces/ directory. Create a 'default' workspace.  Relink
-~/workspace symlink to the 'default'.  Update the global configuration
-script ~/.ws.sh.   This operation is performed by the install script.
+~/workspace symlink to the 'default'.  Update the global hook script ~/.ws.sh.
+This operation is performed by the install script.
 
-## Configuration ##
+## Hooks ##
 
-There are two configuration scripts that could be run.
+There are two hook scripts that could be run.
 
 * ~/.ws.sh  -- globally called
 * ~/workspace/*wsname*/.ws.sh  -- specific to the workspace
@@ -139,4 +137,5 @@ any command settings when "entered" (e.g. 'nvm use system').
 ### skel file ###
 
 The `$WS_DIR/.skel.sh` file is copied into the workspace as .ws.sh.  This allows
-a similar configuration file to be applied to all workspaces.
+a similar hook file to be applied to all workspaces.
+
