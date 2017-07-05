@@ -40,11 +40,12 @@ known, then it is also called as `ws enter <name>`.  For example, running
 
 * enter [*name*]  -- enter a workspace
 * leave  -- leave the current workspace
-* create *name*
-* destroy *name*
+* create *name*  -- create and enter a new workspace
+* destroy *name*  -- leave (if current) and remove a workspace and its contents
 * current  -- show current workspace, same as `enter` with no argument
 * relink [*name*]  -- reset the ~/workspace symlink
 * list  -- show existing workspaces
+* stack -- show workspaces on the stack
 * initialize  -- create the structure
 * help|-h|--help -- display help information
 * version  -- display version number
@@ -114,6 +115,11 @@ or to the specified workspace.
 Display a list of the workspace names.  The workspace to which ~/workspace
 is pointing will be indicated with a commat symbol ("@").  The current
 workspace is indicated with an asterisk ("\*").
+
+#### stack operation ####
+
+Display the workspaces on the current stack, the current workspace is marked
+with '\*', as with `ws list`.
 
 #### initialize operation ####
 

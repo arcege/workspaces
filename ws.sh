@@ -14,7 +14,10 @@
 #   relink          - (re)create ~/workspace symbolic link
 #   list            - show workspaces, '@' shows which is linked with
 #                     with ~/workspace, '*' shows the current workspace
+#   stack           - show workspaces on the stack, '*' shows current workspace
 #   initialize      - (re)create the environment
+#   help|-h|--help  - display help information
+#   version         - display version number
 #   [name]          - same as enter operator
 #
 # if a workspace has a '.ws.sh' script at the top, it will get source'd with
@@ -33,10 +36,11 @@ esac
 
 # global constants, per shell
 # unfortunately, bash 3 (macos) does not support declaring global vars
-WS_VERSION=0.1.5
+WS_VERSION=0.1.6
 
 : ${WS_DIR:=$HOME/workspaces}
 : ${WS_DEBUG:=0}
+: ${_WS_DEBUGFILE:=$WS_DIR/.log}
 
 # _ws__current is a global variable, but initialized below
 declare -a _ws__stack
@@ -53,12 +57,13 @@ if [ x${_ws__current:+X} != xX ]; then
 fi
 
 _ws_debug () {
-    local proc func lvl=$1
+    local proc func when lvl=$1
     shift
     proc="$$($(tty))"
+    when=$(date +%Y%m%d.%H%M%S)
     func="${FUNCNAME[1]}"  # The calling routine
     if [ "$lvl" -le "$WS_DEBUG" ]; then
-        echo "${proc}:${func}[$lvl] $*" >> $WS_DIR/.log
+        echo "${proc}:${func}[$lvl]${when} $*" >> ${_WS_DEBUGFILE}
     fi
 }
 
@@ -437,6 +442,29 @@ _ws_list () {
     ls -1 $WS_DIR | sed -e "$sedscript"
 }
 
+# display to stdout the list of workspaces on the stack
+# including the current workspace
+# arguments: none
+# result code: none
+_ws_show_stack () {
+    local context oldIFS i=${_ws__stkpos}
+    if [ x${_ws__current:+X} = xX ]; then
+        echo "${_ws__current}*"
+        while [ $i -gt 0 ]; do
+            context=${_ws__stack[$i]}
+            oldIFS="$IFS"
+            IFS=":"
+            set -- ${context}
+            IFS="$oldIFS"
+            case $1 in
+                ""|/*) echo "($2)";;
+                *) echo $1;;
+            esac
+            let i--
+        done
+    fi
+}
+
 ws () {
     if [ "x$1" = x--help -o "x$1" = x-h ]; then
         set -- help
@@ -452,6 +480,7 @@ ws [<cmd>] [<name>]
   current                    - show current workspace (same as 'ws enter')
   relink [<name>]            - reset ~/workspace symlink
   list                       - show available workspaces
+  stack                      - show workspaces on the stack
   initialize                 - create the workspaces structure
   help|-h|--help             - this message
   version                    - display version number
@@ -479,6 +508,9 @@ EOF
             ;;
         list)
             _ws_list
+            ;;
+        stack)
+            _ws_show_stack
             ;;
         version)
             echo "$WS_VERSION"
@@ -516,7 +548,7 @@ if echo $- | fgrep -q i; then  # only for interactive
         cur="${COMP_WORDS[COMP_CWORD]}"
         prev="${COMP_WORDS[COMP_CWORD-1]}"
         options="-h --help"
-        commands="create current destroy enter help initialize leave list relink"
+        commands="create current destroy enter help initialize leave list relink stack version"
         names=$(ws list | tr -d '*@' | tr '\n' ' ')
         if [ $COMP_CWORD -eq 1 ] || [[ "${prev:0:1}" == "-" ]]; then
             COMPREPLY=( $(compgen -W "$commands $options $names" -- ${cur}) )

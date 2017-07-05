@@ -4,7 +4,7 @@
 
 exec 3>/dev/null
 
-versionstr="0.1.5"
+versionstr="0.1.6"
 
 cdir=$PWD
 
@@ -15,6 +15,10 @@ mkdir $TMPDIR
 
 unset WORKSPACE
 export HOME=$TMPDIR
+
+_WS_DEBUGFILE=$PWD/test.log
+WS_DEBUG=2
+rm -f $_WS_DEBUGFILE
 
 source $cdir/ws.sh
 
@@ -75,6 +79,7 @@ test "$(readlink $HOME/workspace)" = "$WS_DIR/default" || fail init link
 test "$(_ws_getdir default)" = "$WS_DIR/default" || fail routine getdir
 
 test "$(ws list)" = "default@" || fail init cmd ws+list
+test "$(ws stack)" = "" || fail init cmd ws+stack
 
 result=$(_ws_getdir default)
 test $? -eq 0 -a "$result" = "$WS_DIR/default" || fail unit _ws_getdir ws
@@ -86,15 +91,17 @@ result=$(_ws_resetlink $WS_DIR/default)
 test $? -eq 0 -a "$result" = "" -a $(readlink $HOME/workspace) = "$WS_DIR/default" || fail unit _ws_resetlink ws
 
 ws enter default
-test "${_ws__current}" = "default" || fail enter str _ws__current
-test "$(ws)" = "default" || fail enter cmd ws
-test "$(ws enter)" = "default" || fail enter cmd ws+enter
-test "$(ws list)" = "default@*" || fail enter cmd ws+list
+test "${_ws__current}" = "default" || fail enter1 str _ws__current
+test "$(ws)" = "default" || fail enter1 cmd ws
+test "$(ws enter)" = "default" || fail enter1 cmd ws+enter
+test "$(ws list)" = "default@*" || fail enter1 cmd ws+list
+test "$(ws stack | tr '\n' ' ')" = "default* (${cdir}) " || fail enter1 cmd ws+stack
 
 ws leave
 test "${_ws__current}" = "" || fail leave _ws__current
 test "${_ws__stkpos}" = "0" || fail leave stkpos
 test "${_ws__stack[*]}" = "" || fail leave stack
+test "$(ws stack)" = "" || fail leave ws+stack
 
 ws create foobar
 test -d "$WS_DIR/foobar" || fail create dir WS_DIR/foobar
@@ -102,10 +109,11 @@ test -f "$WS_DIR/foobar/.ws.sh" || fail create file WS_DIR/foobar/.wh.sh
 test "$_ws__current" = "foobar" || fail str _ws__current
 
 ws enter default
-test -d "$WS_DIR/default" || fail enter dir WS_DIR/default
-test "${_ws__stack[*]}" = ":$cdir foobar:$WS_DIR/foobar" || fail enter stack
-test "${_ws__stkpos}" = "2" || fail enter int _ws__stkpos
-test "${_ws__current}" = "default" || fail enter str _ws__current
+test -d "$WS_DIR/default" || fail enter2 dir WS_DIR/default
+test "${_ws__stack[*]}" = ":$cdir foobar:$WS_DIR/foobar" || fail enter2 stack
+test "${_ws__stkpos}" = "2" || fail enter2 int _ws__stkpos
+test "${_ws__current}" = "default" || fail enter2 str _ws__current
+test "$(ws stack | tr '\n' ' ')" = "default* foobar (${cdir}) " || fail enter2 cmd ws+stack
 
 ws leave
 test "${_ws__current}" = "foobar" || fail leave str _ws__current
