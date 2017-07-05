@@ -30,16 +30,18 @@ case $BASH_VERSION in
 esac
 
 # global constants, per shell
-declare WS_VERSION=0.1.4
+# unfortunately, bash 3 (macos) does not support declaring global vars
+WS_VERSION=0.1.4
 
 : ${WS_DIR:=$HOME/workspaces}
-declare WS_DIR
 
-declare _ws__current
+# _ws__current is a global variable, but initialized below
 declare -a _ws__stack
 declare -i _ws__stkpos
 
-if [ ${#_ws__stack[@]} -eq 0 ]; then
+# if _ws__current variable exists (but may be null string), then assume
+# the app has been initialized
+if [ x${_ws__current:+X} != xX ]; then
     # if the stack is not empty, assume some things are already configured
     _ws__current=""
     _ws__stack=()
