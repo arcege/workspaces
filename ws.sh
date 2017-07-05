@@ -22,6 +22,8 @@
 # this is useful for setting and unsetting environment variables or running
 # commands specific to a workspace
 
+_WS_SOURCE="${BASH_SOURCE[0]}"  # used by ws+reload later
+
 case $BASH_VERSION in
     "")
         echo "This requires running in a bash shell. Exiting." >&2
@@ -487,7 +489,7 @@ EOF
             _ws_list | tr '\n' ' '; echo
             ;;
         reload)
-            source $HOME/.bash/ws.sh
+            source ${_WS_SOURCE:-${HOME}/.bash/ws.sh}
             ;;
         validate)
             _ws_validate
