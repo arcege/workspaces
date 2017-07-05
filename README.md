@@ -43,9 +43,11 @@ known, then it is also called as `ws enter <name>`.  For example, running
 * create *name*
 * destroy *name*
 * current  -- show current workspace, same as `enter` with no argument
-* relink  -- reset the ~/workspace symlink
+* relink [*name*]  -- reset the ~/workspace symlink
 * list  -- show existing workspaces
 * initialize  -- create the structure
+* help|-h|--help -- display help information
+* version  -- display version number
 * [*name*]  -- same as `enter [*name*]`
 
 #### enter operation ####
@@ -113,11 +115,19 @@ Display a list of the workspace names.  The workspace to which ~/workspace
 is pointing will be indicated with a commat symbol ("@").  The current
 workspace is indicated with an asterisk ("\*").
 
-#### initialize operation ###
+#### initialize operation ####
 
 Create the ~/workspaces/ directory. Create a 'default' workspace.  Relink
 ~/workspace symlink to the 'default'.  Update the global hook script ~/.ws.sh.
 This operation is performed by the install script.
+
+#### help operation ####
+
+Display command usage.
+
+#### version operation ####
+
+Display current version of the app.
 
 ## Hooks ##
 
