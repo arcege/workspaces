@@ -30,7 +30,7 @@ case $BASH_VERSION in
 esac
 
 # global constants, per shell
-declare WS_VERSION=0.1.3
+declare WS_VERSION=0.1.4
 
 : ${WS_DIR:=$HOME/workspaces}
 declare WS_DIR
