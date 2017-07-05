@@ -150,4 +150,35 @@ any command settings when "entered" (e.g. 'nvm use system').
 The `$WS_DIR/.skel.sh` file is copied into the workspace as .ws.sh.  This allows
 a similar hook file to be applied to all workspaces.
 
+
+## Environment variables ##
+There are some environment variables to help.
+
+`WS_DEBUG` -- defaults to 0 (fatal), with increasing for more verbosity; log messages
+are placed in $WS_DIR/.log, indexed by PID(tty) to distinguish shell's messages
+
+`WS_DIR` -- defaults to ~/workspaces/ but root of the structure; should be left untouched
+
+`WS_VERSION` -- version number (same as `ws version`); should be left untouched
+
+## hidden operations ##
+
+There are some functions not available in the help.
+
+#### reload operation ####
+
+After an upgrade, this will reload the shell with the latest version in ~/.bash/ws.sh.
+
+#### state operation ####
+
+Print the current state, including workspace, stack, etc.
+
+#### validate operation ####
+
+Correct inconsistencies in the environment.
+
+* Update stack index, if necessary
+* Remove ~/workspace if pointing nowhere
+* Leaving current workspace if no longer exists
+
 ####### Copyright @ 2017 Michael P. Reilly. All rights reserved. #######
