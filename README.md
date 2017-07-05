@@ -161,7 +161,7 @@ are placed in $WS_DIR/.log, indexed by PID(tty) to distinguish shell's messages
 
 `WS_VERSION` -- version number (same as `ws version`); should be left untouched
 
-## hidden operations ##
+## Hidden operations ##
 
 There are some functions not available in the help.
 
