@@ -22,18 +22,20 @@
 # this is useful for setting and unsetting environment variables or running
 # commands specific to a workspace
 
-if [ -z "$BASH_VERSION" ]; then
-    echo This requires running in a bash shell.  Exiting. >&2
-    return 1
-fi
+case $BASH_VERSION in
+    "")
+        echo "This requires running in a bash shell. Exiting." >&2
+        return 1
+        ;;
+esac
 
 # global constants, per shell
-declare -g WS_VERSION=0.1.3
+declare WS_VERSION=0.1.3
 
 : ${WS_DIR:=$HOME/workspaces}
-declare -g WS_DIR
+declare WS_DIR
 
-declare -g _ws__current
+declare _ws__current
 declare -a _ws__stack
 declare -i _ws__stkpos
 
@@ -366,7 +368,7 @@ _ws_relink () {
 #   1 if WS_DIR does not exist
 _ws_list () {
     local link sedscript
-    sedscript=":noop"
+    sedscript=""
     link=$(_ws_getlink)
     if [ $? -eq 0 ]; then
         sedscript="${sedscript};/^$(basename $link)\$/s/\$/@/"
