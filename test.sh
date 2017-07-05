@@ -4,7 +4,7 @@
 
 exec 3>/dev/null
 
-versionstr="0.1.4"
+versionstr="0.1.5"
 
 cdir=$PWD
 

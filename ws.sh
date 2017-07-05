@@ -31,13 +31,15 @@ esac
 
 # global constants, per shell
 # unfortunately, bash 3 (macos) does not support declaring global vars
-WS_VERSION=0.1.4
+WS_VERSION=0.1.5
 
 : ${WS_DIR:=$HOME/workspaces}
+: ${WS_DEBUG:=0}
 
 # _ws__current is a global variable, but initialized below
 declare -a _ws__stack
 declare -i _ws__stkpos
+declare -i WS_DEBUG
 
 # if _ws__current variable exists (but may be null string), then assume
 # the app has been initialized
@@ -47,6 +49,16 @@ if [ x${_ws__current:+X} != xX ]; then
     _ws__stack=()
     _ws__stkpos=0
 fi
+
+_ws_debug () {
+    local proc func lvl=$1
+    shift
+    proc="$$($(tty))"
+    func="${FUNCNAME[1]}"  # The calling routine
+    if [ "$lvl" -le "$WS_DEBUG" ]; then
+        echo "${proc}:${func}[$lvl] $*" >> $WS_DIR/.log
+    fi
+}
 
 # implement a stack
 # * last - print the top item on the stack
@@ -60,19 +72,23 @@ _ws_stack () {
             if [ $_ws__stkpos -gt 0 ]; then
                 echo "${_ws__stack[$_ws__stkpos]}"
             else
+                _ws_debug 3 "empty stack"
                 return 1
             fi
             ;;
         push)
             let _ws__stkpos++
+            _ws_debug 4 "push \"$2\" to stack"
             _ws__stack[$_ws__stkpos]="$2"
             ;;
         pop)
             # should run __ws_stack last before running pop as we don't return it
             if [ $_ws__stkpos -gt 0 ]; then
+                _ws_debug 4 "pop #$_ws__stkpos from stack"
                 unset _ws__stack[$_ws__stkpos]
                 let _ws__stkpos--
             else
+                _ws_debug 3 "empty stack"
                 return 1
             fi
             ;;
@@ -95,13 +111,16 @@ _ws_validate () {
     local index linkptr wsdir=$(_ws_getdir "$_ws__current")
     linkptr=$(_ws_getlink)
     if [ ${#_ws__stack[*]} -ne $_ws__stkpos ]; then
+        _ws_debug 0 "fixing stack index"
         _ws__stkpos=$index
     fi
     if [ ! -d "$linkptr" ]; then
+        _ws_debug 0 "removing ~/workspace"
         echo "Error: $HOME/workspace pointing nowhere; removing" >&2
         rm -f $HOME/workspace
     fi
     if [ x${_ws__current:+X} = xX -a ! -d "$wsdir" ]; then
+        _ws_debug 0 "leaving $_ws__current"
         echo "Error: $_ws__current is not a valid workspace; leaving" >&2
         _ws_leave
     fi
@@ -117,11 +136,13 @@ _ws_getdir () {
     # print the workspace directory for a name, return 1 if it does not exist
     local wsname=${1:-$_ws__current}
     if [ -z "$wsname" ]; then
+        _ws_debug 2 "no workspace"
         return 1
     fi
     local wsdir="$WS_DIR/${1:-$_ws__current}"
     echo "$wsdir"
     if [ ! -d "$wsdir" ]; then
+        _ws_debug 2 "workspace does not exist"
         return 1
     fi
 }
@@ -134,6 +155,7 @@ _ws_getlink () {
     if [ -h $HOME/workspace ]; then
         readlink $HOME/workspace
     else
+        _ws_debug 2 "no link"
         return 1
     fi
 }
@@ -147,12 +169,15 @@ _ws_getlink () {
 _ws_resetlink () {
     if [ -z "$1" -o ! -d "$1" ]; then
         echo "Error: invalid workspace" >&2
+        _ws_debug 2 "workspace does not exist"
         return 1
     elif [ ! -e $HOME/workspace -o -h $HOME/workspace ]; then
         rm -f $HOME/workspace
         ln -s "$1" $HOME/workspace
+        _ws_debug 2 "$1"
     elif [ -e $HOME/workspace ]; then
         echo Error: ~/workspace is not a symlink. >&2
+        _ws_debug 1 "~/workspace is not a symlink"
         return 1
     fi
 }
@@ -163,6 +188,9 @@ _ws_resetlink () {
 _ws_copy_skel () {
     if [ -f "$WS_DIR/.skel.sh" ]; then
         cp -p "$WS_DIR/.skel.sh" "$1/.ws.sh"
+        _ws_debug 3 "copy .skel.sh to $1"
+    else
+        _ws_debug 4 "no .skel.sh to copy"
     fi
 }
 
@@ -172,6 +200,7 @@ _ws_copy_skel () {
 _ws_generate_hook () {
     # Create an empty hook script in the workspace
     if [ -n "$1" ]; then
+        _ws_debug 3 "create %1"
         cat <<'EOF' > "$1"
 :
 # this is sourced by `ws` (workspaces)
@@ -219,9 +248,11 @@ _ws_hooks () {
     rc=$?
     if [ -f "$WS_DIR/.ws.sh" ]; then
         source "$WS_DIR/.ws.sh" "$op" "$wsdir"
+        _ws_debug 2 "called $WS_DIR/.ws.sh $op $wsdir; rc=$?"
     fi
     if [ $rc -eq 0 -a -f "$wsdir/.ws.sh" ]; then
         source "$wsdir/.ws.sh" "$op" "$wsdir"
+        _ws_debug 2 "called $wsdir/.sh.sh $op $wsdir; rc=$?"
     fi
 }
 
@@ -244,6 +275,7 @@ _ws_enter () {
         fi
     elif [ ! -d "$wsdir" ]; then
         echo "No workspace exists for $wsname" >&2
+        _ws_debug 1 "no workspace for $wsname"
         return 1
     else
         _ws_hooks leave $_ws__current
@@ -256,6 +288,7 @@ _ws_enter () {
         export WORKSPACE="$wsdir"
         cd "$wsdir"
         _ws_hooks enter $_ws__current
+        _ws_debug 2 "entered $wsname $wsdir"
     fi
 }
 
@@ -265,25 +298,29 @@ _ws_enter () {
 # arguments: none
 # result code: 0
 _ws_leave () {
-    local oldws oldIFS wsname wsdir
+    local oldws context oldIFS wsname wsdir
     if [ x{$_ws__current:+X} != xX ]; then
         _ws_hooks leave $_ws__current
-        oldws=$(_ws_stack last)
+        context=$(_ws_stack last)
         oldIFS="$IFS"
         IFS=":"
-        set -- $oldws
+        set -- $context
         IFS="$oldIFS"
         case $1 in
             ""|/*) wsname=""; wsdir="$1";;
             *) wsname="$1"; wsdir=$(_ws_getdir "$wsname");;
         esac
+        oldws="$_ws__current"
         _ws__current="$wsname"
+        _ws_debug 2 "leaving $wsname"
         _ws_stack pop
         if [ $? -eq 0 ]; then
             export WORKSPACE="$wsdir"
+            _ws_debug 2 "WORKSPACE=$wsdir"
         fi
         cd "$2"  # return to old directory
         _ws_hooks enter $_ws__current
+        _ws_debug 2 "left $oldws"
     fi
 }
 
@@ -299,14 +336,23 @@ _ws_create () {
     wsdir="$(_ws_getdir "$wsname")"
     if [ -z "$wsname" ]; then
         echo "No name given" >&2
+        _ws_debug 2 "no name"
         return 1
     elif [ -d "$wsdir" ]; then
         echo "Workspace already exists" >&2
+        _ws_debug 2 "workspace exists"
         return 1
     else
         mkdir "$wsdir"
-        _ws_copy_skel "$wsdir"
-        _ws_hooks create $wsname
+        if [ $? -eq 0 ]; then
+            _ws_copy_skel "$wsdir"
+            _ws_hooks create $wsname
+            _ws_debug 1 "$wsdir created"
+        else
+            _ws_debug 0 "$wsdir exists, but not directory"
+            echo "$wsdir is exists but not a directory" >&2
+            return 1
+        fi
     fi
 }
 
@@ -324,6 +370,7 @@ _ws_destroy () {
         echo "No name given" >&2
         return 1
     elif [ ! -d "$wsdir" ]; then
+        _ws_debug 2 "workspace does not exit"
         echo "No workspace exists" >&2
         return 1
     else
@@ -334,9 +381,10 @@ _ws_destroy () {
         rm -rf "$wsdir"
         linkptr=$(_ws_getlink)
         if [ $? -eq 0 -a "x$linkptr" = "x$wsdir" ]; then
+            _ws_debug 1 "~/workspace removed"
             rm -f $HOME/workspace
-            echo "~/workspace removed"
         fi
+        _ws_debug 2 "destroyed $wsname"
     fi
 }
 
@@ -350,6 +398,7 @@ _ws_relink () {
     local wsdir wsname="${1:-$_ws__current}"
     if [ -z "$wsname" ]; then
         echo "No name given" >&2
+        _ws_debug 2 "no workspace"
         return 1
     else
         wsdir="$(_ws_getdir $wsname)"
@@ -357,6 +406,7 @@ _ws_relink () {
             _ws_resetlink "$wsdir"
         else
             echo "No workspace exists" >&2
+            _ws_debug 1 "no workspace exists"
             return 1
         fi
     fi
@@ -379,6 +429,7 @@ _ws_list () {
         sedscript="${sedscript};/^${_ws__current}@\{0,1\}\$/s/\$/*/"
     fi
     if [ ! -d $WS_DIR ]; then
+        echo "Fatal: no such directory: $WS_DIR" >&2
         return 1
     fi
     ls -1 $WS_DIR | sed -e "$sedscript"
