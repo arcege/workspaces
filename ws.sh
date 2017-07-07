@@ -115,21 +115,36 @@ _ws_stack () {
 # * verify that ~/workspace points to a directory, if not remove it
 # * verify that the current workspace exists, if not leave it
 _ws_validate () {
-    local index linkptr wsdir=$(_ws_getdir "$_ws__current")
-    linkptr=$(_ws_link get)
+    local rc index linkptr wsdir=$(_ws_getdir)
     if [ ${#_ws__stack[*]} -ne $_ws__stkpos ]; then
         _ws_debug 0 "fixing stack index"
         _ws__stkpos=$index
     fi
-    if [ ! -d "$linkptr" ]; then
-        _ws_debug 0 "removing ~/workspace"
-        echo "Error: $HOME/workspace pointing nowhere; removing" >&2
-        _ws_link
-    fi
-    if [ x${_ws__current:+X} = xX -a ! -d "$wsdir" ]; then
+    wsdir=$(_ws_getdir)
+    if [ $? -eq 0 -a x${_ws__current:+X} = xX -a ! -d "$wsdir" ]; then
         _ws_debug 0 "leaving $_ws__current"
         echo "Error: $_ws__current is not a valid workspace; leaving" >&2
         _ws_leave
+    fi
+    if [ x${_ws__current:+X} = x -a ${_ws__stkpos} -gt  0 ]; then
+        case $PWD in
+            $WS_DIR/*)
+                local dir=${PWD##$WS_DIR/}
+                _ws__current=${dir%/*}
+                _ws_debug 1 "resetting workpace to $_ws__current"
+                ;;
+            *)
+                echo "Error: cannot determine current workspace" >&2
+                _ws_debug 0 "cannot determine current workspace"
+                return 1
+                ;;
+        esac
+    fi
+    linkptr=$(_ws_link get)
+    if [ $? -eq 0 -a ! -d "$linkptr" ]; then
+        _ws_debug 0 "removing ~/workspace"
+        echo "Error: $HOME/workspace pointing nowhere; removing" >&2
+        _ws_link del
     fi
 }
 
@@ -162,7 +177,7 @@ _ws_getdir () {
 # -  del  - delete the symlink
 _ws_link () {
     local linkfile="$HOME/workspace"
-    _ws_debug 0 link "X${1}X" "Y${2}Y"
+    _ws_debug 9 link "X${1}X" "Y${2}Y"
     case $1 in
         get)
             if [ -h ${linkfile} ]; then
