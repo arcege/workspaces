@@ -8,7 +8,7 @@ directory.
 
 This implementation is for Bash only.
 
-The readonly shell variable `WS_DIR` is set to `$HOME/workspaces` and
+The shell variable `WS_DIR` is set to `$HOME/workspaces` and
 is the root of the workspaces and hook scripts.
 
 ## Installation ##
