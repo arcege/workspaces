@@ -560,7 +560,14 @@ EOF
             _ws_list | tr '\n' ' '; echo
             ;;
         reload)
-            source ${_WS_SOURCE:-${HOME}/.bash/ws.sh}
+            local wsfile
+            if [ -n "$2" -a -f "$2" ]; then
+                wsfile="$2"
+            else
+                wsfile=${_WS_SOURCE:-${HOME}/.bash/ws.sh}
+            fi
+            _ws_debug 1 "loading $wsfile"
+            source "$wsfile"
             ;;
         validate)
             _ws_validate

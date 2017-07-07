@@ -184,6 +184,9 @@ To send output to terminal, use `ws debug /dev/tty`.
 
 After an upgrade, this will reload the shell with the latest version in ~/.bash/ws.sh.
 
+The file used to load is preserved.  Subsequent runs of operation will use the preserved
+filename by default.  The operation can take an optional filename to use.
+
 #### state operation ####
 
 Print the current state, including workspace, stack, etc.
