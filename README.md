@@ -161,7 +161,7 @@ a similar hook file to be applied to all workspaces.
 There are some environment variables to help.
 
 `WS_DEBUG` -- defaults to 0 (fatal), with increasing for more verbosity; log messages
-are placed in $WS_DIR/.log, indexed by PID(tty) to distinguish shell's messages
+are placed in $WS\_DIR/.log, indexed by date and (PID:tty) to distinguish shell's messages
 
 `WS_DIR` -- defaults to ~/workspaces/ but root of the structure; should be left untouched
 
@@ -170,6 +170,15 @@ are placed in $WS_DIR/.log, indexed by PID(tty) to distinguish shell's messages
 ## Hidden operations ##
 
 There are some functions not available in the help.
+
+#### debug operation ####
+
+Change the debug messaging.  If no argument, show current debugging state.
+If a pathname, starting with "/", change the output file.  If starting with a numeral,
+change the debug level.  If "reset", then change back to original values.
+
+Lower debug levels mean more verbosity.
+To send output to terminal, use `ws debug /dev/tty`.
 
 #### reload operation ####
 
