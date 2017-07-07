@@ -59,12 +59,37 @@ fi
 _ws_debug () {
     local proc func when lvl=$1
     shift
-    proc="($$:$(tty))"
-    when=$(date +%Y%m%d.%H%M%S)
-    func="${FUNCNAME[1]}"  # The calling routine
-    if [ "$lvl" -le "$WS_DEBUG" ]; then
-        echo "${when}${proc}${func}[$lvl] $*" >> ${_WS_DEBUGFILE}
-    fi
+    case $lvl in
+        config)
+            case $1 in
+                "")
+                    echo "lvl=$WS_DEBUG; file=$_WS_DEBUGFILE"
+                    ;;
+                reset)
+                    WS_DEBUG=0
+                    _WS_DEBUGFILE=${WS_DIR}/.log
+                    ;;
+                [0-9]*)
+                    WS_DEBUG=$1
+                    ;;
+                /*)
+                    _WS_DEBUGFILE="$1"
+                    ;;
+                *)
+                    echo "expecting 'reset', number of filename" >&2
+                    return 1
+                    ;;
+            esac
+            ;;
+        *)
+            proc="($$:$(tty))"
+            when=$(date +%Y%m%d.%H%M%S)
+            func="${FUNCNAME[1]}"  # The calling routine
+            if [ "$lvl" -le "$WS_DEBUG" ]; then
+                echo "${when}${proc}${func}[$lvl] $*" >> ${_WS_DEBUGFILE}
+            fi
+            ;;
+    esac
 }
 
 # implement a stack
@@ -573,25 +598,7 @@ EOF
             _ws_validate
             ;;
         debug)
-            case $2 in
-                "")
-                    echo "lvl=$WS_DEBUG; file=$_WS_DEBUGFILE"
-                    ;;
-                reset)
-                    WS_DEBUG=0
-                    _WS_DEBUGFILE=${WS_DIR}/.log
-                    ;;
-                [0-9]*)
-                    WS_DEBUG=$2
-                    ;;
-                /*)
-                    _WS_DEBUGFILE="$2"
-                    ;;
-                *)
-                    echo "expecting 'reset', number of filename" >&2
-                    return 1
-                    ;;
-            esac
+            _ws_debug config "$2"
             ;;
         initialize)
             mkdir -p $WS_DIR
