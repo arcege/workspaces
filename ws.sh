@@ -528,14 +528,8 @@ _ws_show_stack () {
     fi
 }
 
-ws () {
-    _ws_debug 7 args "$@"
-    if [ "x$1" = x--help -o "x$1" = x-h ]; then
-        set -- help
-    fi
-    case $1 in
-        help)
-            cat <<'EOF'
+_ws_help () {
+    cat <<'EOF'
 ws [<cmd>] [<name>]
   enter [<name>]             - show the current workspace or enter one
   leave                      - leave current workspace
@@ -550,6 +544,16 @@ ws [<cmd>] [<name>]
   version                    - display version number
   [<name>]                   - same as 'ws enter [<name>]'
 EOF
+}
+
+ws () {
+    _ws_debug 7 args "$@"
+    if [ "x$1" = x--help -o "x$1" = x-h ]; then
+        set -- help
+    fi
+    case $1 in
+        help)
+            _ws_help
             ;;
         enter)
             _ws_enter "$2"

@@ -26,6 +26,7 @@ fail () { echo "failure: $*"; exit 1; }
 
 # check the existence of the main routine ('ws') and subroutines
 command -v ws >&3 || fail cmd ws
+command -v _ws_help >&3 || fail routine _ws_help
 command -v _ws_enter >&3 || fail routine _ws_enter
 command -v _ws_leave >&3 || fail routine _ws_leave
 command -v _ws_create >&3 || fail routine _ws_create
