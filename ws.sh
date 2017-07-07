@@ -36,7 +36,7 @@ esac
 
 # global constants, per shell
 # unfortunately, bash 3 (macos) does not support declaring global vars
-WS_VERSION=0.1.6
+WS_VERSION=0.1.7
 
 : ${WS_DIR:=$HOME/workspaces}
 : ${WS_DEBUG:=0}
@@ -116,7 +116,7 @@ _ws_stack () {
 # * verify that the current workspace exists, if not leave it
 _ws_validate () {
     local index linkptr wsdir=$(_ws_getdir "$_ws__current")
-    linkptr=$(_ws_getlink)
+    linkptr=$(_ws_link get)
     if [ ${#_ws__stack[*]} -ne $_ws__stkpos ]; then
         _ws_debug 0 "fixing stack index"
         _ws__stkpos=$index
@@ -124,7 +124,7 @@ _ws_validate () {
     if [ ! -d "$linkptr" ]; then
         _ws_debug 0 "removing ~/workspace"
         echo "Error: $HOME/workspace pointing nowhere; removing" >&2
-        rm -f $HOME/workspace
+        _ws_link
     fi
     if [ x${_ws__current:+X} = xX -a ! -d "$wsdir" ]; then
         _ws_debug 0 "leaving $_ws__current"
@@ -154,39 +154,49 @@ _ws_getdir () {
     fi
 }
 
-# print where the symlink ~/workspace points to
-# arguments: none
-# result code:
-#   1 if ~/workspace is not a symlink
-_ws_getlink () {
-    if [ -h $HOME/workspace ]; then
-        readlink $HOME/workspace
-    else
-        _ws_debug 2 "no link"
-        return 1
-    fi
-}
 
-# change the symlink ~/workspace
-# arguments:
-#   workspace directory
-# result code:
-#   1 if no directory or does not exist
-#   1 if ~/workspace is not a symlink
-_ws_resetlink () {
-    if [ -z "$1" -o ! -d "$1" ]; then
-        echo "Error: invalid workspace" >&2
-        _ws_debug 2 "workspace does not exist"
-        return 1
-    elif [ ! -e $HOME/workspace -o -h $HOME/workspace ]; then
-        rm -f $HOME/workspace
-        ln -s "$1" $HOME/workspace
-        _ws_debug 2 "$1"
-    elif [ -e $HOME/workspace ]; then
-        echo Error: ~/workspace is not a symlink. >&2
-        _ws_debug 1 "~/workspace is not a symlink"
-        return 1
-    fi
+# manage the ~/workspace symbolic link
+# operations include:
+# -  get  - return the referant (readline)
+# -  set  - replace the symlink
+# -  del  - delete the symlink
+_ws_link () {
+    local linkfile="$HOME/workspace"
+    _ws_debug 0 link "X${1}X" "Y${2}Y"
+    case $1 in
+        get)
+            if [ -h ${linkfile} ]; then
+                readlink ${linkfile}
+            else
+                _ws_debug 3 "no link"
+                return 1
+            fi
+            ;;
+        set)
+            if [ -z "$2" -o ! -d "$2" ]; then
+                echo "Error: invalid workspace" >&2
+                _ws_debug 2 "workspace does not exist"
+                return 1
+            elif [ ! -e ${linkfile} -o -h ${linkfile} ]; then
+                rm -f ${linkfile}
+                ln -s "$2" ${linkfile}
+                _ws_debug 2 "$2"
+            elif [ -e ${linkfile} ]; then
+                echo "Error: ~/workspace is not a symlink" >&2
+                _ws_debug 1 "~/workspace is not a symlink"
+                return 1;
+            fi
+            ;;
+        del)
+            if [ -h ${linkfile} ]; then
+                rm -f ${linkfile}
+            elif [ -e ${linkfile} ]; then
+                echo "Error: ~/workspace is not a symlink" >&2
+                _ws_debug 1 "~/workspace is not a symlink"
+                return 1
+            fi
+            ;;
+    esac
 }
 
 # copy the skel hook script to the workspace
@@ -386,10 +396,10 @@ _ws_destroy () {
         fi
         _ws_hooks destroy $wsname
         rm -rf "$wsdir"
-        linkptr=$(_ws_getlink)
+        linkptr=$(_ws_link get)
         if [ $? -eq 0 -a "x$linkptr" = "x$wsdir" ]; then
             _ws_debug 1 "~/workspace removed"
-            rm -f $HOME/workspace
+            _ws_link del
         fi
         _ws_debug 2 "destroyed $wsname"
     fi
@@ -410,7 +420,7 @@ _ws_relink () {
     else
         wsdir="$(_ws_getdir $wsname)"
         if [ $? -eq 0 ]; then
-            _ws_resetlink "$wsdir"
+            _ws_link set "$wsdir"
         else
             echo "No workspace exists" >&2
             _ws_debug 1 "no workspace exists"
@@ -428,7 +438,7 @@ _ws_relink () {
 _ws_list () {
     local link sedscript
     sedscript=""
-    link=$(_ws_getlink)
+    link=$(_ws_link get)
     if [ $? -eq 0 ]; then
         sedscript="${sedscript};/^$(basename $link)\$/s/\$/@/"
     fi
@@ -532,7 +542,7 @@ EOF
             _ws_generate_hook "${WS_DIR}/.skel.sh"
             # we don't want to delete it
             _ws_create default
-            _ws_resetlink $(_ws_getdir default)
+            _ws_link set $(_ws_getdir default)
             ;;
         *)
             _ws_enter "$1"

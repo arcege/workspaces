@@ -4,7 +4,7 @@
 
 exec 3>/dev/null
 
-versionstr="0.1.6"
+versionstr="0.1.7"
 
 cdir=$PWD
 
@@ -35,8 +35,7 @@ command -v _ws_list >&3 || fail routine _ws_list
 command -v _ws_validate >&3 || fail routine _ws_validate
 command -v _ws_stack >&3 || fail routine _ws_stack
 command -v _ws_getdir >&3 || fail routine _ws_getdir
-command -v _ws_getlink >&3 || fail routine _ws_getlink
-command -v _ws_resetlink >&3 || fail routine _ws_resetlink
+command -v _ws_link >&3 || fail routine _ws_link
 command -v _ws_copy_skel >&3 || fail routine _ws_copy_skel
 command -v _ws_generate_hook >&3 || fail routine _ws_generate_hook
 command -v _ws_hooks >&3 || fail routine _ws_hooks
@@ -51,17 +50,17 @@ test "$(declare -p _ws__stkpos)" = 'declare -i _ws__stkpos="0"' || fail declare 
 # a few unit tests
 result=$(_ws_getdir)
 rc=$?
-test $rc -eq 1 -a "$result" = "" || fail unit _ws_getdir nows+nocur
-result=$(_ws_getlink)
+test $rc -eq 1 -a "$result" = "" || fail unit "_ws_getdir" nows+nocur
+result=$(_ws_link get)
 rc=$?
-test $rc -eq 1 -a "$result" = "" || fail unit _ws_getlink nows
-result=$(_ws_resetlink 2>&1)
+test $rc -eq 1 -a "$result" = "" || fail unit "_ws_link+get" none
+result=$(_ws_link set 2>&1)
 rc=$?
-test $rc -eq 1 -a "$result" = "Error: invalid workspace" || fail unit _ws_resetlink nows
+test $rc -eq 1 -a "$result" = "Error: invalid workspace" || fail unit "_ws_link+set" none
 mkdir $HOME/workspace
-result=$(_ws_resetlink /usr 2>&1)
+result=$(_ws_link set /usr 2>&1)
 rc=$?
-test $rc -eq 1 -a "$result" = "Error: $HOME/workspace is not a symlink." || fail unit _ws_resetlink dir
+test $rc -eq 1 -a "$result" = "Error: ~/workspace is not a symlink" || fail unit "_ws_link+set" dir
 rmdir $HOME/workspace
 
 # more unit tests to follow after initialization
@@ -85,10 +84,10 @@ result=$(_ws_getdir default)
 test $? -eq 0 -a "$result" = "$WS_DIR/default" || fail unit _ws_getdir ws
 result=$(_ws_getdir foobar)
 test $? -eq 1 -a "$result" = "$WS_DIR/foobar" || fail unit _ws_getdir nodir
-result=$(_ws_getlink)
-test $? -eq 0 -a "$result" = "$WS_DIR/default" || fail unit _ws_getlink ws
-result=$(_ws_resetlink $WS_DIR/default)
-test $? -eq 0 -a "$result" = "" -a $(readlink $HOME/workspace) = "$WS_DIR/default" || fail unit _ws_resetlink ws
+result=$(_ws_link get)
+test $? -eq 0 -a "$result" = "$WS_DIR/default" || fail unit _ws_link ws
+result=$(_ws_link set $WS_DIR/default)
+test $? -eq 0 -a "$result" = "" -a $(readlink $HOME/workspace) = "$WS_DIR/default" || fail unit _ws_link ws
 
 ws enter default
 test "${_ws__current}" = "default" || fail enter1 str _ws__current
