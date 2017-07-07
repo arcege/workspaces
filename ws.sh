@@ -59,11 +59,11 @@ fi
 _ws_debug () {
     local proc func when lvl=$1
     shift
-    proc="$$($(tty))"
+    proc="($$:$(tty))"
     when=$(date +%Y%m%d.%H%M%S)
     func="${FUNCNAME[1]}"  # The calling routine
     if [ "$lvl" -le "$WS_DEBUG" ]; then
-        echo "${proc}:${func}[$lvl]${when} $*" >> ${_WS_DEBUGFILE}
+        echo "${when}${proc}${func}[$lvl] $*" >> ${_WS_DEBUGFILE}
     fi
 }
 
@@ -74,6 +74,7 @@ _ws_debug () {
 # * size - return how many items on the stack
 # * state - print the top index and what is on the stack
 _ws_stack () {
+    _ws_debug 7 args "$@"
     case $1 in
         last)
             if [ $_ws__stkpos -gt 0 ]; then
@@ -115,6 +116,7 @@ _ws_stack () {
 # * verify that ~/workspace points to a directory, if not remove it
 # * verify that the current workspace exists, if not leave it
 _ws_validate () {
+    _ws_debug 7 args "$@"
     local rc index linkptr wsdir=$(_ws_getdir)
     if [ ${#_ws__stack[*]} -ne $_ws__stkpos ]; then
         _ws_debug 0 "fixing stack index"
@@ -155,6 +157,7 @@ _ws_validate () {
 #   1 if no workspace name given and no current workspace
 #   1 if if workspace does not exist
 _ws_getdir () {
+    _ws_debug 7 args "$@"
     # print the workspace directory for a name, return 1 if it does not exist
     local wsname=${1:-$_ws__current}
     if [ -z "$wsname" ]; then
@@ -176,8 +179,8 @@ _ws_getdir () {
 # -  set  - replace the symlink
 # -  del  - delete the symlink
 _ws_link () {
+    _ws_debug 7 args "$@"
     local linkfile="$HOME/workspace"
-    _ws_debug 9 link "X${1}X" "Y${2}Y"
     case $1 in
         get)
             if [ -h ${linkfile} ]; then
@@ -218,6 +221,7 @@ _ws_link () {
 # arguments:
 #   workspace directory
 _ws_copy_skel () {
+    _ws_debug 7 args "$@"
     if [ -f "$WS_DIR/.skel.sh" ]; then
         cp -p "$WS_DIR/.skel.sh" "$1/.ws.sh"
         _ws_debug 3 "copy .skel.sh to $1"
@@ -230,6 +234,7 @@ _ws_copy_skel () {
 # arguments:
 #   filename
 _ws_generate_hook () {
+    _ws_debug 7 args "$@"
     # Create an empty hook script in the workspace
     if [ -n "$1" ]; then
         _ws_debug 3 "create %1"
@@ -267,6 +272,7 @@ EOF
 }
 
 _ws_hooks () {
+    _ws_debug 7 args "$@"
     # run $HOME/.ws.sh script, passing "create", "destroy", "enter" or "leave"
     # run $WORKSPACE/.ws.sh script, passing either "enter" or "leave"
     # calls to .ws.sh are NOT sandboxed as they should affect the environment
@@ -298,6 +304,7 @@ _ws_hooks () {
 # return code:
 #   1 if workspace directory does not exist
 _ws_enter () {
+    _ws_debug 7 args "$@"
     local wsdir wsname=${1:-""}
     wsdir="$(_ws_getdir "$wsname")"
     if [ -z "$wsname" ]; then
@@ -330,6 +337,7 @@ _ws_enter () {
 # arguments: none
 # result code: 0
 _ws_leave () {
+    _ws_debug 7 args "$@"
     local oldws context oldIFS wsname wsdir
     if [ x{$_ws__current:+X} != xX ]; then
         _ws_hooks leave $_ws__current
@@ -364,6 +372,7 @@ _ws_leave () {
 #   1 if no workspace name given, or
 #     if workspace already exists
 _ws_create () {
+    _ws_debug 7 args "$@"
     local wsdir wsname=${1:-""}
     wsdir="$(_ws_getdir "$wsname")"
     if [ -z "$wsname" ]; then
@@ -396,6 +405,7 @@ _ws_create () {
 #   1 if no workspace name given, or
 #     if no workspace directory exists
 _ws_destroy () {
+    _ws_debug 7 args "$@"
     local linkptr wsdir wsname=${1:-""}
     wsdir="$(_ws_getdir "$wsname")"
     if [ -z "$wsname" ]; then
@@ -427,6 +437,7 @@ _ws_destroy () {
 #   1 if no workspace given and no current workspace, or
 #     if no workspace directory exists
 _ws_relink () {
+    _ws_debug 7 args "$@"
     local wsdir wsname="${1:-$_ws__current}"
     if [ -z "$wsname" ]; then
         echo "No name given" >&2
@@ -451,6 +462,7 @@ _ws_relink () {
 # result code:
 #   1 if WS_DIR does not exist
 _ws_list () {
+    _ws_debug 7 args "$@"
     local link sedscript
     sedscript=""
     link=$(_ws_link get)
@@ -472,6 +484,7 @@ _ws_list () {
 # arguments: none
 # result code: none
 _ws_show_stack () {
+    _ws_debug 7 args "$@"
     local context oldIFS i=${_ws__stkpos}
     if [ x${_ws__current:+X} = xX ]; then
         echo "${_ws__current}*"
@@ -491,6 +504,7 @@ _ws_show_stack () {
 }
 
 ws () {
+    _ws_debug 7 args "$@"
     if [ "x$1" = x--help -o "x$1" = x-h ]; then
         set -- help
     fi
@@ -550,6 +564,27 @@ EOF
             ;;
         validate)
             _ws_validate
+            ;;
+        debug)
+            case $2 in
+                "")
+                    echo "lvl=$WS_DEBUG; file=$_WS_DEBUGFILE"
+                    ;;
+                reset)
+                    WS_DEBUG=0
+                    _WS_DEBUGFILE=${WS_DIR}/.log
+                    ;;
+                [0-9]*)
+                    WS_DEBUG=$2
+                    ;;
+                /*)
+                    _WS_DEBUGFILE="$2"
+                    ;;
+                *)
+                    echo "expecting 'reset', number of filename" >&2
+                    return 1
+                    ;;
+            esac
             ;;
         initialize)
             mkdir -p $WS_DIR
