@@ -44,7 +44,6 @@ WS_VERSION=0.1.7
 
 # _ws__current is a global variable, but initialized below
 declare -a _ws__stack
-declare -i _ws__stkpos
 declare -i WS_DEBUG
 
 # if _ws__current variable exists (but may be null string), then assume
@@ -53,7 +52,6 @@ if [ x${_ws__current:+X} != xX ]; then
     # if the stack is not empty, assume some things are already configured
     _ws__current=""
     _ws__stack=()
-    _ws__stkpos=0
 fi
 
 _ws_debug () {
@@ -100,36 +98,36 @@ _ws_debug () {
 # * state - print the top index and what is on the stack
 _ws_stack () {
     _ws_debug 7 args "$@"
+    local last pos=${#_ws__stack[*]}
+    let last=pos-1
     case $1 in
         last)
-            if [ $_ws__stkpos -gt 0 ]; then
-                echo "${_ws__stack[$_ws__stkpos]}"
+            if [ $pos -gt 0 ]; then
+                echo "${_ws__stack[$last]}"
             else
                 _ws_debug 3 "empty stack"
                 return 1
             fi
             ;;
         push)
-            let _ws__stkpos++
             _ws_debug 4 "push \"$2\" to stack"
-            _ws__stack[$_ws__stkpos]="$2"
+            _ws__stack[$pos]="$2"
             ;;
         pop)
             # should run __ws_stack last before running pop as we don't return it
-            if [ $_ws__stkpos -gt 0 ]; then
-                _ws_debug 4 "pop #$_ws__stkpos from stack"
-                unset _ws__stack[$_ws__stkpos]
-                let _ws__stkpos--
+            if [ $pos -gt 0 ]; then
+                _ws_debug 4 "pop #$last from stack"
+                unset _ws__stack[$last]
             else
                 _ws_debug 3 "empty stack"
                 return 1
             fi
             ;;
         size):
-            echo $_ws__stkpos
+            echo $pos
             ;;
         state)
-            echo "stack.pos=$_ws__stkpos"
+            echo "stack.size=$pos"
             echo "stack=${_ws__stack[*]}"
             ;;
         *) echo "ws_stack: invalid op: $1" >&2; return 2;;
@@ -143,17 +141,13 @@ _ws_stack () {
 _ws_validate () {
     _ws_debug 7 args "$@"
     local rc index linkptr wsdir=$(_ws_getdir)
-    if [ ${#_ws__stack[*]} -ne $_ws__stkpos ]; then
-        _ws_debug 0 "fixing stack index"
-        _ws__stkpos=$index
-    fi
     wsdir=$(_ws_getdir)
     if [ $? -eq 0 -a x${_ws__current:+X} = xX -a ! -d "$wsdir" ]; then
         _ws_debug 0 "leaving $_ws__current"
         echo "Error: $_ws__current is not a valid workspace; leaving" >&2
         _ws_leave
     fi
-    if [ x${_ws__current:+X} = x -a ${_ws__stkpos} -gt  0 ]; then
+    if [ x${_ws__current:+X} = x -a $(_ws_stack size) -gt  0 ]; then
         case $PWD in
             $WS_DIR/*)
                 local dir=${PWD##$WS_DIR/}
@@ -510,10 +504,11 @@ _ws_list () {
 # result code: none
 _ws_show_stack () {
     _ws_debug 7 args "$@"
-    local context oldIFS i=${_ws__stkpos}
     if [ x${_ws__current:+X} = xX ]; then
+        local context oldIFS i=$(_ws_stack size)
         echo "${_ws__current}*"
         while [ $i -gt 0 ]; do
+            let i--
             context=${_ws__stack[$i]}
             oldIFS="$IFS"
             IFS=":"
@@ -523,7 +518,6 @@ _ws_show_stack () {
                 ""|/*) echo "($2)";;
                 *) echo $1;;
             esac
-            let i--
         done
     fi
 }

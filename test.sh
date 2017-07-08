@@ -46,7 +46,6 @@ test "$(declare -p WS_DIR)" = "declare -- WS_DIR=\"$HOME/workspaces\"" || fail d
 test "$(declare -p WS_VERSION)" = "declare -- WS_VERSION=\"${versionstr}\"" || fail declare WS_VERSION
 test "$(declare -p _ws__current)" = 'declare -- _ws__current=""' || fail declare _ws__current
 test "$(declare -p _ws__stack)" = "declare -a _ws__stack='()'" || fail declare _ws__stack
-test "$(declare -p _ws__stkpos)" = 'declare -i _ws__stkpos="0"' || fail declare _ws__stkpos
 
 # a few unit tests
 result=$(_ws_getdir)
@@ -99,7 +98,6 @@ test "$(ws stack | tr '\n' ' ')" = "default* (${cdir}) " || fail enter1 cmd ws+s
 
 ws leave
 test "${_ws__current}" = "" || fail leave _ws__current
-test "${_ws__stkpos}" = "0" || fail leave stkpos
 test "${_ws__stack[*]}" = "" || fail leave stack
 test "$(ws stack)" = "" || fail leave ws+stack
 
@@ -111,13 +109,11 @@ test "$_ws__current" = "foobar" || fail str _ws__current
 ws enter default
 test -d "$WS_DIR/default" || fail enter2 dir WS_DIR/default
 test "${_ws__stack[*]}" = ":$cdir foobar:$WS_DIR/foobar" || fail enter2 stack
-test "${_ws__stkpos}" = "2" || fail enter2 int _ws__stkpos
 test "${_ws__current}" = "default" || fail enter2 str _ws__current
 test "$(ws stack | tr '\n' ' ')" = "default* foobar (${cdir}) " || fail enter2 cmd ws+stack
 
 ws leave
 test "${_ws__current}" = "foobar" || fail leave str _ws__current
-test "${_ws__stkpos}" = "1" || fail leave int _ws__stkpos
 test "${_ws__stack[*]}" = ":$cdir" || fail leave stack
 test "$(_ws_getdir)" = "$WS_DIR/foobar" || fail routine _ws_getdir
 
