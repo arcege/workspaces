@@ -528,6 +528,7 @@ _ws_show_stack () {
 }
 
 _ws_help () {
+    _ws_debug 7 args "$@"
     cat <<'EOF'
 ws [<cmd>] [<name>]
   enter [<name>]             - show the current workspace or enter one
@@ -627,13 +628,17 @@ if echo $- | fgrep -q i; then  # only for interactive
         options="-h --help"
         commands="create current destroy enter help initialize leave list relink stack version"
         names=$(ws list | tr -d '*@' | tr '\n' ' ')
-        if [ $COMP_CWORD -eq 1 ] || [[ "${prev:0:1}" == "-" ]]; then
+        if [ $COMP_CWORD -eq 1 ]; then
             COMPREPLY=( $(compgen -W "$commands $options $names" -- ${cur}) )
             return 0
         else
             case $prev in
                 enter|destroy)
                     COMPREPLY=($(compgen -W "$names" -- $cur))
+                    return 0
+                    ;;
+                debug)
+                    COMPREPLY=( $(compgen -W "reset 0 1 2 3 4 5 6 7 8 9" -o plusdirs -- ${cur}) )
                     return 0
                     ;;
             esac
