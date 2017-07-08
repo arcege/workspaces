@@ -199,4 +199,8 @@ Correct inconsistencies in the environment.
 * Remove ~/workspace if pointing nowhere
 * Leaving current workspace if no longer exists
 
+## Functional and unit tests ##
+
+Run the `./test.sh` script for varifying that the app works with basic usage.
+
 ####### Copyright @ 2017 Michael P. Reilly. All rights reserved. #######
