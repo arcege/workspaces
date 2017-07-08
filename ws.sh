@@ -39,12 +39,13 @@ esac
 WS_VERSION=0.1.7
 
 : ${WS_DIR:=$HOME/workspaces}
-: ${WS_DEBUG:=0}
 : ${_WS_DEBUGFILE:=$WS_DIR/.log}
 
 # _ws__current is a global variable, but initialized below
 declare -a _ws__stack
 declare -i WS_DEBUG
+
+: ${WS_DEBUG:=0}
 
 # if _ws__current variable exists (but may be null string), then assume
 # the app has been initialized
@@ -79,13 +80,17 @@ _ws_debug () {
                     ;;
             esac
             ;;
-        *)
+        [0-9]*)
             proc="($$:$(tty))"
             when=$(date +%Y%m%d.%H%M%S)
             func="${FUNCNAME[1]}"  # The calling routine
             if [ "$lvl" -le "$WS_DEBUG" ]; then
                 echo "${when}${proc}${func}[$lvl] $*" >> ${_WS_DEBUGFILE}
             fi
+            ;;
+        *)
+            echo "Error: unknown argument: $lvl" >&2
+            return 1
             ;;
     esac
 }
