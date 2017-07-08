@@ -28,6 +28,16 @@ do about it.  By default, it is ignored.  But its contents could become
 the "default" workspace using the "replace" argument.  Or it could be
 erased altogether using "erase."
 
+The install script takes four possible arguments.  For the 'ignore', 'erase' and 'replace' modes, `ws initialize` is run
+after installing the software.  For 'upgrade', initialization is not
+performed.
+
+* ignore  -- default on new install
+* upgrade -- default on existing software; `ws initialize` is not run
+* erase  -- delete ~/workspace/ and its contents before initializing
+* replace -- use ~/workspace/ as the 'defualt' workspace, updating it
+  with hooks for `ws`
+
 ## The `ws` command ##
 
 The function ws can be called from the shell prompt.
