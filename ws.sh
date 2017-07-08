@@ -56,11 +56,9 @@ if [ x${_ws__current:+X} != xX ]; then
 fi
 
 _ws_debug () {
-    local proc func when lvl=$1
-    shift
-    case $lvl in
+    case $1 in
         config)
-            case $1 in
+            case $2 in
                 "")
                     echo "lvl=$WS_DEBUG; file=$_WS_DEBUGFILE"
                     ;;
@@ -69,10 +67,10 @@ _ws_debug () {
                     _WS_DEBUGFILE=${WS_DIR}/.log
                     ;;
                 [0-9]*)
-                    WS_DEBUG=$1
+                    WS_DEBUG=$2
                     ;;
                 /*)
-                    _WS_DEBUGFILE="$1"
+                    _WS_DEBUGFILE="$2"
                     ;;
                 *)
                     echo "expecting 'reset', number of filename" >&2
@@ -81,6 +79,8 @@ _ws_debug () {
             esac
             ;;
         [0-9]*)
+            local proc func when lvl=$1
+            shift
             proc="($$:$(tty))"
             when=$(date +%Y%m%d.%H%M%S)
             func="${FUNCNAME[1]}"  # The calling routine
@@ -89,7 +89,7 @@ _ws_debug () {
             fi
             ;;
         *)
-            echo "Error: unknown argument: $lvl" >&2
+            echo "Error: unknown argument: $1" >&2
             return 1
             ;;
     esac
