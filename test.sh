@@ -121,6 +121,8 @@ test -x "$WS_DIR/foobar/.ws/hook.sh" || fail create file WS_DIR/foobar/.ws/hook.
 #test -f "$WS_DIR/foobar/.ws/config.sh" || fail create file WS_DIR/foobar/.ws/config.sh
 test "$_ws__current" = "foobar" || fail str _ws__current
 
+
+# more intensive testing of the hooks
 cat > "$WS_DIR/foobar/.ws/hook.sh" <<'EOF'
 :
 # this is sourced by `ws` (workspaces)
