@@ -88,7 +88,7 @@ test "$(readlink $HOME/workspace)" = "$WS_DIR/default" || fail init link
 test "$(_ws_getdir default)" = "$WS_DIR/default" || fail routine getdir
 
 test "$(ws list)" = "default@" || fail init cmd ws+list
-test "$(ws stack)" = "" || fail init cmd ws+stack
+test "$(ws stack)" = "($PWD)" || fail init cmd ws+stack
 
 result=$(_ws_getdir default)
 test $? -eq 0 -a "$result" = "$WS_DIR/default" || fail unit _ws_getdir ws
@@ -118,7 +118,7 @@ test "$(ws stack | tr '\n' ' ')" = "default* (${cdir}) " || fail enter1 cmd ws+s
 ws leave
 test "${_ws__current}" = "" || fail leave _ws__current
 test "${_ws__stack[*]}" = "" || fail leave stack
-test "$(ws stack)" = "" || fail leave ws+stack
+test "$(ws stack)" = "($PWD)" || fail leave ws+stack
 
 ws create foobar
 test -d "$WS_DIR/foobar" || fail create dir WS_DIR/foobar
