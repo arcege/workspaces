@@ -121,6 +121,71 @@ test -x "$WS_DIR/foobar/.ws/hook.sh" || fail create file WS_DIR/foobar/.ws/hook.
 #test -f "$WS_DIR/foobar/.ws/config.sh" || fail create file WS_DIR/foobar/.ws/config.sh
 test "$_ws__current" = "foobar" || fail str _ws__current
 
+cat > "$WS_DIR/foobar/.ws/hook.sh" <<'EOF'
+:
+# this is sourced by `ws` (workspaces)
+# commands could be run and the environment/shell could be modified.
+# anything set by the enter operation should be wound back by leave;
+# similarly, anything set by create should be removed by destroy.
+_wshook__op=${1:-enter}
+_wshook__workspace=$2
+_wshook__configdir=$(dirname ${BASH_SOURCE[0]})
+_wshook__variables=""
+
+# load config variables, if present
+[ -s "$_wshook__configdir/config.sh" ] && . "$_wshook__configdir/config.sh"
+
+wsstate=$_wshook__op
+
+# any variables you use here should be unset at the end; local
+# would not work as this is source'd
+case ${_wshook__op} in
+    # the current context is NOT this workspace
+    create)
+        Which=$InConfig
+        ;;
+
+    # the current context is NOT this workspace
+    destroy)
+        IsDestroyed=ImDyingImDying
+        ;;
+
+    # the current context IS this workspace
+    enter)
+        HasEntered=yep
+        ;;
+
+    # the current context IS this workspace
+    leave)
+        HasLeft=Elvis
+        ;;
+esac
+# unset the variables registered
+if [ -n "$_wshook__variables" ]; then
+    # unset -n is not available in older bash, like on macos
+    eval unset $_wshook__variables
+fi
+unset _wshook__op _wshook__workspace _wshook__configdir _wshook__variables
+EOF
+
+cat > "$WS_DIR/foobar/.ws/config.sh" <<'EOF'
+_wshook__variables=InConfig
+InConfig=$_wshook__workspace
+EOF
+
+unset wsstate IsDestroyed HasEntered HasLeft
+_ws_hook "$WS_DIR/foobar" enter "$WS_DIR/foobar"
+test x$wsstate = xenter || fail hook+var wsstate
+test x$HasEntered = xyep || fail hook+var HasEntered
+test x$HasLeft = x || fail hook+var unset
+test x$InConfig = x || fail hook+unset InConfig
+_ws_hook "$WS_DIR/foobar" leave "$WS_DIR/foobr"
+test x$wsstate = xleave || fail hook+var wsstate
+test x$HasLeft = xElvis || fail hook+var HasLeft
+_ws_hook "$WS_DIR/foobar" create "$WS_DIR/foobar"
+test x$Which = x$WS_DIR/foobar || fail hook+config passthru
+test x${InConfig:+X} = x || fail hook+config unset
+
 ws enter default
 test -d "$WS_DIR/default" || fail enter2 dir WS_DIR/default
 test "${_ws__stack[*]}" = ":$cdir foobar:$WS_DIR/foobar" || fail enter2 stack
