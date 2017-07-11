@@ -572,6 +572,8 @@ _ws_show_stack () {
                 *) echo $1;;
             esac
         done
+    else
+        echo "($PWD)"
     fi
 }
 
