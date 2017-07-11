@@ -22,6 +22,9 @@ rm -f $_WS_DEBUGFILE
 
 source $cdir/ws.sh
 
+md5_config_sh='c405dda1c568ed04bae772e7f60728fb'
+md5_hook_sh='50e88ec3fe9fbea07dc019dc4966b601'
+
 fail () { echo "failure: $*"; exit 1; }
 
 # check the existence of the main routine ('ws') and subroutines
@@ -39,6 +42,7 @@ command -v _ws_getdir >&3 || fail routine _ws_getdir
 command -v _ws_link >&3 || fail routine _ws_link
 command -v _ws_copy_skel >&3 || fail routine _ws_copy_skel
 command -v _ws_generate_hook >&3 || fail routine _ws_generate_hook
+command -v _ws_generate_config >&3 || fail routine _ws_generate_config
 command -v _ws_hooks >&3 || fail routine _ws_hooks
 command -v _ws_hook >&3 || fail routine _ws_hook
 
@@ -78,6 +82,8 @@ test -x "$WS_DIR/.ws/skel.sh" || fail init file WS_DIR/.ws/skel.sh
 test -d "$WS_DIR/default" || fail init dir WS_DIR/default/
 test -d "$WS_DIR/default/.ws" || fail init dir WS_DIR/default/.ws/
 test -x "$WS_DIR/default/.ws/hook.sh" || fail init file WS_DIR/default/.ws/hook.sh
+test "$(md5sum < $WS_DIR/.ws/hook.sh)" = "$md5_hook_sh  -" || fail init md5 hook.sh
+test "$(md5sum < $WS_DIR/.ws/config.sh)" = "$md5_config_sh  -" || fail init md5 config.sh
 test "$(readlink $HOME/workspace)" = "$WS_DIR/default" || fail init link
 test "$(_ws_getdir default)" = "$WS_DIR/default" || fail routine getdir
 

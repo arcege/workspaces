@@ -268,6 +268,20 @@ _ws_copy_skel () {
     fi
 }
 
+# create an "empty" config file
+# arguments:
+#  filename
+_ws_generate_config () {
+    _ws_debug 7 args "$@"
+    if [ x${1:+X} = xX -a -d "$1" ]; then
+        cat > "$1/.ws/config.sh" <<'EOF'
+: assignment used in .ws/hook.sh
+# place variable names in _wshook__variables to be unset when hook completes
+_wshook_variables=""
+EOF
+    fi
+}
+
 # create an "empty" hook script
 # arguments:
 #   filename
@@ -444,6 +458,7 @@ _ws_create () {
         if [ $? -eq 0 ]; then
             mkdir -p "$wsdir/.ws"
             _ws_copy_skel "$wsdir"
+            _ws_generate_config "$wsdir"
             _ws_hooks create $wsname
             _ws_debug 1 "$wsdir created"
         else
@@ -641,11 +656,7 @@ ws () {
             mkdir -p $WS_DIR/.ws
             _ws_generate_hook "${WS_DIR}/.ws/hook.sh"
             _ws_generate_hook "${WS_DIR}/.ws/skel.sh"
-            (
-                echo ": assignment used in .ws/hook.sh"
-                echo "# place variables in _wshook__variables to unset after"
-                echo "_wshook__variables="
-            ) > ${WS_DIR}/.ws/config.sh
+            _ws_generate_config "${WS_DIR}"
             # we don't want to delete it
             _ws_create default
             _ws_link set $(_ws_getdir default)

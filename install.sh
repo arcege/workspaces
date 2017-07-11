@@ -22,7 +22,12 @@ update_hook_scripts () {
     for path in $WS_DIR/*; do
         if [ -d $path ]; then
             mkdir -p $path/.ws
-            move_script $path .ws .ws.sh hook.sh
+            if [ -f $path/.ws.sh ]; then
+                move_script $path .ws .ws.sh hook.sh
+            else
+                _ws_copy_skel $path
+                _ws_generate_config $path
+            fi
         fi
     done
 }
