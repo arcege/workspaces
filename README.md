@@ -147,10 +147,12 @@ Display current version of the app.
 
 ## Hooks ##
 
-There are two hook scripts that could be run.
+There are four hook scripts that could be run.
 
-* ~/.ws.sh  -- globally called
-* ~/workspace/*wsname*/.ws.sh  -- specific to the workspace
+* ~/.ws/hook.sh  -- globally called
+* ~/.ws/config.sh  -- variables used in global hook script
+* ~/workspace/*wsname*/.ws/hook.sh  -- specific to the workspace
+* ~/workspace/*wsname*/.ws/config.sh  -- variables used in specific hook script
 
 Arguments are given depending on the operation: 'create', 'destroy', 'enter'
 and 'leave'.
@@ -161,11 +163,14 @@ run commands ('nvm use' for example) for the current shell.
 The 'leave' argument would unset environment variables and roll back
 any command settings when "entered" (e.g. 'nvm use system').
 
+The 'create' argument may setup the workspace, checkout standard repositories.
+
+The 'destroy' argument may unlink resources.
+
 ### skel file ###
 
-The `$WS_DIR/.skel.sh` file is copied into the workspace as .ws.sh.  This allows
+The `$WS_DIR/.ws/skel.sh` file is copied into the workspace as .ws/hook.sh.  This allows
 a similar hook file to be applied to all workspaces.
-
 
 ## Environment variables ##
 There are some environment variables to help.

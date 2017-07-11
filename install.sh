@@ -5,6 +5,28 @@ installation () {
     cp -p ./ws.sh $HOME/.bash/ws.sh
 }
 
+move_script () {
+    local dir=$1 sdir=$2 oldname=$3 newname=$4
+    if [ -f $dir/$oldname ]; then
+        mv $dir/$oldname $dir/$sdir/$newname
+        echo "Moving $dir/$sdir/$newname"
+    fi
+    chmod +x $dir/$sdir/$newname
+}
+
+update_hook_scripts () {
+    local path
+    mkdir -p $WS_DIR/.ws
+    move_script $WS_DIR .ws .ws.sh hook.sh
+    move_script $WS_DIR .ws .skel.sh skel.sh
+    for path in $WS_DIR/*; do
+        if [ -d $path ]; then
+            mkdir -p $path/.ws
+            move_script $path .ws .ws.sh hook.sh
+        fi
+    done
+}
+
 pre_initialization () {
     case $1 in
         ignore)
@@ -27,30 +49,34 @@ pre_initialization () {
             ;;
         upgrade)
             echo "Software updated"
-            ws reload 2>/dev/null
-            if [ $? -eq 1 ]; then
-                echo "Source $HOME/.bash/ws.sh to get update."
-            else
+            if type ws 2>/dev/null | fgrep -qw reload >/dev/null; then
                 echo "Run 'ws reload' to get update."
+            else
+                echo "Source $HOME/.bash/ws.sh to get update."
             fi
-            exit
+            update_hook_scripts
             ;;
     esac
 }
 
 initialization () {
-    source ./ws.sh
-    ws initialize
+    case $1 in
+        upgrade)  # we don't need to reinitialize
+            ;;
+        *)
+            ws initialize
+            ;;
+    esac
 }
 
 post_initialization () {
     case $1 in
         replace)
             if [ $movingworkspace = true ]; then
-                if [ ! -f $HOME/workspace.$$/.wh.sh ]; then
-                    mv $HOME/workspaces/default/.ws.sh $HOME/workspace.$$/
+                if [ ! -d $HOME/workspace.$$/.ws ]; then
+                    mv $HOME/workspaces/default/.ws $HOME/workspace.$$/
                 else
-                    rm $HOME/workspaces/default/.ws.sh
+                    rm -rf $HOME/workspaces/default/.ws
                 fi
                 rmdir $HOME/workspaces/default
                 mv $HOME/workspace.$$ $HOME/workspaces/default
@@ -60,26 +86,29 @@ post_initialization () {
 }
 
 bash_processing () {
-    # check if .bash processing in one of the profile scripts
-    found=false
-    last=
-    for file in $HOME/.profile $HOME/.bash_profile $HOME/.bashrc; do
-        if [ -f $file ]; then
-            last=$file
-            fgrep -w .bash $file >/dev/null 2>&1
-            if [ $? -eq 0 ]; then
-                found=true
-                break
-            fi
-        fi
-    done
+    case $1 in
+        upgrade)
+            ;;
+        *)
+            # check if .bash processing in one of the profile scripts
+            found=false
+            last=
+            for file in $HOME/.profile $HOME/.bash_profile $HOME/.bashrc; do
+                if [ -f $file ]; then
+                    last=$file
+                    if fgrep -w .bash $file >/dev/null 2>&1; then
+                        found=true
+                        break
+                    fi
+                fi
+            done
 
-    if [ $found = false ]; then
-        test -z "$last" && last=${HOME}/.bashrc
-        test ! -f $last && echo : > "$last"
+            if [ $found = false ]; then
+                test -z "$last" && last=${HOME}/.bashrc
+                test ! -f $last && echo : > "$last"
 
-        #last=/dev/null  # for debugging
-        cat <<'EOF' >> "$last"
+                #last=/dev/null  # for debugging
+                cat <<'EOF' >> "$last"
 
 if test -d ${HOME}/.bash
 then
@@ -94,20 +123,22 @@ then
 fi
 EOF
 
-    fi
+            fi
+            ;;
+    esac
 }
 
-# if already installed, then we should want to upgrade more than
-# install
-if [ -f $HOME/.bash/ws.sh ]; then
-    operation=upgrade
-else
-    operation=ignore
-fi
-
-case $1 in
-    -h|--help|help)
-        cat <<EOF
+parse_args () {
+    # if already installed, then we should want to upgrade more than
+    # install
+    if [ -f $HOME/.bash/ws.sh ]; then
+        operation=upgrade
+    else
+        operation=ignore
+    fi
+    case $1 in
+        -h|--help|help)
+            cat <<EOF
 $0 [opts] [directive]
   -h|--help  display this message
   help       display this message
@@ -117,25 +148,32 @@ $0 [opts] [directive]
   upgrade    update the software
 Default directive is "${operation}"
 EOF
-        exit 0
-        ;;
-    "") :;;
-    ignore) operation=ignore;;
-    replace) operation=replace;;
-    erase) operation=erase;;
-    upgrade) operation=upgrade;;
-    *) echo "unknown directive: $1" >&2; exit 1;;
-esac
+            exit 0
+            ;;
+        "") :;;
+        ignore) operation=ignore;;
+        replace) operation=replace;;
+        erase) operation=erase;;
+        upgrade) operation=upgrade;;
+        *) echo "unknown directive: $1" >&2; exit 1;;
+    esac
+}
 
-installation
+main () {
+    parse_args "$@"
 
-pre_initialization $operation
+    installation
 
-test $operation = update && exit
+    source ./ws.sh
 
-initialization $operation
+    pre_initialization $operation
 
-post_initialization $operation
+    initialization $operation
 
-bash_processing $operation
+    post_initialization $operation
+
+    bash_processing $operation
+}
+
+main "$@"
 

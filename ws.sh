@@ -24,6 +24,18 @@
 # the arguments 'enter' or 'leave' when thoe operations are performed
 # this is useful for setting and unsetting environment variables or running
 # commands specific to a workspace
+#
+# config structure
+# workspaces/.ws/
+#       config.sh  - file with shell variable assignments
+#       hook.sh  - executed for each workspace by _ws_hook
+#       skel.sh  - copied to workspace config directory as hook.sh
+#    <wsname>/
+#       .ws/
+#           config.sh  - file with shell variable assignments
+#           hook.sh  - executed by _ws_hook
+# the config.sh is called on every operation, commands should not be executed
+# variables should be assigned
 
 _WS_SOURCE="${BASH_SOURCE[0]}"  # used by ws+reload later
 
@@ -36,7 +48,7 @@ esac
 
 # global constants, per shell
 # unfortunately, bash 3 (macos) does not support declaring global vars
-WS_VERSION=0.1.7
+WS_VERSION=0.2.0
 
 : ${WS_DIR:=$HOME/workspaces}
 : ${_WS_DEBUGFILE:=$WS_DIR/.log}
@@ -246,11 +258,13 @@ _ws_link () {
 #   workspace directory
 _ws_copy_skel () {
     _ws_debug 7 args "$@"
-    if [ -f "$WS_DIR/.skel.sh" ]; then
-        cp -p "$WS_DIR/.skel.sh" "$1/.ws.sh"
+    if [ ! -d "$1/.ws" ]; then
+        _ws_debug 3 "no $1/.ws directory"
+    elif [ -f "$WS_DIR/.ws/skel.sh" ]; then
+        cp -p "$WS_DIR/.ws/skel.sh" "$1/.ws/hook.sh"
         _ws_debug 3 "copy .skel.sh to $1"
     else
-        _ws_debug 4 "no .skel.sh to copy"
+        _ws_debug 4 "no skel.sh to copy"
     fi
 }
 
@@ -270,6 +284,11 @@ _ws_generate_hook () {
 # similarly, anything set by create should be removed by destroy.
 _wshook__op=${1:-enter}
 _wshook__workspace=$2
+_wshook__configdir=$(dirname ${BASH_SOURCE[0]})
+_wshook__variables=""
+
+# load config variables, if present
+[ -s "$_wshook__configdir/config.sh" ] && . "$_wshook__configdir/config.sh"
 
 # any variables you use here should be unset at the end; local
 # would not work as this is source'd
@@ -290,32 +309,45 @@ case ${_wshook__op} in
     leave)
         ;;
 esac
-unset _wshook__op _wshook__workspace
+# unset the variables registered
+for name in ${_wshook__variables}; do
+    unset -v $name
+done
+unset name
+unset _wshook__op _wshook__workspace _wshook__configdir _wshook__variables
 EOF
+    chmod +x "$1"
+    fi
+}
+
+_ws_hook () {
+    local dir="$1" op="$2" wsdir="$3"
+    if [ -x $dir/.ws/hook.sh ]; then
+        source "$dir/.ws/hook.sh" "$op" "$wsdir"; rc=$?
+        _ws_debug 2 "called $dir/.ws/hook.sh $op $wsdir; rc=$rc"
+        return $rc
+    elif [ -f "$dir/.ws.sh" ]; then
+        source "$dir/.ws.sh" "$op" "$wsdir"; rc=$?
+        _ws_debug 2 "called $dir/.ws.sh $op $wsdir; rc=$rc"
+        return $rc
     fi
 }
 
 _ws_hooks () {
     _ws_debug 7 args "$@"
-    # run $HOME/.ws.sh script, passing "create", "destroy", "enter" or "leave"
-    # run $WORKSPACE/.ws.sh script, passing either "enter" or "leave"
-    # calls to .ws.sh are NOT sandboxed as they should affect the environment
-    # the 'leave' should try to put back anything that was change by 'enter'
+    # run $WS_DIR/.ws/hook.sh script, passing "create", "destroy", "enter" or "leave"
+    # run $WORKSPACE/.ws/hook.sh script, passing the same
+    # calls to hook.sh are NOT sandboxed as they should affect the environment
+    # the 'leave' should try to put back anything that was changed by 'enter'
+    # similarly, 'destroy' should put back anything changed by 'create'
     local wsdir rc op="${1:-enter}" context=$2
     case ${op}:${2:+X} in
-        # if no workspace, then just return
+        # if no context ($2==""), then just return
         enter:|leave:) return ;;
     esac
-    wsdir=$(_ws_getdir "$context")
-    rc=$?
-    if [ -f "$WS_DIR/.ws.sh" ]; then
-        source "$WS_DIR/.ws.sh" "$op" "$wsdir"
-        _ws_debug 2 "called $WS_DIR/.ws.sh $op $wsdir; rc=$?"
-    fi
-    if [ $rc -eq 0 -a -f "$wsdir/.ws.sh" ]; then
-        source "$wsdir/.ws.sh" "$op" "$wsdir"
-        _ws_debug 2 "called $wsdir/.sh.sh $op $wsdir; rc=$?"
-    fi
+    wsdir=$(_ws_getdir "$context") \
+        && _ws_hook $WS_DIR $op $wsdir \
+        && _ws_hook $wsdir $op $wsdir
 }
 
 # enter a workspace, or show the current
@@ -410,6 +442,7 @@ _ws_create () {
     else
         mkdir "$wsdir"
         if [ $? -eq 0 ]; then
+            mkdir -p "$wsdir/.ws"
             _ws_copy_skel "$wsdir"
             _ws_hooks create $wsname
             _ws_debug 1 "$wsdir created"
@@ -605,9 +638,14 @@ ws () {
             _ws_debug config "$2"
             ;;
         initialize)
-            mkdir -p $WS_DIR
-            _ws_generate_hook "${WS_DIR}/.ws.sh"
-            _ws_generate_hook "${WS_DIR}/.skel.sh"
+            mkdir -p $WS_DIR/.ws
+            _ws_generate_hook "${WS_DIR}/.ws/hook.sh"
+            _ws_generate_hook "${WS_DIR}/.ws/skel.sh"
+            (
+                echo ": assignment used in .ws/hook.sh"
+                echo "# place variables in _wshook__variables to unset after"
+                echo "_wshook__variables="
+            ) > ${WS_DIR}/.ws/config.sh
             # we don't want to delete it
             _ws_create default
             _ws_link set $(_ws_getdir default)

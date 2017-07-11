@@ -4,7 +4,7 @@
 
 exec 3>/dev/null
 
-versionstr="0.1.7"
+versionstr="0.2.0"
 
 cdir=$PWD
 
@@ -40,6 +40,7 @@ command -v _ws_link >&3 || fail routine _ws_link
 command -v _ws_copy_skel >&3 || fail routine _ws_copy_skel
 command -v _ws_generate_hook >&3 || fail routine _ws_generate_hook
 command -v _ws_hooks >&3 || fail routine _ws_hooks
+command -v _ws_hook >&3 || fail routine _ws_hook
 
 # check the global variables
 test "$(declare -p WS_DIR)" = "declare -- WS_DIR=\"$HOME/workspaces\"" || fail declare WS_DIR
@@ -69,11 +70,14 @@ rmdir $HOME/workspace
 
 ws initialize
 
-test -d "$WS_DIR"   || fail init dir WS_DIR
-test -f "$WS_DIR/.ws.sh" || fail init file WS_DIR/.ws.sh
-test -f "$WS_DIR/.skel.sh" || fail init file WS_DIR/.skel.sh
+test -d "$WS_DIR" || fail init dir WS_DIR/
+test -d "$WS_DIR/.ws" || fail init dir WS_DIR/.ws/
+test -f "$WS_DIR/.ws/config.sh" || fail init dir WS_DIR/.ws/config.sh
+test -x "$WS_DIR/.ws/hook.sh" || fail init file WS_DIR/.ws/hook.sh
+test -x "$WS_DIR/.ws/skel.sh" || fail init file WS_DIR/.ws/skel.sh
 test -d "$WS_DIR/default" || fail init dir WS_DIR/default/
-test -f "$WS_DIR/default/.ws.sh" || fail init file WS_DIR/default/.ws.sh
+test -d "$WS_DIR/default/.ws" || fail init dir WS_DIR/default/.ws/
+test -x "$WS_DIR/default/.ws/hook.sh" || fail init file WS_DIR/default/.ws/hook.sh
 test "$(readlink $HOME/workspace)" = "$WS_DIR/default" || fail init link
 test "$(_ws_getdir default)" = "$WS_DIR/default" || fail routine getdir
 
@@ -89,6 +93,15 @@ test $? -eq 0 -a "$result" = "$WS_DIR/default" || fail unit _ws_link ws
 result=$(_ws_link set $WS_DIR/default)
 test $? -eq 0 -a "$result" = "" -a $(readlink $HOME/workspace) = "$WS_DIR/default" || fail unit _ws_link ws
 
+# checking the hook system
+( echo 'TEST_VALUE_1=hi'
+  echo 'TEST_VALUE_2=bye'
+  echo '_wshook__variables=("TEST_VALUE_2")'
+) >> $TMPDIR/workspaces/.ws/config.sh
+_ws_hook "$WS_DIR" enter "$WS_DIR" || fail hook+call
+test x${TEST_VALUE_1:+X} = xX || fail hook+config "value_1 set"
+test x${TEST_VALUE_2:+X} = x || fail hook+config "value_2 unset"
+
 ws enter default
 test "${_ws__current}" = "default" || fail enter1 str _ws__current
 test "$(ws)" = "default" || fail enter1 cmd ws
@@ -103,7 +116,9 @@ test "$(ws stack)" = "" || fail leave ws+stack
 
 ws create foobar
 test -d "$WS_DIR/foobar" || fail create dir WS_DIR/foobar
-test -f "$WS_DIR/foobar/.ws.sh" || fail create file WS_DIR/foobar/.wh.sh
+test -d "$WS_DIR/foobar/.ws" || fail create dir WS_DIR/foobar/.ws/
+test -x "$WS_DIR/foobar/.ws/hook.sh" || fail create file WS_DIR/foobar/.ws/hook.sh
+#test -f "$WS_DIR/foobar/.ws/config.sh" || fail create file WS_DIR/foobar/.ws/config.sh
 test "$_ws__current" = "foobar" || fail str _ws__current
 
 ws enter default
