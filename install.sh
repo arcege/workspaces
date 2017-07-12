@@ -5,31 +5,70 @@ installation () {
     cp -p ./ws.sh $HOME/.bash/ws.sh
 }
 
-move_script () {
-    local dir=$1 sdir=$2 oldname=$3 newname=$4
-    if [ -f $dir/$oldname ]; then
-        mv $dir/$oldname $dir/$sdir/$newname
-        echo "Moving $dir/$sdir/$newname"
+update_hook () {
+    local rc state=none tmphook=$1 wsdir=$2 oldname=$3 newname=$4
+    if [ -f $wsdir/$oldname ]; then
+        mv $wsdir/$oldname $wsdir/.ws/$newname
+        state=moved
     fi
-    chmod +x $dir/$sdir/$newname
+    if [ -f $wsdir/.ws/$newname ]; then
+        cmp $tmphook $wsdir/.ws/$newname >/dev/null
+        rc=$?
+        if [ $rc -ne 0 ]; then
+            cp $tmphook $wsdir/.ws/${newname}.new
+            chmod +x $wsdir/.ws/${newname}.new
+            if [ $state = moved ]; then
+                echo "Moving $wsdir/$oldname to $wsdir/.ws/$newname; update with ${newname}.new"
+            else
+                echo "Update $wsdir/.ws/$newname with ${newname}.new"
+            fi
+        elif [ $state = moved ]; then
+            echo "Moved $wsdir/$oldname to $wsdir/.ws/$newname"
+        fi
+    else
+        _ws_generate_hook $wsdir/.ws/$newname
+        echo "New hook $wsdir/.ws/$newname"
+    fi
+    if [ ! -x $wsdir/.ws/$newname ]; then
+        chmod +x $wsdir/.ws/$newname
+    fi
+}
+
+update_config () {
+    local wsdir=$1 name=$2
+    if [ ! -f $wsdir/.ws/$name -o ! -s $wsdir/.ws/$name ]; then
+        _ws_generate_config $wsdir
+        echo "New config $wsdir/.ws/$name"
+    elif ! fgrep -q _wshook__variables $wsdir/.ws/$name; then
+        # this gathers the variable names and add to the hook unset "registry" var
+        vars=$(sed -ne '/=.*/{;s///;H;};${;g;s/\n/ /g;s/^ //;p}' $wsdir/.ws/$name)
+        ed - $path/.ws/config.sh <<EOF
+0a
+# place variable names in _wshook__variables to be unset when hook completes
+_wshook_variables="$vars"
+.
+w
+EOF
+        echo "Added config _wshook__variables to $wsdir/.ws/$name"
+    fi
 }
 
 update_hook_scripts () {
     local path
     mkdir -p $WS_DIR/.ws
-    move_script $WS_DIR .ws .ws.sh hook.sh
-    move_script $WS_DIR .ws .skel.sh skel.sh
+    tmphook=${TMPDIR:-/tmp}/wshook.$$
+    _ws_generate_hook $tmphook  # generate the latest hook in a temp area
+    update_hook $tmphook $WS_DIR .ws.sh hook.sh
+    update_hook $tmphook $WS_DIR .skel.sh skel.sh
+    update_config $WS_DIR config.sh
     for path in $WS_DIR/*; do
         if [ -d $path ]; then
             mkdir -p $path/.ws
-            if [ -f $path/.ws.sh ]; then
-                move_script $path .ws .ws.sh hook.sh
-            else
-                _ws_copy_skel $path
-                _ws_generate_config $path
-            fi
+            update_hook $tmphook $path .ws.sh hook.sh
+            update_config $path config.sh
         fi
     done
+    rm -f $tmphook
 }
 
 pre_initialization () {
