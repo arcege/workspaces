@@ -2,27 +2,27 @@
 # Copyright @ 2017 Michael P. Reilly. All rights reserved.
 # A small functional test suite
 
-exec 3>/dev/null
+exec 2>test.err 3>&2
 
-versionstr="0.2.0"
+versionstr="0.2.1"
 
 cdir=$PWD
 
 TMPDIR=/tmp/ws.test.$$
 trap "rm -rf $TMPDIR" 0 1 2 3 15
-#trap 'rc=$?; echo test failed; exit $rc' ERR
 mkdir $TMPDIR
+#trap 'rc=$?; echo test failed; exit $rc' ERR
 
 unset WORKSPACE
 export HOME=$TMPDIR
 
 _WS_DEBUGFILE=$PWD/test.log
-WS_DEBUG=2
+WS_DEBUG=4
 rm -f $_WS_DEBUGFILE
 
 source $cdir/ws.sh
 
-md5_config_sh='c405dda1c568ed04bae772e7f60728fb'
+md5_config_sh='0810621e2e95715f23e31f0327ad8c79'
 md5_hook_sh='50e88ec3fe9fbea07dc019dc4966b601'
 
 fail () { echo "failure: $*"; exit 1; }
@@ -214,5 +214,20 @@ test "${_ws__current}" = "" || fail destroy _ws__current
 test ! -d "$WS_DIR/foobar" || fail destroy WS_DIR/foobar
 test ! -h "$HOME/workspace" || fail destroy link
 test "$(ws list)" = 'default' || fail destroy ws+list
+
+# for testing passing config variables to ws+create
+configfile=$TMPDIR/config.test
+cat > $configfile << EOF
+hook_1=hello
+hook_2=goodbye
+EOF
+
+ws create xyzzy $configfile
+configsh=$WS_DIR/xyzzy/.ws/config.sh
+test "$(md5sum < $configsh)" != "$md5_config_sh  -" || fail create+config md5 config.sh
+fgrep -q '_wshook__variables="hook_1 hook_2"' "$configsh" || fail create+config registry
+grep -q '^hook_1=' $configsh \
+    && grep -q '^hook_2=' $configsh
+test $? -eq 0 || fail create+config vars included
 
 echo "tests complete."

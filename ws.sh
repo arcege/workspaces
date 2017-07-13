@@ -48,7 +48,7 @@ esac
 
 # global constants, per shell
 # unfortunately, bash 3 (macos) does not support declaring global vars
-WS_VERSION=0.2.0
+WS_VERSION=0.2.1
 
 : ${WS_DIR:=$HOME/workspaces}
 : ${_WS_DEBUGFILE:=$WS_DIR/.log}
@@ -272,12 +272,13 @@ _ws_copy_skel () {
 # arguments:
 #  filename
 _ws_generate_config () {
+    local wsdir="$1" vars="$2"
     _ws_debug 7 args "$@"
-    if [ x${1:+X} = xX -a -d "$1" ]; then
-        cat > "$1/.ws/config.sh" <<'EOF'
+    if [ x${wsdir:+X} = xX -a -d "$wsdir" ]; then
+        cat > "$wsdir/.ws/config.sh" <<EOF
 : assignment used in .ws/hook.sh
 # place variable names in _wshook__variables to be unset when hook completes
-_wshook_variables=""
+_wshook__variables="${vars}"
 EOF
     fi
 }
@@ -438,12 +439,13 @@ _ws_leave () {
 # copy the skel hook, run 'create' hooks
 # arguments:
 #  workspace name
+#  filename (optional)
 # result code:
 #   1 if no workspace name given, or
 #     if workspace already exists
 _ws_create () {
     _ws_debug 7 args "$@"
-    local wsdir wsname=${1:-""}
+    local vars wsdir wsname=${1:-""} configfile=${2:-""}
     wsdir="$(_ws_getdir "$wsname")"
     if [ -z "$wsname" ]; then
         echo "No name given" >&2
@@ -456,9 +458,18 @@ _ws_create () {
     else
         mkdir "$wsdir"
         if [ $? -eq 0 ]; then
+            if [ -n "$configfile" -a -r "$configfile" ]; then
+                vars=$(sed -ne '/=.*/{;s///;H;};${;g;s/\n/ /g;s/^ //;p}' $configfile)
+            else
+                vars=""
+            fi
             mkdir -p "$wsdir/.ws"
             _ws_copy_skel "$wsdir"
-            _ws_generate_config "$wsdir"
+            _ws_generate_config "$wsdir" "$vars"
+            if [ -n "$configfile" -a -r "$configfile" ]; then
+                cat $configfile >> $wsdir/.ws/config.sh
+                _ws_debug 0 "Applied to $wsdir/.ws/config.sh"
+            fi
             _ws_hooks create $wsname
             _ws_debug 1 "$wsdir created"
         else
@@ -583,7 +594,7 @@ _ws_help () {
 ws [<cmd>] [<name>]
   enter [<name>]             - show the current workspace or enter one
   leave                      - leave current workspace
-  create <name>              - create a new workspace
+  create <name> [<file>]     - create a new workspace
   destroy name               - destroy a workspace
   current                    - show current workspace (same as 'ws enter')
   relink [<name>]            - reset ~/workspace symlink
@@ -612,7 +623,9 @@ ws () {
             _ws_leave
             ;;
         create)
-            _ws_create "$2"
+            # create can take an optional filename of the
+            # configuration files
+            _ws_create "$2" "$3"
             _ws_enter "$2"
             ;;
         destroy)
@@ -672,19 +685,24 @@ ws () {
 if echo $- | fgrep -q i; then  # only for interactive
     _ws_complete () {
         # handle bash completion
-        local cur prev options commands names
+        local cur curop prev options commands names
         COMPREPLY=()
         cur="${COMP_WORDS[COMP_CWORD]}"
+        if [ $COMP_CWORD -gt 1 ]; then
+            curop="${COMP_WORDS[1]}"
+        else
+            curop=""
+        fi
         prev="${COMP_WORDS[COMP_CWORD-1]}"
         options="-h --help"
-        commands="create current destroy enter help initialize leave list relink stack version"
+        operators="create current destroy enter help initialize leave list relink stack version"
         names=$(ws list | tr -d '*@' | tr '\n' ' ')
         if [ $COMP_CWORD -eq 1 ]; then
-            COMPREPLY=( $(compgen -W "$commands $options $names" -- ${cur}) )
+            COMPREPLY=( $(compgen -W "$operators $options $names" -- ${cur}) )
             return 0
-        else
-            case $prev in
-                enter|destroy)
+        elif [ $COMP_CWORD -eq 2 ]; then
+            case $curop in
+                enter|destroy|relink)
                     COMPREPLY=($(compgen -W "$names" -- $cur))
                     return 0
                     ;;
@@ -693,6 +711,9 @@ if echo $- | fgrep -q i; then  # only for interactive
                     return 0
                     ;;
             esac
+        elif [ $COMP_CWORD -eq 3 -a ${curop} = create ]; then
+            COMPREPLY=( $(compgen -f -- ${cur}) )
+            return 0
         fi
     }
 

@@ -45,7 +45,7 @@ update_config () {
         ed - $path/.ws/config.sh <<EOF
 0a
 # place variable names in _wshook__variables to be unset when hook completes
-_wshook_variables="$vars"
+_wshook__variables="$vars"
 .
 w
 EOF
