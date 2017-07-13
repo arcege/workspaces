@@ -1,2 +1,5 @@
 .*.sw[a-z]
+.*\.html
+home
+test.err
 test.log
