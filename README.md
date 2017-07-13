@@ -177,6 +177,10 @@ The 'destroy' argument may unlink resources.
 The `$WS_DIR/.ws/skel.sh` file is copied into the workspace as .ws/hook.sh.  This allows
 a similar hook file to be applied to all workspaces.
 
+### Examples ###
+
+See [Examples](Examples).
+
 ## Environment variables ##
 There are some environment variables to help.
 
