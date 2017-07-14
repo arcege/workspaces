@@ -5,3 +5,8 @@ pipelines:
     - step:
         script:
           - ./test.sh
+
+  custom:  # manually triggered
+    - step:
+        script:
+          - ./test.sh
