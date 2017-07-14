@@ -84,6 +84,8 @@ test -x "$WS_DIR/.ws/skel.sh" || fail init file WS_DIR/.ws/skel.sh
 test -d "$WS_DIR/default" || fail init dir WS_DIR/default/
 test -d "$WS_DIR/default/.ws" || fail init dir WS_DIR/default/.ws/
 test -x "$WS_DIR/default/.ws/hook.sh" || fail init file WS_DIR/default/.ws/hook.sh
+md5sum $WS_DIR/.ws/hook.sh
+echo "$md5_hook_sh old"
 test "$(md5sum < $WS_DIR/.ws/hook.sh)" = "$md5_hook_sh  -" || fail init md5 hook.sh
 test "$(md5sum < $WS_DIR/.ws/config.sh)" = "$md5_config_sh  -" || fail init md5 config.sh
 test "$(readlink $HOME/workspace)" = "$WS_DIR/default" || fail init link
