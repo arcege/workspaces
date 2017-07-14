@@ -275,10 +275,18 @@ _ws_generate_config () {
     local wsdir="$1" vars="$2"
     _ws_debug 7 args "$@"
     if [ x${wsdir:+X} = xX -a -d "$wsdir" ]; then
-        cat > "$wsdir/.ws/config.sh" <<EOF
+        if [ -s "$1/.ws/config.sh" ]; then
+            (echo ,d; echo w) | ed - "$1/.ws/config.sh"
+        elif [ ! -e "$1/.ws/config.sh" ]; then
+            touch "$1/.ws/config.sh"
+        fi
+        ed - "$wsdir/.ws/config.sh" <<EOF
+0a
 : assignment used in .ws/hook.sh
 # place variable names in _wshook__variables to be unset when hook completes
 _wshook__variables="${vars}"
+.
+w
 EOF
     fi
 }
@@ -291,7 +299,13 @@ _ws_generate_hook () {
     # Create an empty hook script in the workspace
     if [ -n "$1" ]; then
         _ws_debug 3 "create %1"
-        cat <<'EOF' > "$1"
+        if [ -s "$1" ]; then
+            (echo ,d; echo w) | ed - "$1"
+        elif [ ! -e "$1" ]; then
+            touch "$1"
+        fi
+        ed - "$1" <<'EOF'
+0a
 :
 # this is sourced by `ws` (workspaces)
 # commands could be run and the environment/shell could be modified.
@@ -330,6 +344,8 @@ for name in ${_wshook__variables}; do
 done
 unset name
 unset _wshook__op _wshook__workspace _wshook__configdir _wshook__variables
+.
+w
 EOF
     chmod +x "$1"
     fi

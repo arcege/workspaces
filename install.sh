@@ -1,11 +1,27 @@
 #!/bin/bash
 
+if [ ${DEBUG:-0} = 1 ]; then
+    cp () { echo "cp $*"; }
+    rm () { echo "rm $*"; }
+    mv () { echo "mv $*"; }
+    ed () { echo "ed $*"; }
+    ln () { echo "ln $*"; }
+    mkdir () { echo "mkdir $*"; }
+    chmod () { echo "chmod $*"; }
+    touch () { echo "touch $*"; }
+fi
+
 installation () {
     mkdir -p $HOME/.bash
     cp -p ./ws.sh $HOME/.bash/ws.sh
 }
 
-oldmd5s_hook_sh="c57af9e435988bcaed1dad4ca3c942fe 5434fb008efae18f9478ecd8840c61c6"
+oldmd5s_hook_sh="\
+2a6e92cd0efd80c65753d5f169450696
+50e88ec3fe9fbea07dc019dc4966b601
+5434fb008efae18f9478ecd8840c61c6
+c57af9e435988bcaed1dad4ca3c942fe
+"
 
 update_hook () {
     local rc oldchk chksum state=none tmphook=$1 wsdir=$2 oldname=$3 newname=$4
@@ -14,7 +30,7 @@ update_hook () {
         state=moved
     fi
     if [ -f $wsdir/.ws/$newname ]; then
-        cmp $tmphook $wsdir/.ws/$newname >/dev/null
+        cmp $tmphook $wsdir/.ws/$newname >/dev/null 2>&1
         rc=$?
         if [ $rc -ne 0 ]; then
             chksum=$(md5sum < $wsdir/.ws/$newname)
@@ -167,10 +183,11 @@ bash_processing () {
 
             if [ $found = false ]; then
                 test -z "$last" && last=${HOME}/.bashrc
-                test ! -f $last && echo : > "$last"
+                test ! -e $last && (echo 0a; echo :; echo .; echo w) | ed - "$last"
 
                 #last=/dev/null  # for debugging
-                cat <<'EOF' >> "$last"
+                ed - "$last" <<'EOF'
+$a
 
 if test -d ${HOME}/.bash
 then
