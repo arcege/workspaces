@@ -50,7 +50,7 @@ known, then it is also called as `ws enter <name>`.  For example, running
 
 * enter [*name*]  -- enter a workspace
 * leave  -- leave the current workspace
-* create *name* [*file*] -- create and enter a new workspace
+* create *name* [*cfg*\*] ... -- create and enter a new workspace
 * destroy *name*  -- leave (if current) and remove a workspace and its contents
 * current  -- show current workspace, same as `enter` with no argument
 * relink [*name*]  -- reset the ~/workspace symlink
@@ -97,10 +97,12 @@ workspace is entered (as with the `enter` operation).
 As a post-operation, the hook scripts are run with the 'create' argument.
 This is performed before the `enter` operation.
 
-The create operation also takes as an optional argument, a filename with
-contents to be appended to the .ws/config.sh script.  The variables
-contained are available to the 'create' hook call.  Variables in the file
-are automatically added to the \_wshook\_\_variables registry variable.
+The create operation also takes as an optional argument, either a
+filename with contents to be appended to the .ws/config.sh script or an
+assignment in the form VAR=VALUE.  The variables are available to the
+'create' hook call.  Variables in the file are automatically added to
+the \_wshook\_\_variables registry variable.  Multiple values can be
+given accumulatively.
 
 #### destroy operation ####
 

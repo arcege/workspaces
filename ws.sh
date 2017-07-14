@@ -5,25 +5,40 @@
 
 # process arguments and options
 # operations
-#   enter [name]    - set envvars and change to workspace directory, if no
-#                     name given, then show current workspace
-#   leave           - leave workspace, resetting envvars and directory
-#   create <name>   - create a new workspace
-#   destroy <name>  - delete an existing workspace
-#   current         - show the current workspace (same as enter operator with no name)
-#   relink          - (re)create ~/workspace symbolic link
-#   list            - show workspaces, '@' shows which is linked with
-#                     with ~/workspace, '*' shows the current workspace
-#   stack           - show workspaces on the stack, '*' shows current workspace
-#   initialize      - (re)create the environment
-#   help|-h|--help  - display help information
-#   version         - display version number
-#   [name]          - same as enter operator
+#   enter [name]                - set envvars and change to workspace directory, if no
+#                                 name given, then show current workspace
+#   leave                       - leave workspace, resetting envvars and directory
+#   create <name> [<cfg*>]...   - create a new workspace
+#   destroy <name>              - delete an existing workspace
+#   current                     - show the current workspace (same as enter operator with no name)
+#   relink                      - (re)create ~/workspace symbolic link
+#   list                        - show workspaces, '@' shows which is linked with
+#                                 with ~/workspace, '*' shows the current workspace
+#   stack                       - show workspaces on the stack, '*' shows current workspace
+#   initialize                  - (re)create the environment
+#   help|-h|--help              - display help information
+#   version                     - display version number
+#   [name]                      - same as enter operator
 #
-# if a workspace has a '.ws.sh' script at the top, it will get source'd with
-# the arguments 'enter' or 'leave' when thoe operations are performed
-# this is useful for setting and unsetting environment variables or running
-# commands specific to a workspace
+# * cfg is either a filename containing variable assignments or variable assignments on the command-line
+#   these are added to the .ws/config.sh script read during hooks
+# 
+# for example:
+#    $ cat def.cfg
+#    java_dir=/opt/jdk1.8.0_1
+#    $ ws create myproduct Repos="MyApi MyCore MyUi" def.cfg
+# getting:
+#    $ cat ~/workspaces/myproduct/.ws/config.sh
+#    : assignment used in .ws/hook.sh
+#    # place variable names in _wshook__variables to be unset when hook completes
+#    _wshook__variables="java_dir Repos"
+#    Repos="MyApi MyCore MyUI"
+#    java_dir="/opt/jdk1.8.0_1"
+#
+# if a workspace has a '.ws/hook.sh' script at the top, it will get source'd
+# with the arguments 'enter', 'create', 'destroy', or 'leave' when those
+# operations are performed this is useful for setting and unsetting
+# environment variables or running commands specific to a workspace
 #
 # config structure
 # workspaces/.ws/
@@ -48,7 +63,7 @@ esac
 
 # global constants, per shell
 # unfortunately, bash 3 (macos) does not support declaring global vars
-WS_VERSION=0.2.1
+WS_VERSION=0.2.2
 
 : ${WS_DIR:=$HOME/workspaces}
 : ${_WS_DEBUGFILE:=$WS_DIR/.log}
@@ -451,11 +466,35 @@ _ws_leave () {
     fi
 }
 
+# append variable assignments from a file into a file
+# variables with _ws_ are ignored
+# arguments:
+#   destfile
+#   srcfile
+# return code: ignored
+_ws_config_add_file () {
+    local tmpfile=$1 configfile=$2 sedscr1 sedscr2
+    # clean up input and remove private variables that shouldn't be there
+    sedscr1='s/\t/ /g;s/^ *//;s/ *$//;/_WS_/d;/_ws_/d;/_wshook_/d;/^[^= ]*=/p'
+    sedscr2="/=\"/{;s//=/;s/\".*//;b;};/='/{;s//=/;s/'.*//;b;};s/\(=[^ ]*\).*/\1/"
+    sed -ne "$sedscr1" $configfile | sed "$sedscr" >> $tmpfile
+}
+
+# append variable assignment string to a file
+_ws_config_add_vars () {
+    local tmpfile="$1" varpair="$2"
+    echo "$varpair" >> $tmpfile
+}
+
 # create a new workspace, entering workspace
-# copy the skel hook, run 'create' hooks
+# copy the skel hook, create config.sh and run 'create' hooks
+# a "cfg" is either a filename with variable assignments
+# or assignment strings from the command-line
+# these are added to {wsdir}/.ws/config.sh to be
+# loaded on calls to {wsdir}/.ws/hooks.sh
 # arguments:
 #  workspace name
-#  filename (optional)
+#  cfg ... (optional)
 # result code:
 #   1 if no workspace name given, or
 #     if workspace already exists
@@ -474,20 +513,32 @@ _ws_create () {
     else
         mkdir "$wsdir"
         if [ $? -eq 0 ]; then
-            if [ -n "$configfile" -a -r "$configfile" ]; then
-                vars=$(sed -ne '/=.*/{;s///;H;};${;g;s/\n/ /g;s/^ //;p}' $configfile)
+            shift  # pop wsname from the arg list
+            local i tmpfile="${TMPDIR:-/tmp}/ws.cfg.$$.${wsname}"
+            # process the config (files or assignments) passed on the command-line
+            for i in "$@"; do
+                case $i in
+                    *=*) _ws_config_add_vars $tmpfile "$i";;
+                    *) _ws_config_add_file $tmpfile "$i";;
+                esac
+            done
+            if [ -s "$tmpfile" ]; then
+                # gather the variable names (lhs)
+                vars=$(sed -ne '/=.*/s///p' $tmpfile | sort -u | sed -ne 'H;${;g;s/\n/ /g;s/^ //;p;}')
             else
                 vars=""
             fi
             mkdir -p "$wsdir/.ws"
             _ws_copy_skel "$wsdir"
             _ws_generate_config "$wsdir" "$vars"
-            if [ -n "$configfile" -a -r "$configfile" ]; then
-                cat $configfile >> $wsdir/.ws/config.sh
-                _ws_debug 0 "Applied to $wsdir/.ws/config.sh"
+            if [ -s "$tmpfile" ]; then
+                # remove duplicates and ensure proper quoting of values
+                awk -F= '!seen[$0]++ {print $1 "=" Q $2 Q}' Q='"' $tmpfile >> $wsdir/.ws/config.sh
+                _ws_debug 0 "Applied vars to $wsdir/.ws/config.sh"
             fi
             _ws_hooks create $wsname
             _ws_debug 1 "$wsdir created"
+            rm -f $tmpfile
         else
             _ws_debug 0 "$wsdir exists, but not directory"
             echo "$wsdir is exists but not a directory" >&2
@@ -610,7 +661,7 @@ _ws_help () {
 ws [<cmd>] [<name>]
   enter [<name>]             - show the current workspace or enter one
   leave                      - leave current workspace
-  create <name> [<file>]     - create a new workspace
+  create <name> [<cfg*>]...  - create a new workspace
   destroy name               - destroy a workspace
   current                    - show current workspace (same as 'ws enter')
   relink [<name>]            - reset ~/workspace symlink
@@ -620,6 +671,9 @@ ws [<cmd>] [<name>]
   help|-h|--help             - this message
   version                    - display version number
   [<name>]                   - same as 'ws enter [<name>]'
+* <cfg> is either a filename ('=' not allowed) with configuration assignments
+  or variable assignments in the form VAR=VALUE
+  these are added to the config.sh file before the 'create' hook is called.
 EOF
 }
 
@@ -628,12 +682,14 @@ ws () {
     if [ "x$1" = x--help -o "x$1" = x-h ]; then
         set -- help
     fi
-    case $1 in
+    cmd="$1"
+    shift
+    case $cmd in
         help)
             _ws_help
             ;;
         enter)
-            _ws_enter "$2"
+            _ws_enter "$1"
             ;;
         leave)
             _ws_leave
@@ -641,17 +697,20 @@ ws () {
         create)
             # create can take an optional filename of the
             # configuration files
-            _ws_create "$2" "$3"
-            _ws_enter "$2"
+            # pop off the command from the arg list
+            # the now first argument is the name
+            # the rest are cfg files or variable assignments
+            _ws_create "$@"
+            _ws_enter "$1"
             ;;
         destroy)
-            _ws_destroy "$2"
+            _ws_destroy "$1"
             ;;
         current)
             _ws_enter ""
             ;;
         relink)
-            _ws_relink "$2"
+            _ws_relink "$1"
             ;;
         list)
             _ws_list
@@ -669,8 +728,8 @@ ws () {
             ;;
         reload)
             local wsfile
-            if [ -n "$2" -a -f "$2" ]; then
-                wsfile="$2"
+            if [ -n "$1" -a -f "$1" ]; then
+                wsfile="$1"
             else
                 wsfile=${_WS_SOURCE:-${HOME}/.bash/ws.sh}
             fi
@@ -681,7 +740,7 @@ ws () {
             _ws_validate
             ;;
         debug)
-            _ws_debug config "$2"
+            _ws_debug config "$1"
             ;;
         initialize)
             mkdir -p $WS_DIR/.ws
@@ -693,7 +752,7 @@ ws () {
             _ws_link set $(_ws_getdir default)
             ;;
         *)
-            _ws_enter "$1"
+            _ws_enter "$cmd"
             ;;
     esac
 }
@@ -727,8 +786,8 @@ if echo $- | fgrep -q i; then  # only for interactive
                     return 0
                     ;;
             esac
-        elif [ $COMP_CWORD -eq 3 -a ${curop} = create ]; then
-            COMPREPLY=( $(compgen -f -- ${cur}) )
+        elif [ $COMP_CWORD -ge 3 -a ${curop} = create ]; then
+            COMPREPLY=( $(compgen -f -v -- ${cur}) )
             return 0
         fi
     }
