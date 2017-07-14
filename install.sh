@@ -5,8 +5,10 @@ installation () {
     cp -p ./ws.sh $HOME/.bash/ws.sh
 }
 
+oldmd5s_hook_sh="c57af9e435988bcaed1dad4ca3c942fe 5434fb008efae18f9478ecd8840c61c6"
+
 update_hook () {
-    local rc state=none tmphook=$1 wsdir=$2 oldname=$3 newname=$4
+    local rc oldchk chksum state=none tmphook=$1 wsdir=$2 oldname=$3 newname=$4
     if [ -f $wsdir/$oldname ]; then
         mv $wsdir/$oldname $wsdir/.ws/$newname
         state=moved
@@ -15,9 +17,25 @@ update_hook () {
         cmp $tmphook $wsdir/.ws/$newname >/dev/null
         rc=$?
         if [ $rc -ne 0 ]; then
-            cp $tmphook $wsdir/.ws/${newname}.new
-            chmod +x $wsdir/.ws/${newname}.new
+            chksum=$(md5sum < $wsdir/.ws/$newname)
+            # if the old hook never changed, overwrite it
+            for oldchk in $oldmd5s_hook_sh; do
+                if [ "$chksum" = "$oldchk  -" ]; then
+                    cp $tmphook $wsdir/.ws/${newname}
+                    chmod +x $wsdir/.ws/${newname}
+                    state=overwritten
+                fi
+            done
             if [ $state = moved ]; then
+                cp $tmphook $wsdir/.ws/${newname}
+                chmod +x $wsdir/.ws/${newname}
+            elif [ $state != overwritten ]; then
+                cp $tmphook $wsdir/.ws/${newname}.new
+                chmod +x $wsdir/.ws/${newname}.new
+            fi
+            if [ $state = overwritten ]; then
+                echo "Overwritten $wsdir/.ws/$newname"
+            elif [ $state = moved ]; then
                 echo "Moving $wsdir/$oldname to $wsdir/.ws/$newname; update with ${newname}.new"
             else
                 echo "Update $wsdir/.ws/$newname with ${newname}.new"
