@@ -486,10 +486,6 @@ _ws_create () {
         echo "No name given" >&2
         _ws_debug 2 "no name"
         return 1
-    elif [ -d "$wsdir" ]; then
-        echo "Workspace already exists" >&2
-        _ws_debug 2 "workspace exists"
-        return 1
     else
         mkdir "$wsdir"
         if [ $? -eq 0 ]; then
@@ -519,6 +515,10 @@ _ws_create () {
             _ws_hooks create $wsname
             _ws_debug 1 "$wsdir created"
             rm -f $tmpfile
+        elif [ -d "$wsdir" ]; then
+            echo "Workspace already exists" >&2
+            _ws_debug 2 "workspace exists"
+            return 1
         else
             _ws_debug 0 "$wsdir exists, but not directory"
             echo "$wsdir is exists but not a directory" >&2
