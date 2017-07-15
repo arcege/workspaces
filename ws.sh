@@ -9,7 +9,7 @@
 #                                 name given, then show current workspace
 #   leave                       - leave workspace, resetting envvars and directory
 #   create <name> [<cfg*>]...   - create a new workspace
-#   destroy <name>              - delete an existing workspace
+#   destroy <name>|-            - delete an existing workspace ('-' is alias for current workspace)
 #   current                     - show the current workspace (same as enter operator with no name)
 #   relink                      - (re)create ~/workspace symbolic link
 #   list                        - show workspaces, '@' shows which is linked with
@@ -646,7 +646,7 @@ ws [<cmd>] [<name>]
   enter [<name>]             - show the current workspace or enter one
   leave                      - leave current workspace
   create <name> [<cfg*>]...  - create a new workspace
-  destroy name               - destroy a workspace
+  destroy name|-             - destroy a workspace ('-' alias for current)
   current                    - show current workspace (same as 'ws enter')
   relink [<name>]            - reset ~/workspace symlink
   list                       - show available workspaces
@@ -688,7 +688,15 @@ ws () {
             _ws_enter "$1"
             ;;
         destroy)
-            _ws_destroy "$1"
+            local wsname
+            # allow "-" to be used as an alias for the current workspace
+            # but it must be explicitly entered, not in bash completion
+            if [ "x$1" = x- ]; then
+                wsname=$_ws__current
+            else
+                wsname=$1
+            fi
+            _ws_destroy "$wsname"
             ;;
         current)
             _ws_enter ""
