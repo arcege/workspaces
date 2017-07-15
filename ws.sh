@@ -102,12 +102,12 @@ _ws_debug () {
             esac
             ;;
         [0-9]*)
-            local proc func when lvl=$1
-            shift
-            proc="($$:$(tty))"
-            when=$(date +%Y%m%d.%H%M%S)
-            func="${FUNCNAME[1]}"  # The calling routine
-            if [ "$lvl" -le "$WS_DEBUG" ]; then
+            if [ "$1" -le "$WS_DEBUG" ]; then
+                local proc func when lvl=$1
+                shift
+                proc="($$:$(tty))"
+                when=$(date +%Y%m%d.%H%M%S)
+                func="${FUNCNAME[1]}"  # The calling routine
                 echo "${when}${proc}${func}[$lvl] $*" >> ${_WS_DEBUGFILE}
             fi
             ;;
