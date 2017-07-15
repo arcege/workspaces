@@ -420,28 +420,49 @@ _ws_enter () {
 # result code: 0
 _ws_leave () {
     _ws_debug 7 args "$@"
-    local oldws context oldIFS wsname wsdir
+    local oldws=${_ws__current} context oldIFS wsname wsdir
     if [ x{$_ws__current:+X} != xX ]; then
         _ws_hooks leave $_ws__current
-        context=$(_ws_stack last)
-        oldIFS="$IFS"
-        IFS=":"
-        set -- $context
-        IFS="$oldIFS"
-        case $1 in
-            ""|/*) wsname=""; wsdir="$1";;
-            *) wsname="$1"; wsdir=$(_ws_getdir "$wsname");;
-        esac
-        oldws="$_ws__current"
-        _ws__current="$wsname"
-        _ws_debug 2 "leaving $wsname"
-        _ws_stack pop
-        if [ $? -eq 0 ]; then
+        local notvalid=true
+        while $notvalid; do
+            context=$(_ws_stack last)
+            if [ $? -ne 0 ]; then
+                _ws_debug 3 "stack empty"
+                break
+            else
+                _ws_debug 4 "context=X${context}X"
+                oldIFS="$IFS"
+                IFS=":"
+                set -- $context
+                IFS="$oldIFS"
+                case $1 in
+                    ""|/*) wsname=""; wsdir="$1";;
+                    *) wsname="$1"; wsdir="$(_ws_getdir "$wsname")";;
+                esac
+                if [ -d "$wsdir" ]; then
+                    _ws_debug 2 "leaving $oldws ${wsname:+to $wsname}"
+                    notvalid=false
+                else
+                    _ws_debug 1 "$context ignored, pop stack again"
+                fi
+                _ws_stack pop
+            fi
+        done
+        if [ $notvalid = false ]; then
+            _ws__current="$wsname"
             export WORKSPACE="$wsdir"
-            _ws_debug 2 "WORKSPACE=$wsdir"
+            _ws_debug 2 "WORKSPACE=$wsdir _ws__current="$wsname""
+        else
+            _ws_debug 2 "WORKSPACE= _ws__current="
+            unset WORKSPACE
+            _ws__current=""
         fi
-        cd "$2"  # return to old directory
-        _ws_hooks enter $_ws__current
+        if [ -n "$2" -a -d "$2" ]; then
+            cd "$2"  # return to old directory
+        fi
+        if [ -n "$_ws__current" ]; then
+            _ws_hooks enter $_ws__current
+        fi
         _ws_debug 2 "left $oldws"
     fi
 }

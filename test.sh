@@ -217,6 +217,22 @@ test ! -d "$WS_DIR/foobar" || fail destroy WS_DIR/foobar
 test ! -h "$HOME/workspace" || fail destroy link
 test "$(ws list)" = 'default' || fail destroy ws+list
 
+# test destruction of workspaces before leaving one
+ws create foo1
+ws create foo2
+ws create foo3
+
+test $(ws current) = foo3 || fail create+current
+ws destroy foo2
+test ! -d $WS_DIR/foo2 || fail destroy foo2
+ws destroy foo3
+test $(ws current) = foo1 || fail destroy foo3-foo1
+ws create foo2
+ws destroy foo1
+test ! -d $WS_DIR/foo1 -a $(ws current) = foo2 || fail destroy foo1
+ws destroy foo2
+test "$(ws current)" = "" -a "${_ws__stack[*]}" = "" || fail destroy foo2-none
+
 # for testing passing config variables to ws+create
 configfile=$TMPDIR/config.test
 \cat > $configfile << EOF
