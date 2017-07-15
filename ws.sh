@@ -96,12 +96,8 @@ _ws_debug () {
                 [0-9]*)
                     WS_DEBUG=$2
                     ;;
-                /*)
-                    _WS_DEBUGFILE="$2"
-                    ;;
                 *)
-                    echo "expecting 'reset', number of filename" >&2
-                    return 1
+                    _WS_DEBUGFILE="$2"
                     ;;
             esac
             ;;
@@ -774,7 +770,7 @@ if echo $- | fgrep -q i; then  # only for interactive
                     return 0
                     ;;
                 debug)
-                    COMPREPLY=( $(compgen -W "reset 0 1 2 3 4 5 6 7 8 9" -o plusdirs -- ${cur}) )
+                    COMPREPLY=( $(compgen -W "reset 0 1 2 3 4 5 6 7 8 9" -f -- ${cur}) )
                     return 0
                     ;;
             esac
