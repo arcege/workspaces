@@ -9,6 +9,7 @@ if [ ${DEBUG:-0} = 1 ]; then
     mkdir () { echo "mkdir $*"; }
     chmod () { echo "chmod $*"; }
     touch () { echo "touch $*"; }
+    cat () { echo "cat $*"; }
 fi
 
 installation () {

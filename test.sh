@@ -78,15 +78,13 @@ ws initialize
 
 test -d "$WS_DIR" || fail init dir WS_DIR/
 test -d "$WS_DIR/.ws" || fail init dir WS_DIR/.ws/
-test -f "$WS_DIR/.ws/config.sh" || fail init dir WS_DIR/.ws/config.sh
-test -x "$WS_DIR/.ws/hook.sh" || fail init file WS_DIR/.ws/hook.sh
-test -x "$WS_DIR/.ws/skel.sh" || fail init file WS_DIR/.ws/skel.sh
+test -s "$WS_DIR/.ws/config.sh" || fail init dir WS_DIR/.ws/config.sh
+test -s "$WS_DIR/.ws/hook.sh" -a -x "$WS_DIR/.ws/hook.sh" || fail init file WS_DIR/.ws/hook.sh
+test -s "$WS_DIR/.ws/hook.sh" -a -x "$WS_DIR/.ws/skel.sh" || fail init file WS_DIR/.ws/skel.sh
 test -d "$WS_DIR/default" || fail init dir WS_DIR/default/
 test -d "$WS_DIR/default/.ws" || fail init dir WS_DIR/default/.ws/
-test -x "$WS_DIR/default/.ws/hook.sh" || fail init file WS_DIR/default/.ws/hook.sh
-md5sum $WS_DIR/.ws/hook.sh
-echo === .ws/hook.sh ===; cat $WS_DIR/.ws/hook.sh; echo =======
-echo "$md5_hook_sh old"
+test -s "$WS_DIR/.ws/config.sh" || fail init dir WS_DIR/.ws/config.sh
+test -s "$WS_DIR/.ws/hook.sh" -a -x "$WS_DIR/default/.ws/hook.sh" || fail init file WS_DIR/default/.ws/hook.sh
 test "$(md5sum < $WS_DIR/.ws/hook.sh)" = "$md5_hook_sh  -" || fail init md5 hook.sh
 test "$(md5sum < $WS_DIR/.ws/config.sh)" = "$md5_config_sh  -" || fail init md5 config.sh
 test "$(readlink $HOME/workspace)" = "$WS_DIR/default" || fail init link
@@ -128,13 +126,12 @@ test "$(ws stack)" = "($PWD)" || fail leave ws+stack
 ws create foobar
 test -d "$WS_DIR/foobar" || fail create dir WS_DIR/foobar
 test -d "$WS_DIR/foobar/.ws" || fail create dir WS_DIR/foobar/.ws/
-test -x "$WS_DIR/foobar/.ws/hook.sh" || fail create file WS_DIR/foobar/.ws/hook.sh
-#test -f "$WS_DIR/foobar/.ws/config.sh" || fail create file WS_DIR/foobar/.ws/config.sh
+test -s "$WS_DIR/.ws/hook.sh" -a -x "$WS_DIR/foobar/.ws/hook.sh" || fail create file WS_DIR/foobar/.ws/hook.sh
+test -s "$WS_DIR/.ws/config.sh" || fail create file WS_DIR/foobar/.ws/config.sh
 test "$_ws__current" = "foobar" || fail str _ws__current
 
-
 # more intensive testing of the hooks
-cat > "$WS_DIR/foobar/.ws/hook.sh" <<'EOF'
+\cat > "$WS_DIR/foobar/.ws/hook.sh" <<'EOF'
 :
 # this is sourced by `ws` (workspaces)
 # commands could be run and the environment/shell could be modified.
@@ -181,7 +178,7 @@ fi
 unset _wshook__op _wshook__workspace _wshook__configdir _wshook__variables
 EOF
 
-cat > "$WS_DIR/foobar/.ws/config.sh" <<'EOF'
+\cat > "$WS_DIR/foobar/.ws/config.sh" <<'EOF'
 _wshook__variables=InConfig
 InConfig=$_wshook__workspace
 EOF
@@ -222,7 +219,7 @@ test "$(ws list)" = 'default' || fail destroy ws+list
 
 # for testing passing config variables to ws+create
 configfile=$TMPDIR/config.test
-cat > $configfile << EOF
+\cat > $configfile << EOF
 hook_1=hello
 hook_2=goodbye
 EOF
