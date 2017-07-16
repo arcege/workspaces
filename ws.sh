@@ -53,7 +53,9 @@
 # the config.sh is called on every operation, commands should not be executed
 # variables should be assigned
 
-_WS_SOURCE="${BASH_SOURCE[0]}"  # used by ws+reload later
+_ws_dir="$(cd $(dirname ${BASH_SOURCE[0]}); pwd)"
+_WS_SOURCE="$_ws_dir/${BASH_SOURCE[0]##*/}"  # used by ws+reload later
+unset _ws_dir
 
 case $BASH_VERSION in
     "")
