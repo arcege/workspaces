@@ -122,13 +122,16 @@ _ws_debug () {
 }
 
 _ws_upgrade_warning () {
-    \cat <<'EOF' >&2
+    if [ x$_ws_seen_upgrade_warning != xtrue ]; then
+        \cat <<'EOF' >&2
 It appears that the install program did not run. While hooks will still be
 called for backward compatibility, some aspects (e.g. config mgmt) may not
 work properly.
 Please run ./install.sh from the distribution which will upgrade the
 data structures for the new release of workspaces.
 EOF
+        _ws_seen_upgrade_warning=true
+    fi
 }
 
 # implement a stack
@@ -288,8 +291,8 @@ _ws_link () {
 _ws_config_edit () {
     _ws_debug 7 args "$@"
     local file=$1 op=$2 var=$3 val=$4
-    if [ -d ${file%/*} ]; then
-        _ws_debug 2 "Workspaces need upgrade"
+    if [ ! -d ${file%/*} ]; then
+        _ws_debug 2 "Workspaces need upgrade; $file"
         _ws_upgrade_warning
         return 1
     elif [ ! -f $file -a $op != set ]; then
@@ -344,7 +347,7 @@ _ws_config_edit () {
 _ws_config_vars_edit () {
     _ws_debug 7 args "$@"
     local file="$1" op="$2" var="$3" sedscr
-    if [ -d ${file%/*} ]; then
+    if [ ! -d ${file%/*} ]; then
         _ws_debug 2 "Workspaces need upgrade"
         _ws_upgrade_warning
         return 1
@@ -530,7 +533,7 @@ _ws_hooks () {
         # if no context ($2==""), then just return
         enter:|leave:) return ;;
     esac
-    if [ ! -d $WS_DIR/.ws -o ! -d $wsdir/.ws ]; then
+    if [ ! -d $WS_DIR/.ws -o ! -d ${wsdir:-$WS_DIR}/.ws ]; then
         _ws_debug 2 "Workspaces need upgrade"
         _ws_upgrade_warning
     fi
@@ -826,6 +829,7 @@ EOF
 
 ws () {
     _ws_debug 7 args "$@"
+    _ws_seen_upgrade_warning=false
     if [ "x$1" = x--help -o "x$1" = x-h ]; then
         set -- help
     fi
