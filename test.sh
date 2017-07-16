@@ -45,8 +45,8 @@ command -v _ws_generate_hook >&3 || fail routine _ws_generate_hook
 command -v _ws_generate_config >&3 || fail routine _ws_generate_config
 command -v _ws_hooks >&3 || fail routine _ws_hooks
 command -v _ws_hook >&3 || fail routine _ws_hook
-command -v _ws_config_add_file >&3 || fail routine _ws_config_add_file
-command -v _ws_config_add_vars >&3 || fail routine _ws_config_add_vars
+command -v _ws_config_edit >&3 || fail routine _ws_config_edit
+command -v _ws_config_vars_edit >&3 || fail routine _ws_config_vars_edit
 
 # check the global variables
 test "$(declare -p WS_DIR)" = "declare -- WS_DIR=\"$HOME/workspaces\"" || fail declare WS_DIR
@@ -243,7 +243,7 @@ EOF
 ws create xyzzy $configfile hook_3=hola
 configsh=$WS_DIR/xyzzy/.ws/config.sh
 test "$(md5sum < $configsh)" != "$md5_config_sh  -" || fail create+config md5 config.sh
-fgrep -q '_wshook__variables="hook_1 hook_2 hook_3"' "$configsh" || fail create+config registry
+fgrep -q '_wshook__variables=" hook_1 hook_2 hook_3"' "$configsh" || fail create+config registry
 grep -q '^hook_1=' $configsh \
     && grep -q '^hook_2=' $configsh \
     && grep -q '^hook_3=' $configsh

@@ -16,6 +16,7 @@
 #                                 with ~/workspace, '*' shows the current workspace
 #   stack                       - show workspaces on the stack, '*' shows current workspace
 #   initialize                  - (re)create the environment
+#   config <op> <wsname> ...    - modify config variables
 #   help|-h|--help              - display help information
 #   version                     - display version number
 #   [name]                      - same as enter operator
@@ -264,6 +265,142 @@ _ws_link () {
     esac
 }
 
+# retrieve, remove or add/change variable in a config file
+# arguments
+#  file  - config.sh file
+#   op  - one of get, del, list, set
+#   var  - variable name
+#   val  - value to assign
+# return code
+#   1  - if no config or no var in file (get)
+_ws_config_edit () {
+    _ws_debug 7 args "$@"
+    local file=$1 op=$2 var=$3 val=$4
+    if [ ! -f $file -a $op != set ]; then
+        _ws_debug 3 "no config file $file"
+        return 1
+    fi
+    case $op in
+        get)
+            val=$(sed -ne "s/^${var}=\"\([^\"]*\)\".*/\1/p" "$file")
+            if [ -z "$val" ]; then
+                _ws_debug 3 "no var $var in $file"
+                return 1
+            else
+                echo "$val"
+            fi
+            ;;
+        del)
+            sed -i -e "/^${var}=/d" "$file"
+            _ws_config_vars_edit "$file" remove "$var"
+            ;;
+        set)
+            if [ ! -f "$file" ]; then
+                _ws_generate_config "$file"
+            fi
+            if [ $? -ne 0 ]; then
+                _ws_debug 1 "no $file"
+                echo "Error: cannot create config file: $file" >&2
+                return 1
+            fi
+            if grep -q "^${var}=" "$file"; then
+                sed -i -e "/^${var}=/s/=.*/=\"${val}\"/" "$file"
+            else
+                echo "${var}=\"${val}\"" >> "$file"
+            fi
+            _ws_config_vars_edit "$file" add "$var"
+            ;;
+        list)
+            if [ "x$var" = x-v -o "x$var" = x--verbose ]; then
+                fgrep '=' "$file" | fgrep -v _wshook_
+            else
+                sed -ne '/_wshook_/d;/=.*/s///p' "$file"
+            fi
+            ;;
+    esac
+}
+
+# add or remove variable names from _wshook__variables
+# arguments
+#   file  - config.sh file
+#   op  - one of add or remove
+#   var  - variable name
+_ws_config_vars_edit () {
+    local file="$1" op="$2" var="$3" sedscr
+    if [ ! -f "$file" ]; then
+        _ws_debug 2 "File missing: $file" >&2
+        return 1
+    fi
+    case $op in
+        add)
+            sedscr="/^_wshook__variables=/{;/${var}/!s/\"$/ ${var}&/;}"
+            ;;
+        remove)
+            sedscr="/^_wshook__variables=/s/ ${var}//"
+            ;;
+        *)
+            _ws_debug 2 "Invalid op: $op" >&2
+            return 1
+            ;;
+    esac
+    sed -i -e "$sedscr" "$file"
+}
+
+# ws+config subcommand
+_ws_config () {
+    local wsdir op="$1" wsname="$2" var="$3" val="$4"
+    case $op in
+        help)
+            echo "ws config op args ..."
+            echo "  list <wsname>   - show variables in workspace's config"
+            echo "  del <wsname> <var>  - remove variable from config"
+            echo "  get <wsname> <var>  - return value of variable from config"
+            echo "  set <wsname> <var> <val> - set value of variable in config"
+            echo "wsname could be --global for the global configs"
+            return 0
+            ;;
+        list) ;;
+        del|get)
+            if [ -z "$var" ]; then
+                echo 'config: expecting variable name' >&2
+                return 1
+            fi
+            ;;
+        set)
+            if [ -z "$var" ]; then
+                echo 'config: expecting variable name' >&2
+                return 1
+            elif [ -z "$val" ]; then
+                echo 'config: expecting value' >&2
+                return 1
+            fi
+            ;;
+        "")
+            echo "config: expecting 'del', 'get', 'list' or 'set'" >&2
+            return 1
+            ;;
+    esac
+    if [ -z "$wsname" ]; then
+        echo 'config: expecting workspace name' >&2
+        return 1
+    elif [ "x${wsname}" = x--global ]; then
+        wsdir=$WS_DIR
+    elif [ "x${wsname}" = x- ]; then
+        wsdir="$(_ws_getdir $_ws__current)"
+        if [ $? -ne 0 ]; then
+            return 1
+        fi
+    else
+        wsdir=$(_ws_getdir $wsname)
+        if [ $? -ne 0 ]; then
+            echo "config: No existing workspace" >&2
+            return 1
+        fi
+    fi
+    file=$wsdir/.ws/config.sh
+    _ws_config_edit "$file" $op "$var" "$val"
+}
+
 # copy the skel hook script to the workspace
 # arguments:
 #   workspace directory
@@ -283,13 +420,13 @@ _ws_copy_skel () {
 # arguments:
 #  filename
 _ws_generate_config () {
-    local wsdir="$1" vars="$2"
+    local file="$1"
     _ws_debug 7 args "$@"
-    if [ x${wsdir:+X} = xX -a -d "$wsdir" ]; then
-        cat > "$wsdir/.ws/config.sh" <<EOF
+    if [ x${file:+X} = xX -a -d "${file%/*}" ]; then
+        cat > "$file" <<EOF
 : assignment used in .ws/hook.sh
 # place variable names in _wshook__variables to be unset when hook completes
-_wshook__variables="${vars}"
+_wshook__variables=""
 EOF
     fi
 }
@@ -421,7 +558,7 @@ _ws_enter () {
 _ws_leave () {
     _ws_debug 7 args "$@"
     local oldws=${_ws__current} context oldIFS wsname wsdir
-    if [ x{$_ws__current:+X} != xX ]; then
+    if [ "x${_ws__current:+X}" = xX ]; then
         _ws_hooks leave $_ws__current
         local notvalid=true
         while $notvalid; do
@@ -467,26 +604,6 @@ _ws_leave () {
     fi
 }
 
-# append variable assignments from a file into a file
-# variables with _ws_ are ignored
-# arguments:
-#   destfile
-#   srcfile
-# return code: ignored
-_ws_config_add_file () {
-    local tmpfile=$1 configfile=$2 sedscr1 sedscr2
-    # clean up input and remove private variables that shouldn't be there
-    sedscr1='s/\t/ /g;s/^ *//;s/ *$//;/_WS_/d;/_ws_/d;/_wshook_/d;/^[^= ]*=/p'
-    sedscr2="/=\"/{;s//=/;s/\".*//;b;};/='/{;s//=/;s/'.*//;b;};s/\(=[^ ]*\).*/\1/"
-    sed -ne "$sedscr1" $configfile | sed "$sedscr" >> $tmpfile
-}
-
-# append variable assignment string to a file
-_ws_config_add_vars () {
-    local tmpfile="$1" varpair="$2"
-    echo "$varpair" >> $tmpfile
-}
-
 # create a new workspace, entering workspace
 # copy the skel hook, create config.sh and run 'create' hooks
 # a "cfg" is either a filename with variable assignments
@@ -501,7 +618,7 @@ _ws_config_add_vars () {
 #     if workspace already exists
 _ws_create () {
     _ws_debug 7 args "$@"
-    local vars wsdir wsname=${1:-""} configfile=${2:-""}
+    local wsdir wsname=${1:-""} configfile=${2:-""}
     wsdir="$(_ws_getdir "$wsname")"
     if [ -z "$wsname" ]; then
         echo "No name given" >&2
@@ -512,25 +629,27 @@ _ws_create () {
         if [ $? -eq 0 ]; then
             shift  # pop wsname from the arg list
             local i tmpfile="${TMPDIR:-/tmp}/ws.cfg.$$.${wsname}"
+            local sedscr1 sedscr2
+            sedscr1='s/\t/ /g;s/^ *//;s/ *$//;/_WS_/d;/_ws_/d;/_wshook_/d;/^[^= ]*=/p'
+            sedscr2="/=\"/{;s//=/;s/\".*//;b;};/='/{;s//=/;s/'.*//;b;};s/\(=[^ ]*\).*/\1/"
             # process the config (files or assignments) passed on the command-line
             for i in "$@"; do
                 case $i in
-                    *=*) _ws_config_add_vars $tmpfile "$i";;
-                    *) _ws_config_add_file $tmpfile "$i";;
+                    *=*) echo "$i" | sed -ne "$sedscr1" >> $tmpfile;;
+                    *) sed -ne "$sedscr1" $i | sed -e "$sedscr2" >> $tmpfile;;
                 esac
             done
-            if [ -s "$tmpfile" ]; then
-                # gather the variable names (lhs)
-                vars=$(sed -ne '/=.*/s///p' $tmpfile | sort -u | sed -ne 'H;${;g;s/\n/ /g;s/^ //;p;}')
-            else
-                vars=""
-            fi
             mkdir -p "$wsdir/.ws"
             _ws_copy_skel "$wsdir"
-            _ws_generate_config "$wsdir" "$vars"
+            _ws_generate_config "$wsdir/.sh/config.sh"
+            # add assignments from cli
             if [ -s "$tmpfile" ]; then
-                # remove duplicates and ensure proper quoting of values
-                awk -F= '!seen[$0]++ {print $1 "=" Q $2 Q}' Q='"' $tmpfile >> $wsdir/.ws/config.sh
+                # split the incoming file ($tmpfile) by '='
+                local lhs rhs oldIFS="$IFS"; IFS=$'='
+                while read lhs rhs; do
+                    _ws_config_edit $wsdir/.ws/config.sh set "$lhs" "$rhs"
+                done < $tmpfile
+                IFS="$oldIFS"
                 _ws_debug 0 "Applied vars to $wsdir/.ws/config.sh"
             fi
             _ws_hooks create $wsname
@@ -642,8 +761,7 @@ _ws_show_stack () {
         while [ $i -gt 0 ]; do
             let i--
             context=${_ws__stack[$i]}
-            oldIFS="$IFS"
-            IFS=":"
+            oldIFS="$IFS"; IFS=":"
             set -- ${context}
             IFS="$oldIFS"
             case $1 in
@@ -669,6 +787,7 @@ ws [<cmd>] [<name>]
   list                       - show available workspaces
   stack                      - show workspaces on the stack
   initialize                 - create the workspaces structure
+  config <op> <wsname> ...   - modify config variables
   help|-h|--help             - this message
   version                    - display version number
   [<name>]                   - same as 'ws enter [<name>]'
@@ -730,6 +849,9 @@ ws () {
         version)
             echo "$WS_VERSION"
             ;;
+        config)
+            _ws_config "$@"
+            ;;
         state)
             echo "root=$WS_DIR" "ws='$_ws__current'"
             _ws_stack state
@@ -755,7 +877,7 @@ ws () {
             mkdir -p $WS_DIR/.ws
             _ws_generate_hook "${WS_DIR}/.ws/hook.sh"
             _ws_generate_hook "${WS_DIR}/.ws/skel.sh"
-            _ws_generate_config "${WS_DIR}"
+            _ws_generate_config "${WS_DIR}/.ws/config.sh"
             # we don't want to delete it
             _ws_create default
             _ws_link set $(_ws_getdir default)
@@ -779,7 +901,7 @@ if echo $- | fgrep -q i; then  # only for interactive
         fi
         prev="${COMP_WORDS[COMP_CWORD-1]}"
         options="-h --help"
-        operators="create current destroy enter help initialize leave list relink stack version"
+        operators="config create current destroy enter help initialize leave list relink stack version"
         names=$(ws list | tr -d '*@' | tr '\n' ' ')
         if [ $COMP_CWORD -eq 1 ]; then
             COMPREPLY=( $(compgen -W "$operators $options $names" -- ${cur}) )
@@ -794,10 +916,29 @@ if echo $- | fgrep -q i; then  # only for interactive
                     COMPREPLY=( $(compgen -W "reset 0 1 2 3 4 5 6 7 8 9" -f -- ${cur}) )
                     return 0
                     ;;
+                config)
+                    COMPREPLY=( $(compgen -W "del get help list set" -- ${cur}) )
+                    return 0
+                    ;;
             esac
         elif [ $COMP_CWORD -ge 3 -a ${curop} = create ]; then
             COMPREPLY=( $(compgen -f -v -- ${cur}) )
             return 0
+        elif [ $COMP_CWORD -eq 3 -a ${curop} = config ]; then
+            # "-" is the same as the current workspace
+            COMPREPLY=( $(compgen -W "- --global $names" -- $cur) )
+            return 0
+        elif [ $COMP_CWORD -eq 4 -a ${curop} = config ]; then
+            case ${COMP_WORDS[2]} in
+                del|get|set)
+                    COMPREPLY=( $(compgen -W "$(ws config list ${COMP_WORDS[3]})" -- ${cur}) )
+                    return 0
+                    ;;
+                list)
+                    COMPREPLY=( $(compgen -W "-v --verbose" -- ${cur}) )
+                    return 0
+                    ;;
+            esac
         fi
     }
 
