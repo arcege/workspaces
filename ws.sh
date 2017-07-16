@@ -665,7 +665,7 @@ _ws_create () {
             done
             mkdir -p "$wsdir/.ws"
             _ws_copy_skel "$wsdir"
-            _ws_generate_config "$wsdir/.sh/config.sh"
+            _ws_generate_config "$wsdir/.ws/config.sh"
             # add assignments from cli
             if [ -s "$tmpfile" ]; then
                 # split the incoming file ($tmpfile) by '='
