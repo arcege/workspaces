@@ -326,6 +326,7 @@ _ws_config_edit () {
 #   op  - one of add or remove
 #   var  - variable name
 _ws_config_vars_edit () {
+    _ws_debug 7 args "$@"
     local file="$1" op="$2" var="$3" sedscr
     if [ ! -f "$file" ]; then
         _ws_debug 2 "File missing: $file" >&2
@@ -348,6 +349,7 @@ _ws_config_vars_edit () {
 
 # ws+config subcommand
 _ws_config () {
+    _ws_debug 7 args "$@"
     local wsdir op="$1" wsname="$2" var="$3" val="$4"
     case $op in
         help)
