@@ -45,6 +45,7 @@ command -v _ws_generate_hook >&3 || fail routine _ws_generate_hook
 command -v _ws_generate_config >&3 || fail routine _ws_generate_config
 command -v _ws_hooks >&3 || fail routine _ws_hooks
 command -v _ws_hook >&3 || fail routine _ws_hook
+command -v _ws_config >&3 || fail routine _ws_config
 command -v _ws_config_edit >&3 || fail routine _ws_config_edit
 command -v _ws_config_vars_edit >&3 || fail routine _ws_config_vars_edit
 
@@ -248,5 +249,38 @@ grep -q '^hook_1=' $configsh \
     && grep -q '^hook_2=' $configsh \
     && grep -q '^hook_3=' $configsh
 test $? -eq 0 || fail create+config vars included
+
+test "$(_ws_config_edit $configsh list)" = $'hook_1\nhook_2\nhook_3' || fail ws_config list
+test "$(_ws_config_edit $configsh get hook_2)" = "goodbye" || fail ws_config_edit get
+var="$(_ws_config_edit $configsh get hook_4)"
+test $? -eq 1 -a "$var" = "" || fail ws_config_edit get novar
+var="$(_ws_config_edit $configsh set hook_4 adios)"
+test $? -eq 0 -a "$var" = "" || fail ws_config_edit set newvar
+test "$(_ws_config_edit $configsh get hook_4)" = "adios" || fail ws_config_edit newvar value
+var="$(_ws_config_edit $configsh set hook_4 caio)"
+test "$(_ws_config_edit $configsh get hook_4)" = "caio" || fail ws_config_edit exstvar value
+var="$(_ws_config_edit $configsh del hook_4)"
+test $? -eq 0 -a "$var" = "" || fail ws_config_edit del op
+fgrep -q hook_4 $configsh && fail ws_config_edit del check
+var="$(_ws_config_edit $configsh del hook_4)"
+test $? -eq 0 -a "$var" = "" || fail ws_config_edit del novar
+
+test "$(fgrep _wshook__variables= $configsh)" = '_wshook__variables=" hook_1 hook_2 hook_3"' || fail ws__variables assert
+var="$(_ws_config_vars_edit $configsh add hook_4)"
+test $? -eq 0 -a "$var" = "" || fail ws_config_vars add op
+test "$(fgrep _wshook__variables= $configsh)" = '_wshook__variables=" hook_1 hook_2 hook_3 hook_4"' || fail ws_config_vars add var
+var="$(_ws_config_vars_edit $configsh remove hook_4)"
+test $? -eq 0 -a "$var" = "" || fail ws_config_vars remove op
+test "$(fgrep _wshook__variables= $configsh)" = '_wshook__variables=" hook_1 hook_2 hook_3"' || fail ws_config_vars remove var
+
+test "$(_ws_config list xyzzy)" = $'hook_1\nhook_2\nhook_3' || fail ws+config list
+test "$(_ws_config get xyzzy hook_1)" = "hello" || fail ws+config get
+var="$(_ws_config set xyzzy hook_4 adios)"
+test $? -eq 0 -a "$var" = "" || tail ws+config set new rc
+test "$(_ws_config get xyzzy hook_4)" = "adios" || fail ws+config set new value
+var="$(_ws_config del xyzzy hook_4 adios)"
+test $? -eq 0 -a "$var" = "" || tail ws+config del
+var="$(_ws_config get xyzzy hook_4)"
+test $? -eq 1 -a "$var" = "" || tail ws+config get novar
 
 echo "tests complete."
