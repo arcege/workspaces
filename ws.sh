@@ -119,6 +119,16 @@ _ws_debug () {
     esac
 }
 
+_ws_upgrade_warning () {
+    \cat <<'EOF' >&2
+It appears that the install program did not run. While hooks will still be
+called for backward compatibility, some aspects (e.g. config mgmt) may not
+work properly.
+Please run ./install.sh from the distribution which will upgrade the
+data structures for the new release of workspaces.
+EOF
+}
+
 # implement a stack
 # * last - print the top item on the stack
 # * push - add an item to the stack
@@ -276,7 +286,11 @@ _ws_link () {
 _ws_config_edit () {
     _ws_debug 7 args "$@"
     local file=$1 op=$2 var=$3 val=$4
-    if [ ! -f $file -a $op != set ]; then
+    if [ -d ${file%/*} ]; then
+        _ws_debug 2 "Workspaces need upgrade"
+        _ws_upgrade_warning
+        return 1
+    elif [ ! -f $file -a $op != set ]; then
         _ws_debug 3 "no config file $file"
         return 1
     fi
@@ -328,7 +342,11 @@ _ws_config_edit () {
 _ws_config_vars_edit () {
     _ws_debug 7 args "$@"
     local file="$1" op="$2" var="$3" sedscr
-    if [ ! -f "$file" ]; then
+    if [ -d ${file%/*} ]; then
+        _ws_debug 2 "Workspaces need upgrade"
+        _ws_upgrade_warning
+        return 1
+    elif [ ! -f "$file" ]; then
         _ws_debug 2 "File missing: $file" >&2
         return 1
     fi
@@ -378,7 +396,7 @@ _ws_config () {
             fi
             ;;
         "")
-            echo "config: expecting 'del', 'get', 'list' or 'set'" >&2
+            echo "config: expecting 'del', 'get', 'help', 'list' or 'set'" >&2
             return 1
             ;;
     esac
@@ -510,6 +528,10 @@ _ws_hooks () {
         # if no context ($2==""), then just return
         enter:|leave:) return ;;
     esac
+    if [ ! -d $WS_DIR/.ws -o ! -d $wsdir/.ws ]; then
+        _ws_debug 2 "Workspaces need upgrade"
+        _ws_upgrade_warning
+    fi
     wsdir=$(_ws_getdir "$context") \
         && _ws_hook $WS_DIR $op $wsdir \
         && _ws_hook $wsdir $op $wsdir
@@ -783,19 +805,20 @@ ws [<cmd>] [<name>]
   enter [<name>]             - show the current workspace or enter one
   leave                      - leave current workspace
   create <name> [<cfg*>]...  - create a new workspace
-  destroy name|-             - destroy a workspace ('-' alias for current)
+  destroy+ name|-            - destroy a workspace ('-' alias for current)
   current                    - show current workspace (same as 'ws enter')
   relink [<name>]            - reset ~/workspace symlink
   list                       - show available workspaces
   stack                      - show workspaces on the stack
   initialize                 - create the workspaces structure
-  config <op> <wsname> ...   - modify config variables
+  config+ <op> <wsname> ...  - modify config variables
   help|-h|--help             - this message
   version                    - display version number
   [<name>]                   - same as 'ws enter [<name>]'
 * <cfg> is either a filename ('=' not allowed) with configuration assignments
   or variable assignments in the form VAR=VALUE
   these are added to the config.sh file before the 'create' hook is called.
++ some commands allow '-' as an alias for the current working directory
 EOF
 }
 
