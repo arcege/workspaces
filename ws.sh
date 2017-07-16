@@ -886,6 +886,8 @@ ws () {
             local wsfile
             if [ -n "$1" -a -f "$1" ]; then
                 wsfile="$1"
+            elif [ -d $HOME/.bash.d ]; then
+                wsfile=${_WS_SOURCE:-${HOME}/.bash.d/ws.sh}
             else
                 wsfile=${_WS_SOURCE:-${HOME}/.bash/ws.sh}
             fi

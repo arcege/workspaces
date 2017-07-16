@@ -13,8 +13,13 @@ if [ ${DEBUG:-0} = 1 ]; then
 fi
 
 installation () {
-    mkdir -p $HOME/.bash
-    cp -p ./ws.sh $HOME/.bash/ws.sh
+    if [ -d $HOME/.bash ]; then
+        BASHDIR=$HOME/.bash
+    else
+        BASHDIR=$HOME/.bash.d
+    fi
+    mkdir -p $BASHDIR
+    cp -p ./ws.sh $BASHDIR/ws.sh
 }
 
 oldmd5s_hook_sh="\
@@ -70,9 +75,10 @@ update_hook () {
 }
 
 update_config () {
-    local wsdir=$1 name=$2
-    if [ ! -f $wsdir/.ws/$name -o ! -s $wsdir/.ws/$name ]; then
-        _ws_generate_config $wsdir
+    local wsdir=$1 name=$2 file
+    file="$wsdir/.ws/$name"
+    if [ ! -f $file -o ! -s $wsdir/.ws/$name ]; then
+        _ws_generate_config $wsdir/.ws/config.sh
         echo "New config $wsdir/.ws/$name"
     elif ! fgrep -q _wshook__variables $wsdir/.ws/$name; then
         # this gathers the variable names and add to the hook unset "registry" var
@@ -131,7 +137,7 @@ pre_initialization () {
             if type ws 2>/dev/null | fgrep -qw reload >/dev/null; then
                 echo "Run 'ws reload' to get update."
             else
-                echo "Source $HOME/.bash/ws.sh to get update."
+                echo "Source $BASHDIR/ws.sh to get update."
             fi
             update_hook_scripts
             ;;
@@ -169,13 +175,13 @@ bash_processing () {
         upgrade)
             ;;
         *)
-            # check if .bash processing in one of the profile scripts
+            # check if .bash{,.d} processing in one of the profile scripts
             found=false
             last=
             for file in $HOME/.profile $HOME/.bash_profile $HOME/.bashrc; do
                 if [ -f $file ]; then
                     last=$file
-                    if fgrep -w .bash $file >/dev/null 2>&1; then
+                    if fgrep -w ${BASHDIR##*/} $file >/dev/null 2>&1; then
                         found=true
                         break
                     fi
@@ -187,20 +193,22 @@ bash_processing () {
                 test ! -e $last && (echo 0a; echo :; echo .; echo w) | ed - "$last"
 
                 #last=/dev/null  # for debugging
-                ed - "$last" <<'EOF'
-$a
+                ed - "$last" <<EOF
+\$a
 
-if test -d ${HOME}/.bash
+if test -d \${HOME}/${BASHDIR##*/}
 then
-    for file in ${HOME}/.bash/*.sh
+    for file in \${HOME}/${BASHDIR##*/}/*.sh
     do
-        case $file in
-            "${HOME}/.bash/*.sh") :;;  # not found
-            *) . ${file} ;;
+        case \$file in
+            "\${HOME}/${BASHDIR##*/}/*.sh") :;;  # not found
+            *) . \${file} ;;
         esac
     done
     unset file
 fi
+.
+w
 EOF
 
             fi
@@ -245,6 +253,10 @@ main () {
     installation
 
     source ./ws.sh
+
+    # for just in this script, we'll ignore the upgrade warnings
+    # (or we'll get false messages).
+    _ws_upgrade_warning () { true; }
 
     pre_initialization $operation
 
