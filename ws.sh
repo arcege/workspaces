@@ -460,7 +460,7 @@ EOF
 
 _ws_hooks () {
     _ws_debug 7 args "$@"
-    # run $WS_DIR/.ws/hook.sh and $WS_DIR/wsname/.ws.hook.sh  scripts,
+    # run $WS_DIR/.ws/hook.sh and $WS_DIR/wsname/.ws.hook.sh scripts,
     # passing "create", "destroy", "enter" or "leave"
     # run $WORKSPACE/.ws/hook.sh script, passing the same
     # calls to hook.sh are NOT sandboxed as they should affect the environment
@@ -635,7 +635,8 @@ _ws_create () {
         _ws_debug 2 "no name"
         return 1
     else
-        mkdir "$wsdir"
+        local result
+        result=$(mkdir "$wsdir" 2>&1)
         if [ $? -eq 0 ]; then
             shift  # pop wsname from the arg list
             local i tmpfile="${TMPDIR:-/tmp}/ws.cfg.$$.${wsname}"
