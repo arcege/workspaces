@@ -66,7 +66,7 @@ esac
 
 # global constants, per shell
 # unfortunately, bash 3 (macos) does not support declaring global vars
-WS_VERSION=0.2.2
+WS_VERSION=0.2.3
 
 : ${WS_DIR:=$HOME/workspaces}
 : ${_WS_DEBUGFILE:=$WS_DIR/.log}
@@ -951,6 +951,10 @@ if echo $- | fgrep -q i; then  # only for interactive
                     ;;
                 config)
                     COMPREPLY=( $(compgen -W "del get help list set" -- ${cur}) )
+                    return 0
+                    ;;
+                reload)
+                    COMPREPLY=( $(compgen -f -- ${cur}) )
                     return 0
                     ;;
             esac
