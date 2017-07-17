@@ -27,6 +27,7 @@ oldmd5s_hook_sh="\
 50e88ec3fe9fbea07dc019dc4966b601
 5434fb008efae18f9478ecd8840c61c6
 c57af9e435988bcaed1dad4ca3c942fe
+fcf0781bba73612cdc4ed6e26fcea8fc
 "
 
 update_hook () {
@@ -77,20 +78,13 @@ update_hook () {
 update_config () {
     local wsdir=$1 name=$2 file
     file="$wsdir/.ws/$name"
-    if [ ! -f $file -o ! -s $wsdir/.ws/$name ]; then
-        _ws_generate_config $wsdir/.ws/config.sh
-        echo "New config $wsdir/.ws/$name"
-    elif ! fgrep -q _wshook__variables $wsdir/.ws/$name; then
+    if [ ! -f $file -o ! -s $file ]; then
+        _ws_generate_config $file
+        echo "New config $file"
+    elif fgrep -q _wshook__variables $file; then
         # this gathers the variable names and add to the hook unset "registry" var
-        vars=$(sed -ne '/=.*/{;s///;H;};${;g;s/\n/ /g;s/^ //;p}' $wsdir/.ws/$name)
-        ed - $path/.ws/config.sh <<EOF
-0a
-# place variable names in _wshook__variables to be unset when hook completes
-_wshook__variables="$vars"
-.
-w
-EOF
-        echo "Added config _wshook__variables to $wsdir/.ws/$name"
+        sed -i -e '/^_wshook__variables=/d;/^# .*_wshook_variables /d' $file
+        echo "Removed config _wshook__variables from $file"
     fi
 }
 
@@ -219,7 +213,7 @@ EOF
 parse_args () {
     # if already installed, then we should want to upgrade more than
     # install
-    if [ -f $HOME/.bash/ws.sh ]; then
+    if [ \( -f $HOME/.bash.d/ws.sh -o -f $HOME/.bash/ws.sh \) -a -d $HOME/workspaces ]; then
         operation=upgrade
     else
         operation=ignore
