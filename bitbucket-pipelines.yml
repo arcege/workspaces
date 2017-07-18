@@ -4,11 +4,13 @@ pipelines:
   default:
     - step:
         script:
+          - apt-get install -y python-pip
           - pip install -r requirements.txt
           - ./pyerect test
 
   custom:  # manually triggered
     - step:
         script:
+          - apt-get install -y python-pip
           - pip install -r requirements.txt
           - ./pyerect test
