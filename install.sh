@@ -31,47 +31,86 @@ fcf0781bba73612cdc4ed6e26fcea8fc
 "
 
 update_hook () {
-    local rc oldchk chksum state=none tmphook=$1 wsdir=$2 oldname=$3 newname=$4
-    if [ -f $wsdir/$oldname ]; then
-        mv $wsdir/$oldname $wsdir/.ws/$newname
-        state=moved
+    local oldchk chksum state=none tmphook=$1 wsdir=$2 oldname=$3 newname=$4
+    local oldfile=$wsdir/$oldname newfile=$wsdir/.ws/$newname
+    if [ -f $oldfile ]; then
+        chksum=$(md5sum < $oldfile)
+        local found=false
+        for oldchk in $oldmd5s_hook_sh; do
+            if [ "$chksum" = "$oldchk  -" ]; then
+                found=true
+            fi
+        done
+        # $oldname is not one of the release versions, it was changed
+        # so we want to keep it
+        if [ $found = false ]; then
+            mv $oldfile $newfile
+            state=moved
+        fi
     fi
-    if [ -f $wsdir/.ws/$newname ]; then
-        cmp $tmphook $wsdir/.ws/$newname >/dev/null 2>&1
-        rc=$?
-        if [ $rc -ne 0 ]; then
-            chksum=$(md5sum < $wsdir/.ws/$newname)
+    if [ -f $newfile ]; then
+        cmp $tmphook $newfile >/dev/null 2>&1
+        if [ $? -ne 0 ]; then
+            chksum=$(md5sum < $newfile)
             # if the old hook never changed, overwrite it
             for oldchk in $oldmd5s_hook_sh; do
                 if [ "$chksum" = "$oldchk  -" ]; then
-                    cp $tmphook $wsdir/.ws/${newname}
-                    chmod +x $wsdir/.ws/${newname}
+                    cp $tmphook $newfile
+                    chmod +x $newfile
                     state=overwritten
                 fi
             done
             if [ $state = moved ]; then
-                cp $tmphook $wsdir/.ws/${newname}
-                chmod +x $wsdir/.ws/${newname}
+                cp $tmphook $newfile
+                state=adjust
             elif [ $state != overwritten ]; then
-                cp $tmphook $wsdir/.ws/${newname}.new
-                chmod +x $wsdir/.ws/${newname}.new
+                if fgrep -q _wshook__op= $newfile; then
+                    cp $tmpdir $newfile.new
+                    local sedscr1 sedscr2
+                    sedscr1='/_wshook__op=/,/\[ -s "$_wshook__configdir\/config\.sh"/d'
+                    sedscr2='/^# unset the variables registered/,/^unset _wshook__op/d'
+                    mv $newfile $newfile.old
+                    sed -e "$sedscr1" -e "$sedscr2" $newfile.old > $newfile
+                    state=modified
+                else
+                    cp $tmphook $newfile.new
+                    state=update
+                fi
             fi
-            if [ $state = overwritten ]; then
-                echo "Overwritten $wsdir/.ws/$newname"
-            elif [ $state = moved ]; then
-                echo "Moving $wsdir/$oldname to $wsdir/.ws/$newname; update with ${newname}.new"
-            else
-                echo "Update $wsdir/.ws/$newname with ${newname}.new"
-            fi
-        elif [ $state = moved ]; then
-            echo "Moved $wsdir/$oldname to $wsdir/.ws/$newname"
         fi
     else
-        _ws_generate_hook $wsdir/.ws/$newname
-        echo "New hook $wsdir/.ws/$newname"
+        _ws_generate_hook $newfile
+        if [ -f $oldfile ]; then
+            state=replace
+        else
+            state=new
+        fi
     fi
-    if [ ! -x $wsdir/.ws/$newname ]; then
-        chmod +x $wsdir/.ws/$newname
+    if [ -f $newfile -a ! -x $newfile ]; then
+        chmod +x $newfile
+    fi
+    if [ -f $newfile.new -a ! -x $newfile.new ]; then
+        chmod +x $newfile.new
+    fi
+    # emit a msg
+    if [ $state = new ]; then
+        echo "New hook $newfile"
+    elif [ $state = replace ]; then
+        echo "Replaced $oldname with new $newname"
+    elif [ $state = overwritten ]; then
+        echo "Overwritten $newfile"
+    elif [ $state = modified ]; then
+        echo "Modified $newfile; old in $newname.old; new in $newname.new"
+    elif [ $state = moved ]; then
+        echo "Movied $oldfile to $newfile"
+    elif [ $state = adjust ]; then
+        echo "Moved $oldfile to $newfile; update with $newfile.new"
+    elif [ $state = update ]; then
+        echo "Update $newfile with $newfile.new"
+    elif [ $state = none ]; then
+        :
+    else
+        echo "[Unknown state: $state]"
     fi
 }
 
