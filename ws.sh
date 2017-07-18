@@ -31,8 +31,6 @@
 # getting:
 #    $ cat ~/workspaces/myproduct/.ws/config.sh
 #    : assignment used in .ws/hook.sh
-#    # place variable names in _wshook__variables to be unset when hook completes
-#    _wshook__variables="java_dir Repos"
 #    Repos="MyApi MyCore MyUI"
 #    java_dir="/opt/jdk1.8.0_1"
 #
@@ -311,7 +309,6 @@ _ws_config_edit () {
             ;;
         del)
             sed -i -e "/^${var}=/d" "$file"
-            _ws_config_vars_edit "$file" remove "$var"
             ;;
         set)
             if [ ! -f "$file" ]; then
@@ -327,7 +324,6 @@ _ws_config_edit () {
             else
                 echo "${var}=\"${val}\"" >> "$file"
             fi
-            _ws_config_vars_edit "$file" add "$var"
             ;;
         list)
             if [ "x$var" = x-v -o "x$var" = x--verbose ]; then
@@ -337,37 +333,6 @@ _ws_config_edit () {
             fi
             ;;
     esac
-}
-
-# add or remove variable names from _wshook__variables
-# arguments
-#   file  - config.sh file
-#   op  - one of add or remove
-#   var  - variable name
-_ws_config_vars_edit () {
-    _ws_debug 7 args "$@"
-    local file="$1" op="$2" var="$3" sedscr
-    if [ ! -d ${file%/*} ]; then
-        _ws_debug 2 "Workspaces need upgrade"
-        _ws_upgrade_warning
-        return 1
-    elif [ ! -f "$file" ]; then
-        _ws_debug 2 "File missing: $file" >&2
-        return 1
-    fi
-    case $op in
-        add)
-            sedscr="/^_wshook__variables=/{;/${var}/!s/\"$/ ${var}&/;}"
-            ;;
-        remove)
-            sedscr="/^_wshook__variables=/s/ ${var}//"
-            ;;
-        *)
-            _ws_debug 2 "Invalid op: $op" >&2
-            return 1
-            ;;
-    esac
-    sed -i -e "$sedscr" "$file"
 }
 
 # ws+config subcommand
@@ -450,8 +415,6 @@ _ws_generate_config () {
     if [ x${file:+X} = xX -a -d "${file%/*}" ]; then
         cat > "$file" <<EOF
 : assignment used in .ws/hook.sh
-# place variable names in _wshook__variables to be unset when hook completes
-_wshook__variables=""
 EOF
     fi
 }
@@ -470,13 +433,6 @@ _ws_generate_hook () {
 # commands could be run and the environment/shell could be modified.
 # anything set by the enter operation should be wound back by leave;
 # similarly, anything set by create should be removed by destroy.
-_wshook__op=${1:-enter}
-_wshook__workspace=$2
-_wshook__configdir=$(dirname ${BASH_SOURCE[0]})
-_wshook__variables=""
-
-# load config variables, if present
-[ -s "$_wshook__configdir/config.sh" ] && . "$_wshook__configdir/config.sh"
 
 # any variables you use here should be unset at the end; local
 # would not work as this is source'd
@@ -497,49 +453,74 @@ case ${_wshook__op} in
     leave)
         ;;
 esac
-# unset the variables registered
-for name in ${_wshook__variables}; do
-    unset -v $name
-done
-unset name
-unset _wshook__op _wshook__workspace _wshook__configdir _wshook__variables
 EOF
     chmod +x "$1"
     fi
 }
 
-_ws_hook () {
-    local dir="$1" op="$2" wsdir="$3"
-    if [ -x $dir/.ws/hook.sh ]; then
-        source "$dir/.ws/hook.sh" "$op" "$wsdir"; rc=$?
-        _ws_debug 2 "called $dir/.ws/hook.sh $op $wsdir; rc=$rc"
-        return $rc
-    elif [ -f "$dir/.ws.sh" ]; then
-        source "$dir/.ws.sh" "$op" "$wsdir"; rc=$?
-        _ws_debug 2 "called $dir/.ws.sh $op $wsdir; rc=$rc"
-        return $rc
-    fi
-}
-
 _ws_hooks () {
     _ws_debug 7 args "$@"
-    # run $WS_DIR/.ws/hook.sh script, passing "create", "destroy", "enter" or "leave"
+    # run $WS_DIR/.ws/hook.sh and $WS_DIR/wsname/.ws.hook.sh scripts,
+    # passing "create", "destroy", "enter" or "leave"
     # run $WORKSPACE/.ws/hook.sh script, passing the same
     # calls to hook.sh are NOT sandboxed as they should affect the environment
     # the 'leave' should try to put back anything that was changed by 'enter'
     # similarly, 'destroy' should put back anything changed by 'create'
-    local wsdir rc op="${1:-enter}" context=$2
+    # the config.sh variables in $WS_DIR/.ws and $WS_DIR/$context/.ws are
+    # assigned and unset at the end of the script
+    # for backward compatibility, the .ws.sh script would be called if
+    # .ws/hook.sh is not found
+    local hookfile sdir wsdir rc=0 op="${1:-enter}" context=$2
+    local var tmpfile="${TMPDIR:-/tmp}/ws.hook.cfg.$$.${RANDOM}.sh"
+    local _wshook__op _wshook__workspace _wshook__configdir _wshook__variables
+    _wshook__op=${op}
+    _wshook__workspace=${context}
+
     case ${op}:${2:+X} in
         # if no context ($2==""), then just return
         enter:|leave:) return ;;
     esac
-    if [ ! -d $WS_DIR/.ws -o ! -d ${wsdir:-$WS_DIR}/.ws ]; then
-        _ws_debug 2 "Workspaces need upgrade"
-        _ws_upgrade_warning
+    wsdir=$(_ws_getdir $context)
+    if [ $? -ne 0 ]; then
+        _ws_debug 2 "no workspace directory found for $context"
+        return 1
     fi
-    wsdir=$(_ws_getdir "$context") \
-        && _ws_hook $WS_DIR $op $wsdir \
-        && _ws_hook $wsdir $op $wsdir
+    > $tmpfile
+    # gather the variables from $WS_DIR/.ws/config.sh and $wsdir/.ws/config.sh
+    for sdir in $WS_DIR/.ws $wsdir/.ws; do
+        if [ ! -d $sdir ]; then
+            _ws_debug 2 "Workspace needs upgrade"
+            _ws_upgrade_warning
+        fi
+        # get just the variable assignments
+        if [ -r $sdir/config.sh ]; then
+            grep '^[^=]*=' $sdir/config.sh >> $tmpfile
+        fi
+    done
+    # register the variables for later unset
+    _wshook__variables=$(sed -n '/=.*/s///p' $tmpfile | tr '\n' ' ')
+    # load the gathered variables
+    [ -s $tmpfile ] && source $tmpfile
+    for sdir in $WS_DIR $wsdir; do
+        _wshook__configdir="$sdir/.ws"
+        if [ -x $sdir/.ws/hook.sh ]; then
+            hookfile=$sdir/.ws/hook.sh
+        elif [ -f $sdir/.ws.sh ]; then  # backward compatibility
+            hookfile=$sdir/.ws.sh
+        fi
+        source $hookfile
+        local irc=$?
+        if [ $irc -ne 0 ]; then
+            rc=$irc
+        fi
+        _ws_debug 2 "called $hookfile $op $wsdir; rc=$rc"
+    done
+    rm -f $tmpfile
+    _ws_debug 4 "will unset ${_wshook__variables:-<none>}"
+    for var in ${_wshook__variables}; do
+        unset -v $var
+    done
+    return $rc
 }
 
 # enter a workspace, or show the current
@@ -654,7 +635,8 @@ _ws_create () {
         _ws_debug 2 "no name"
         return 1
     else
-        mkdir "$wsdir"
+        local result
+        result=$(mkdir "$wsdir" 2>&1)
         if [ $? -eq 0 ]; then
             shift  # pop wsname from the arg list
             local i tmpfile="${TMPDIR:-/tmp}/ws.cfg.$$.${wsname}"
@@ -762,8 +744,7 @@ _ws_relink () {
 #   1 if WS_DIR does not exist
 _ws_list () {
     _ws_debug 7 args "$@"
-    local link sedscript
-    sedscript=""
+    local link sedscript=""
     link=$(_ws_link get)
     if [ $? -eq 0 ]; then
         sedscript="${sedscript};/^$(basename $link)\$/s/\$/@/"

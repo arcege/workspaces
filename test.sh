@@ -23,7 +23,9 @@ rm -f $_WS_DEBUGFILE
 source $cdir/ws.sh
 
 md5_config_sh='0810621e2e95715f23e31f0327ad8c79'
+md5_config_sh='fcf0781bba73612cdc4ed6e26fcea8fc'
 md5_hook_sh='50e88ec3fe9fbea07dc019dc4966b601'
+md5_hook_sh='bbaf9610a8a1d6fcb59f07db76244ebc'
 
 fail () { echo "failure: $*"; exit 1; }
 
@@ -44,10 +46,8 @@ command -v _ws_copy_skel >&3 || fail routine _ws_copy_skel
 command -v _ws_generate_hook >&3 || fail routine _ws_generate_hook
 command -v _ws_generate_config >&3 || fail routine _ws_generate_config
 command -v _ws_hooks >&3 || fail routine _ws_hooks
-command -v _ws_hook >&3 || fail routine _ws_hook
 command -v _ws_config >&3 || fail routine _ws_config
 command -v _ws_config_edit >&3 || fail routine _ws_config_edit
-command -v _ws_config_vars_edit >&3 || fail routine _ws_config_vars_edit
 
 # check the global variables
 test "$(declare -p WS_DIR)" = "declare -- WS_DIR=\"$HOME/workspaces\"" || fail declare WS_DIR
@@ -108,7 +108,7 @@ test $? -eq 0 -a "$result" = "" -a $(readlink $HOME/workspace) = "$WS_DIR/defaul
   echo 'TEST_VALUE_2=bye'
   echo '_wshook__variables=("TEST_VALUE_2")'
 ) >> $TMPDIR/workspaces/.ws/config.sh
-_ws_hook "$WS_DIR" enter "$WS_DIR" || fail hook+call
+_ws_hooks enter default || fail hook+call
 test x${TEST_VALUE_1:+X} = xX || fail hook+config "value_1 set"
 test x${TEST_VALUE_2:+X} = x || fail hook+config "value_2 unset"
 
@@ -138,13 +138,6 @@ test "$_ws__current" = "foobar" || fail str _ws__current
 # commands could be run and the environment/shell could be modified.
 # anything set by the enter operation should be wound back by leave;
 # similarly, anything set by create should be removed by destroy.
-_wshook__op=${1:-enter}
-_wshook__workspace=$2
-_wshook__configdir=$(dirname ${BASH_SOURCE[0]})
-_wshook__variables=""
-
-# load config variables, if present
-[ -s "$_wshook__configdir/config.sh" ] && . "$_wshook__configdir/config.sh"
 
 wsstate=$_wshook__op
 
@@ -171,12 +164,6 @@ case ${_wshook__op} in
         HasLeft=Elvis
         ;;
 esac
-# unset the variables registered
-if [ -n "$_wshook__variables" ]; then
-    # unset -n is not available in older bash, like on macos
-    eval unset $_wshook__variables
-fi
-unset _wshook__op _wshook__workspace _wshook__configdir _wshook__variables
 EOF
 
 \cat > "$WS_DIR/foobar/.ws/config.sh" <<'EOF'
@@ -185,16 +172,17 @@ InConfig=$_wshook__workspace
 EOF
 
 unset wsstate IsDestroyed HasEntered HasLeft
-_ws_hook "$WS_DIR/foobar" enter "$WS_DIR/foobar"
+_ws_hooks enter foobar; rc=$?
+test $rc -eq 0 || tail hook+var failed
 test x$wsstate = xenter || fail hook+var wsstate
 test x$HasEntered = xyep || fail hook+var HasEntered
 test x$HasLeft = x || fail hook+var unset
 test x$InConfig = x || fail hook+unset InConfig
-_ws_hook "$WS_DIR/foobar" leave "$WS_DIR/foobr"
+_ws_hooks leave foobar
 test x$wsstate = xleave || fail hook+var wsstate
 test x$HasLeft = xElvis || fail hook+var HasLeft
-_ws_hook "$WS_DIR/foobar" create "$WS_DIR/foobar"
-test x$Which = x$WS_DIR/foobar || fail hook+config passthru
+_ws_hooks create foobar
+test x$Which = xfoobar || fail hook+config passthru
 test x${InConfig:+X} = x || fail hook+config unset
 
 ws enter default
@@ -244,7 +232,6 @@ EOF
 ws create xyzzy $configfile hook_3=hola
 configsh=$WS_DIR/xyzzy/.ws/config.sh
 test "$(md5sum < $configsh)" != "$md5_config_sh  -" || fail create+config md5 config.sh
-fgrep -q '_wshook__variables=" hook_1 hook_2 hook_3"' "$configsh" || fail create+config registry
 grep -q '^hook_1=' $configsh \
     && grep -q '^hook_2=' $configsh \
     && grep -q '^hook_3=' $configsh
@@ -264,14 +251,6 @@ test $? -eq 0 -a "$var" = "" || fail ws_config_edit del op
 fgrep -q hook_4 $configsh && fail ws_config_edit del check
 var="$(_ws_config_edit $configsh del hook_4)"
 test $? -eq 0 -a "$var" = "" || fail ws_config_edit del novar
-
-test "$(fgrep _wshook__variables= $configsh)" = '_wshook__variables=" hook_1 hook_2 hook_3"' || fail ws__variables assert
-var="$(_ws_config_vars_edit $configsh add hook_4)"
-test $? -eq 0 -a "$var" = "" || fail ws_config_vars add op
-test "$(fgrep _wshook__variables= $configsh)" = '_wshook__variables=" hook_1 hook_2 hook_3 hook_4"' || fail ws_config_vars add var
-var="$(_ws_config_vars_edit $configsh remove hook_4)"
-test $? -eq 0 -a "$var" = "" || fail ws_config_vars remove op
-test "$(fgrep _wshook__variables= $configsh)" = '_wshook__variables=" hook_1 hook_2 hook_3"' || fail ws_config_vars remove var
 
 test "$(_ws_config list xyzzy)" = $'hook_1\nhook_2\nhook_3' || fail ws+config list
 test "$(_ws_config get xyzzy hook_1)" = "hello" || fail ws+config get
