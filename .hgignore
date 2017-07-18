@@ -1,5 +1,8 @@
 .*.sw[a-z]
 .*\.html
+build
+dist
 home
 test.err
 test.log
+ws.tgz

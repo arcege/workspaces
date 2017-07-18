@@ -1,0 +1,32 @@
+#!/usr/bin/python
+
+from pyerector import *
+from pyerector.api import Subcommand, Task
+
+ReleaseFiles = (
+    'install.sh', 'LICENSE.txt', 'README.md', 'test.sh', 'ws.sh'
+)
+
+WsDir = Path('build', 'workspaces')
+
+Packaging.tasks = (
+    Tar('build/workspaces',
+        root='build', name='dist/workspaces.tgz'),
+)
+
+class SpawnTask(Task):
+    def run(self):
+        prog = self.args[0]
+        Subcommand( (prog,) )
+
+Compile.tasks = (
+    Copy(*ReleaseFiles, dest='build/workspaces'),
+)
+
+Testonly.tasks = (
+    SpawnTask('test.sh', wdir='build/workspaces'),
+)
+InitDirs.files = ( 'build/workspaces', 'dist' )
+Clean.files = ( 'build', 'dist' )
+
+PyErector()
