@@ -48,7 +48,6 @@ command -v _ws_generate_config >&3 || fail routine _ws_generate_config
 command -v _ws_hooks >&3 || fail routine _ws_hooks
 command -v _ws_config >&3 || fail routine _ws_config
 command -v _ws_config_edit >&3 || fail routine _ws_config_edit
-command -v _ws_config_vars_edit >&3 || fail routine _ws_config_vars_edit
 
 # check the global variables
 test "$(declare -p WS_DIR)" = "declare -- WS_DIR=\"$HOME/workspaces\"" || fail declare WS_DIR
