@@ -30,6 +30,15 @@ c57af9e435988bcaed1dad4ca3c942fe
 bbaf9610a8a1d6fcb59f07db76244ebc
 "
 
+case $(uname) in
+    Linux)
+        md5sum () { command md5sum ${1:-"$@"} | awk '{print NF}'; }
+        ;;
+    Darwin)
+        md5sum () { command md5 ${1:-"$@"} | awk '{print $NF}'; }
+        ;;
+esac
+
 update_hook () {
     local oldchk chksum state=none tmphook=$1 wsdir=$2 oldname=$3 newname=$4
     local oldfile=$wsdir/$oldname newfile=$wsdir/.ws/$newname
