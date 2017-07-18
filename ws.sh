@@ -804,7 +804,7 @@ ws [<cmd>] [<name>]
 * <cfg> is either a filename ('=' not allowed) with configuration assignments
   or variable assignments in the form VAR=VALUE
   these are added to the config.sh file before the 'create' hook is called.
-+ some commands allow '-' as an alias for the current working directory
++ some commands allow '-' as an alias for the current workspace.
 EOF
 }
 
