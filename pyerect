@@ -17,14 +17,14 @@ Packaging.tasks = (
 class SpawnTask(Task):
     def run(self):
         prog = self.args[0]
-        Subcommand( (prog,) )
+        Subcommand( (prog,), wdir='build/workspaces' )
 
 Compile.tasks = (
     Copy(*ReleaseFiles, dest='build/workspaces'),
 )
 
 Testonly.tasks = (
-    SpawnTask('test.sh', wdir='build/workspaces'),
+    SpawnTask('./test.sh'),
 )
 InitDirs.files = ( 'build/workspaces', 'dist' )
 Clean.files = ( 'build', 'dist' )
