@@ -189,7 +189,24 @@ _ws_validate () {
         echo "Error: $_ws__current is not a valid workspace; leaving" >&2
         _ws_leave
     fi
-    if [ x${_ws__current:+X} = x -a $(_ws_stack size) -gt  0 ]; then
+    # there are conditions where the items in the stack seem to become missing
+    # blank points to the last blank item
+    local blank size=${#_ws__stack[*]} startmoving=false
+    for (( index = 0; index <= size; index++ )); do
+        if $startmoving; then
+            ${_ws__stack[$blank]}=${_ws__stack[$index]}
+            ${_ws__stack[$index}=""
+            blank=$index
+        elif [ -z "${_ws__stack[$index]} " ]; then
+            startmoving=true
+            blank=$index
+        fi
+    done
+    if [ x${_ws__current:+X} = x -a $(_ws_stack size) -gt 0 ]; then
+        _ws_debug 0 "Current workspace lost; leaving to last workspace."
+        _ws__current=ws-noworkspace-ws  # a sentinal
+        _ws_leave
+    elif [ x${_ws__current:+X} = x ]; then
         case $PWD in
             $WS_DIR/*)
                 local dir=${PWD##$WS_DIR/}
@@ -209,19 +226,6 @@ _ws_validate () {
         echo "Error: $HOME/workspace pointing nowhere; removing" >&2
         _ws_link del
     fi
-    # there are conditions where the items in the stack seem to become missing
-    # blank points to the last blank item
-    local blank size=${#_ws__stack[*]} startmoving=false
-    for (( index = 0; index <= size; index++ )); do
-        if $startmoving; then
-            ${_ws__stack[$blank]}=${_ws__stack[$index]}
-            ${_ws__stack[$index}=""
-            blank=$index
-        elif [ -z "${_ws__stack[$index]} " ]; then
-            startmoving=true
-            blank=$index
-        fi
-    done
 }
 
 # print the workspace directory
