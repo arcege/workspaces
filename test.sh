@@ -4,7 +4,7 @@
 
 exec 2>test.err 3>&2
 
-versionstr=0.2.3
+versionstr=0.2.4
 
 cdir=$PWD
 
