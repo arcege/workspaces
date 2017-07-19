@@ -209,6 +209,19 @@ _ws_validate () {
         echo "Error: $HOME/workspace pointing nowhere; removing" >&2
         _ws_link del
     fi
+    # there are conditions where the items in the stack seem to become missing
+    # blank points to the last blank item
+    local blank size=${#_ws__stack[*]} startmoving=false
+    for (( index = 0; index <= size; index++ )); do
+        if $startmoving; then
+            ${_ws__stack[$blank]}=${_ws__stack[$index]}
+            ${_ws__stack[$index}=""
+            blank=$index
+        elif [ -z "${_ws__stack[$index]} " ]; then
+            startmoving=true
+            blank=$index
+        fi
+    done
 }
 
 # print the workspace directory
@@ -586,7 +599,11 @@ _ws_leave () {
                     ""|/*) wsname=""; wsdir="$1";;
                     *) wsname="$1"; wsdir="$(_ws_getdir "$wsname")";;
                 esac
-                if [ -d "$wsdir" ]; then
+                if [ -z "$1" -a -z "$2" ]; then
+                    wsname=""; wsdir=""
+                    _ws_stack pop
+                    break
+                elif [ -d "$wsdir" ]; then
                     _ws_debug 2 "leaving $oldws ${wsname:+to $wsname}"
                     notvalid=false
                 else
@@ -815,6 +832,10 @@ ws () {
         set -- help
     fi
     cmd="$1"
+    # let's emit what the current workspace and the stack at the beginning
+    # of each execution
+    _ws_debug 6 "$(declare -p _ws__current)"
+    _ws_debug 6 "$(declare -p _ws__stack)"
     shift
     case $cmd in
         help)
