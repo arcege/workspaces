@@ -22,9 +22,7 @@ rm -f $_WS_DEBUGFILE
 
 source $cdir/ws.sh
 
-md5_config_sh='0810621e2e95715f23e31f0327ad8c79'
 md5_config_sh='fcf0781bba73612cdc4ed6e26fcea8fc'
-md5_hook_sh='50e88ec3fe9fbea07dc019dc4966b601'
 md5_hook_sh='bbaf9610a8a1d6fcb59f07db76244ebc'
 
 fail () { echo "failure: $*"; exit 1; }
