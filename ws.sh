@@ -491,13 +491,13 @@ _ws_hooks () {
     local var tmpfile="${TMPDIR:-/tmp}/ws.hook.cfg.$$.${RANDOM}.sh"
     local _wshook__op _wshook__workspace _wshook__configdir _wshook__variables
     _wshook__op=${op}
-    _wshook__workspace=${context}
 
     case ${op}:${2:+X} in
         # if no context ($2==""), then just return
         enter:|leave:) return ;;
     esac
     wsdir=$(_ws_getdir $context)
+    _wshook__workspace="${wsdir}"
     if [ $? -ne 0 ]; then
         _ws_debug 2 "no workspace directory found for $context"
         return 1
@@ -835,7 +835,7 @@ ws () {
     if [ "x$1" = x--help -o "x$1" = x-h ]; then
         set -- help
     fi
-    cmd="$1"
+    local cmd="$1"
     # let's emit what the current workspace and the stack at the beginning
     # of each execution
     _ws_debug 6 "$(declare -p _ws__current)"
