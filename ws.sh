@@ -497,11 +497,11 @@ _ws_hooks () {
         enter:|leave:) return ;;
     esac
     wsdir=$(_ws_getdir $context)
-    _wshook__workspace="${wsdir}"
     if [ $? -ne 0 ]; then
         _ws_debug 2 "no workspace directory found for $context"
         return 1
     fi
+    _wshook__workspace="${wsdir}"
     > $tmpfile
     # gather the variables from $WS_DIR/.ws/config.sh and $wsdir/.ws/config.sh
     for sdir in $WS_DIR/.ws $wsdir/.ws; do
