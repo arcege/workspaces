@@ -180,7 +180,7 @@ _ws_hooks leave foobar
 test x$wsstate = xleave || fail hook+var wsstate
 test x$HasLeft = xElvis || fail hook+var HasLeft
 _ws_hooks create foobar
-test x$Which = xfoobar || fail hook+config passthru
+test x$Which = x$WS_DIR/foobar || fail hook+config passthru
 test x${InConfig:+X} = x || fail hook+config unset
 
 ws enter default
