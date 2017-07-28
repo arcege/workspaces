@@ -2,9 +2,10 @@
 # Copyright @ 2017 Michael P. Reilly. All rights reserved.
 # A small functional test suite
 
-exec 2>test.err 3>&2
+# handle internal redirection
+exec 2>test.err 3>&2 4>/dev/null
 
-versionstr=0.2.4
+versionstr=0.2.5
 
 cdir=$PWD
 
@@ -12,6 +13,12 @@ TMPDIR=/tmp/ws.test.$$
 trap "rm -rf $TMPDIR" 0 1 2 3 15
 mkdir $TMPDIR
 #trap 'rc=$?; echo test failed; exit $rc' ERR
+
+# these are for capturing the output while still running within the shell
+# we are NOT using subshells for testing as variable assignments do not
+# carry through
+cmdout=${TMPDIR}/lastcmd.out
+cmderr=${TMPDIR}/lastcmd.err
 
 unset WORKSPACE
 export HOME=$TMPDIR
@@ -25,27 +32,30 @@ source $cdir/ws.sh
 md5_config_sh='fcf0781bba73612cdc4ed6e26fcea8fc'
 md5_hook_sh='bbaf9610a8a1d6fcb59f07db76244ebc'
 
-fail () { echo "failure: $*"; exit 1; }
+fail () { rc=$?; echo "failure: $*"; exit $rc; }
 
 # check the existence of the main routine ('ws') and subroutines
-command -v ws >&3 || fail cmd ws
-command -v _ws_help >&3 || fail routine _ws_help
-command -v _ws_enter >&3 || fail routine _ws_enter
-command -v _ws_leave >&3 || fail routine _ws_leave
-command -v _ws_create >&3 || fail routine _ws_create
-command -v _ws_destroy >&3 || fail routine _ws_destroy
-command -v _ws_relink >&3 || fail routine _ws_relink
-command -v _ws_list >&3 || fail routine _ws_list
-command -v _ws_validate >&3 || fail routine _ws_validate
-command -v _ws_stack >&3 || fail routine _ws_stack
-command -v _ws_getdir >&3 || fail routine _ws_getdir
-command -v _ws_link >&3 || fail routine _ws_link
-command -v _ws_copy_skel >&3 || fail routine _ws_copy_skel
-command -v _ws_generate_hook >&3 || fail routine _ws_generate_hook
-command -v _ws_generate_config >&3 || fail routine _ws_generate_config
-command -v _ws_hooks >&3 || fail routine _ws_hooks
-command -v _ws_config >&3 || fail routine _ws_config
-command -v _ws_config_edit >&3 || fail routine _ws_config_edit
+command -v ws >&4 || fail cmd ws
+command -v _ws_help >&4 || fail routine _ws_help
+command -v _ws_enter >&4 || fail routine _ws_enter
+command -v _ws_leave >&4 || fail routine _ws_leave
+command -v _ws_create >&4 || fail routine _ws_create
+command -v _ws_destroy >&4 || fail routine _ws_destroy
+command -v _ws_relink >&4 || fail routine _ws_relink
+command -v _ws_list >&4 || fail routine _ws_list
+command -v _ws_validate >&4 || fail routine _ws_validate
+command -v _ws_stack >&4 || fail routine _ws_stack
+command -v _ws_getdir >&4 || fail routine _ws_getdir
+command -v _ws_link >&4 || fail routine _ws_link
+command -v _ws_copy_skel >&4 || fail routine _ws_copy_skel
+command -v _ws_generate_hook >&4 || fail routine _ws_generate_hook
+command -v _ws_generate_config >&4 || fail routine _ws_generate_config
+command -v _ws_hooks >&4 || fail routine _ws_hooks
+command -v _ws_config >&4 || fail routine _ws_config
+command -v _ws_config_edit >&4 || fail routine _ws_config_edit
+command -v _ws_plugin >&4 || fail routine _ws_plugin
+command -v _ws_parse_configvars >&4 || fail routine _ws_parse_configvars
+command -v _ws_process_configvars >&4 || fail routine _ws_process_configvars
 
 # check the global variables
 test "$(declare -p WS_DIR)" = "declare -- WS_DIR=\"$HOME/workspaces\"" || fail declare WS_DIR
@@ -230,10 +240,10 @@ EOF
 ws create xyzzy $configfile hook_3=hola
 configsh=$WS_DIR/xyzzy/.ws/config.sh
 test "$(md5sum < $configsh)" != "$md5_config_sh  -" || fail create+config md5 config.sh
-grep -q '^hook_1=' $configsh \
-    && grep -q '^hook_2=' $configsh \
-    && grep -q '^hook_3=' $configsh
-test $? -eq 0 || fail create+config vars included
+grep -q '^hook_1=' $configsh; rc1=$?
+grep -q '^hook_2=' $configsh; rc2=$?
+grep -q '^hook_3=' $configsh; rc3=$?
+test $rc1 -eq 0 -a $rc2 -eq 0 -a $rc3 -eq 0 || fail create+config vars included
 
 test "$(_ws_config_edit $configsh list)" = $'hook_1\nhook_2\nhook_3' || fail ws_config list
 test "$(_ws_config_edit $configsh get hook_2)" = "goodbye" || fail ws_config_edit get
@@ -259,5 +269,52 @@ var="$(_ws_config del xyzzy hook_4 adios)"
 test $? -eq 0 -a "$var" = "" || tail ws+config del
 var="$(_ws_config get xyzzy hook_4)"
 test $? -eq 1 -a "$var" = "" || tail ws+config get novar
+
+# testing for plugin
+pluginfile=$TMPDIR/plugin
+\cat > $pluginfile <<'EOF'
+:
+
+plugin_ext_value=plugin-run
+case ${_wshook__op} in
+    create) echo creating;;
+    destroy) echo destroying;;
+    enter) echo entering;;
+    leave) echo leaving;;
+esac
+EOF
+
+ws plugin available >$cmdout 2>$cmderr
+test $? -eq 0 -a "$(cat $cmdout)" = "" || fail ws+plugin available empty
+ws plugin install $TMPDIR/plugin
+test $? -eq 0 -a -x $WS_DIR/.ws/plugins/plugin || fail ws+plugin install
+ws plugin available >$cmdout 2>$cmderr
+test $? -eq 0 -a "$(cat $cmdout)" = "plugin" || fail ws+plugin available non-empty
+ws create --plugins plugin testplugin1 >$cmdout 2>$cmderr
+test $? -eq 0 -a -h $WS_DIR/testplugin1/.ws/plugins/plugin || fail ws+create plugin
+test "$(cat $cmdout)" = $'creating\nentering' || fail ws+create plugin running
+test "x${plugin_ext_value}" = xplugin-run || fail ws+plugin add var carried
+var=$(ws plugin list testplugin1)
+test $? -eq 0 -a "x$var" = xplugin || fail ws+plugin list non-empty
+ws plugin remove testplugin1 plugin >$cmdout 2>$cmderr
+test $? -eq 0 -a ! -e $WS_DIR/testplugin1/.ws/plugins/plugin || fail ws+plugin remove
+ws plugin add testplugin1 plugin
+test $? -eq 0 -a -h $WS_DIR/testplugin1/.ws/plugins/plugin || fail ws+plugin add
+
+ws plugin install $TMPDIR/plugin >$cmdout 2>$cmderr
+test $? -eq 1 -a "$(cat $cmderr)" = "Plugin plugin exists" || fail ws+plugin reinstall
+ws plugin install -f $TMPDIR/plugin >$cmdout 2>$cmderr
+test $? -eq 0 -a "$(cat $cmdout)" = "" -a -x $WS_DIR/.ws/plugins/plugin || fail ws+plugin reinstall-force
+test ! -e $WS_DIR/.ws/plugins/other || fail ws+plugin assert no-other
+ws plugin install -n other $TMPDIR/plugin
+test $? -eq 0 -a -x $WS_DIR/.ws/plugins/other || fail ws+plugin install-name
+ws create --plugins "other" testplugin2 >$cmdout 2>$cmderr
+test $? -eq 0 -a "$(ws plugin list testplugin2)" = "other" || fail ws+plugin create+other
+test ! -e $WS_DIR/testplugin2/.ws/plugins/plugin -a -h $WS_DIR/testplugin2/.ws/plugins/other ||
+    fail assert testplugin2 plugins
+ws leave >$cmdout 2>$cmderr
+ws plugin uninstall other >$cmdout 2>$cmderr
+test $? -eq 0 -a ! -e $WS_DIR/.ws/plugins/other -a ! -e $WS_DIR/testplugin2/.ws/plugin/other ||
+    fail ws+plugin uninstall
 
 echo "tests complete."
