@@ -23,7 +23,7 @@ rm -f $_WS_DEBUGFILE
 source $cdir/ws.sh
 
 md5_config_sh='fcf0781bba73612cdc4ed6e26fcea8fc'
-md5_hook_sh='bbaf9610a8a1d6fcb59f07db76244ebc'
+md5_hook_sh='f8f437e22d6023c08e3fb0657a2043a0'
 
 fail () { echo "failure: $*"; exit 1; }
 
@@ -104,10 +104,9 @@ test $? -eq 0 -a "$result" = "" -a $(readlink $HOME/workspace) = "$WS_DIR/defaul
 # checking the hook system
 ( echo 'TEST_VALUE_1=hi'
   echo 'TEST_VALUE_2=bye'
-  echo '_wshook__variables=("TEST_VALUE_2")'
 ) >> $TMPDIR/workspaces/.ws/config.sh
 _ws_hooks enter default || fail hook+call
-test x${TEST_VALUE_1:+X} = xX || fail hook+config "value_1 set"
+test x${TEST_VALUE_1:+X} = x || fail hook+config "value_1 unset"
 test x${TEST_VALUE_2:+X} = x || fail hook+config "value_2 unset"
 
 ws enter default
@@ -137,11 +136,11 @@ test "$_ws__current" = "foobar" || fail str _ws__current
 # anything set by the enter operation should be wound back by leave;
 # similarly, anything set by create should be removed by destroy.
 
-wsstate=$_wshook__op
+wsstate=$wshook__op
 
 # any variables you use here should be unset at the end; local
 # would not work as this is source'd
-case ${_wshook__op} in
+case ${wshook__op} in
     # the current context is NOT this workspace
     create)
         Which=$InConfig
@@ -165,8 +164,7 @@ esac
 EOF
 
 \cat > "$WS_DIR/foobar/.ws/config.sh" <<'EOF'
-_wshook__variables=InConfig
-InConfig=$_wshook__workspace
+InConfig=$wshook__workspace
 EOF
 
 unset wsstate IsDestroyed HasEntered HasLeft

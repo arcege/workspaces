@@ -73,7 +73,7 @@ update_hook () {
                 cp $tmphook $newfile
                 state=adjust
             elif [ $state != overwritten ]; then
-                if fgrep -q _wshook__op= $newfile; then
+                if fgrep -q wshook__op= $newfile; then
                     cp $tmpdir $newfile.new
                     local sedscr1 sedscr2
                     sedscr1='/_wshook__op=/,/\[ -s "$_wshook__configdir\/config\.sh"/d'
@@ -131,7 +131,7 @@ update_config () {
         echo "New config $file"
     elif fgrep -q _wshook__variables $file; then
         # this gathers the variable names and add to the hook unset "registry" var
-        sed -i -e '/^_wshook__variables=/d;/^# .*_wshook_variables /d' $file
+        sed -i -e '/^_wshook__variables=/d;/^# .*_wshook__variables /d' $file
         echo "Removed config _wshook__variables from $file"
     fi
 }

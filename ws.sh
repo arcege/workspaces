@@ -453,7 +453,7 @@ _ws_generate_hook () {
 
 # any variables you use here should be unset at the end; local
 # would not work as this is source'd
-case ${_wshook__op} in
+case ${wshook__op} in
     # the current context is NOT this workspace
     create)
         ;;
@@ -489,8 +489,8 @@ _ws_hooks () {
     # .ws/hook.sh is not found
     local hookfile sdir wsdir rc=0 op="${1:-enter}" context=$2
     local var tmpfile="${TMPDIR:-/tmp}/ws.hook.cfg.$$.${RANDOM}.sh"
-    local _wshook__op _wshook__workspace _wshook__configdir _wshook__variables
-    _wshook__op=${op}
+    local wshook__op wshook__workspace wshook__configdir wshook__variables
+    wshook__op=${op}
 
     case ${op}:${2:+X} in
         # if no context ($2==""), then just return
@@ -501,7 +501,7 @@ _ws_hooks () {
         _ws_debug 2 "no workspace directory found for $context"
         return 1
     fi
-    _wshook__workspace="${wsdir}"
+    wshook__workspace="${wsdir}"
     > $tmpfile
     # gather the variables from $WS_DIR/.ws/config.sh and $wsdir/.ws/config.sh
     for sdir in $WS_DIR/.ws $wsdir/.ws; do
@@ -515,11 +515,11 @@ _ws_hooks () {
         fi
     done
     # register the variables for later unset
-    _wshook__variables=$(sed -n '/=.*/s///p' $tmpfile | tr '\n' ' ')
+    wshook__variables=$(sed -n '/=.*/s///p' $tmpfile | tr '\n' ' ')
     # load the gathered variables
     [ -s $tmpfile ] && source $tmpfile
     for sdir in $WS_DIR $wsdir; do
-        _wshook__configdir="$sdir/.ws"
+        wshook__configdir="$sdir/.ws"
         if [ -x $sdir/.ws/hook.sh ]; then
             hookfile=$sdir/.ws/hook.sh
         elif [ -f $sdir/.ws.sh ]; then  # backward compatibility
@@ -533,8 +533,8 @@ _ws_hooks () {
         _ws_debug 2 "called $hookfile $op $wsdir; rc=$rc"
     done
     rm -f $tmpfile
-    _ws_debug 4 "will unset ${_wshook__variables:-<none>}"
-    for var in ${_wshook__variables}; do
+    _ws_debug 4 "will unset ${wshook__variables:-<none>}"
+    for var in ${wshook__variables}; do
         unset -v $var
     done
     return $rc
