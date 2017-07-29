@@ -8,7 +8,8 @@
 #   enter [name]                - set envvars and change to workspace directory, if no
 #                                 name given, then show current workspace
 #   leave                       - leave workspace, resetting envvars and directory
-#   create <name> [<cfg*>]...   - create a new workspace
+#   create [-p <plugin>...] <name> [<cfg*>]...
+#                               - create a new workspace
 #   destroy <name>|-            - delete an existing workspace ('-' is alias for current workspace)
 #   current                     - show the current workspace (same as enter operator with no name)
 #   relink                      - (re)create ~/workspace symbolic link
@@ -17,6 +18,7 @@
 #   stack                       - show workspaces on the stack, '*' shows current workspace
 #   initialize                  - (re)create the environment
 #   config <op> <wsname> ...    - modify config variables
+#   plugin <op> ...             - manage plugins
 #   help|-h|--help              - display help information
 #   version                     - display version number
 #   [name]                      - same as enter operator
@@ -38,16 +40,21 @@
 # with the arguments 'enter', 'create', 'destroy', or 'leave' when those
 # operations are performed this is useful for setting and unsetting
 # environment variables or running commands specific to a workspace
+# plugins added to a workspace will be called in the same fashion and
+# context as the hook scripts, immediately after.  Plugins installed
 #
 # config structure
 # workspaces/.ws/
 #       config.sh  - file with shell variable assignments
-#       hook.sh  - executed for each workspace by _ws_hook
-#       skel.sh  - copied to workspace config directory as hook.sh
+#       hook.sh    - executed for each workspace by _ws_hook
+#       plugins/   - directory containing available plugin hook scripts
+#       skel.sh    - copied to workspace config directory as hook.sh
 #    <wsname>/
 #       .ws/
 #           config.sh  - file with shell variable assignments
 #           hook.sh  - executed by _ws_hook
+#           plugins/   - directory containing symlinks to active plugin hooks
+#
 # the config.sh is called on every operation, commands should not be executed
 # variables should be assigned
 
@@ -719,7 +726,7 @@ _ws_hooks () {
         elif [ -f $sdir/.ws.sh ]; then  # backward compatibility
             hookfile=$sdir/.ws.sh
         fi
-        source $hookfile $op $wsdir
+        source $hookfile
         local irc=$?
         if [ $irc -ne 0 ]; then
             rc=$irc
@@ -730,7 +737,7 @@ _ws_hooks () {
         if [ "$plugin" = "$wsdir/.ws/plugins/*" ]; then
             break
         fi
-        source $plugin $op $wsdir
+        source $plugin
         local irc=$?
         if [ $irc -ne 0 ]; then
             rc=$irc
