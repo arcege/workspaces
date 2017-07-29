@@ -1,0 +1,14 @@
+:
+# uses github_repos="repo1 repo2 repo3"
+# uses github_org=Arcege or whichever user/organization in github
+
+if [ -n "$github_repos" -a -n "$github_org" ]; then
+    case ${wshook__op} in
+        create)
+            for reponame in $github_repos; do
+                git clone git@github.com:${github_org}/${reponame}.git $wshook__workspace/${reponame}
+            done
+            unset reponame
+            ;;
+    esac
+fi

@@ -1,0 +1,19 @@
+:
+# uses VENV as name of virtual environment
+
+if [ -n "$VENV" ] && command -v workon >/dev/null; then
+    case ${wshook__op} in
+        create)
+            mkvirtualenv $VENV
+            ;;
+        destroy)
+            rmvirtualenv $VENV
+            ;;
+        enter)
+            workon $VENV
+            ;;
+        leave)
+            deactivate
+            ;;
+    esac
+fi

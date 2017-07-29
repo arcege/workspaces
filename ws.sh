@@ -8,7 +8,8 @@
 #   enter [name]                - set envvars and change to workspace directory, if no
 #                                 name given, then show current workspace
 #   leave                       - leave workspace, resetting envvars and directory
-#   create <name> [<cfg*>]...   - create a new workspace
+#   create [-p <plugin>...] <name> [<cfg*>]...
+#                               - create a new workspace
 #   destroy <name>|-            - delete an existing workspace ('-' is alias for current workspace)
 #   current                     - show the current workspace (same as enter operator with no name)
 #   relink                      - (re)create ~/workspace symbolic link
@@ -17,6 +18,7 @@
 #   stack                       - show workspaces on the stack, '*' shows current workspace
 #   initialize                  - (re)create the environment
 #   config <op> <wsname> ...    - modify config variables
+#   plugin <op> ...             - manage plugins
 #   help|-h|--help              - display help information
 #   version                     - display version number
 #   [name]                      - same as enter operator
@@ -38,16 +40,21 @@
 # with the arguments 'enter', 'create', 'destroy', or 'leave' when those
 # operations are performed this is useful for setting and unsetting
 # environment variables or running commands specific to a workspace
+# plugins added to a workspace will be called in the same fashion and
+# context as the hook scripts, immediately after.  Plugins installed
 #
 # config structure
 # workspaces/.ws/
 #       config.sh  - file with shell variable assignments
-#       hook.sh  - executed for each workspace by _ws_hook
-#       skel.sh  - copied to workspace config directory as hook.sh
+#       hook.sh    - executed for each workspace by _ws_hook
+#       plugins/   - directory containing available plugin hook scripts
+#       skel.sh    - copied to workspace config directory as hook.sh
 #    <wsname>/
 #       .ws/
 #           config.sh  - file with shell variable assignments
 #           hook.sh  - executed by _ws_hook
+#           plugins/   - directory containing symlinks to active plugin hooks
+#
 # the config.sh is called on every operation, commands should not be executed
 # variables should be assigned
 
@@ -64,7 +71,7 @@ esac
 
 # global constants, per shell
 # unfortunately, bash 3 (macos) does not support declaring global vars
-WS_VERSION=0.2.4
+WS_VERSION=0.2.5
 
 : ${WS_DIR:=$HOME/workspaces}
 : ${_WS_DEBUGFILE:=$WS_DIR/.log}
@@ -408,6 +415,200 @@ _ws_config () {
     _ws_config_edit "$file" $op "$var" "$val"
 }
 
+_ws_process_configvars () {
+    # split the incoming file ($cfgfile) by '='
+    local wsdir="$1" cfgfile="$2" lhs rhs oldIFS="$IFS" IFS=$'='
+    while read lhs rhs; do
+        _ws_config_edit "$wsdir/.ws/config.sh" set "$lhs" "$rhs"
+    done < $cfgfile
+    IFS="$oldIFS"
+    _ws_debug 0 "Applied vars to $wsdir/.ws/config.sh"
+}
+
+_ws_parse_configvars () {
+    local i cfgfile="$1"
+    local sedscr1 sedscr2
+    sedscr1='s/\t/ /g;s/^ *//;s/ *$//;/_WS_/d;/_ws_/d;/_wshook_/d;/^[^= ]*=/p'
+    sedscr2="/=\"/{;s//=/;s/\".*//;b;};/='/{;s//=/;s/'.*//;b;};s/\(=[^ ]*\).*/\1/"
+    shift
+    for i in "$@"; do
+        case $i in
+            *=*) echo "$i" | sed -ne "$sedscr1" >> $cfgfile;;
+            *)
+                sed -ne "$sedscr1" "$i" | sed -e "$sedscr2" >> $cfgfile;;
+        esac
+    done
+}
+
+_ws_plugin () {
+    _ws_debug 7 args "$@"
+    local wsdir op="$1" wsname="$2"
+    local plugin plugindir=$WS_DIR/.ws/plugins
+    shift
+    case $op in
+        help)
+            echo "ws plugin op args ..."
+            echo "  available                        - show installed plugins"
+            echo "  install [-f] [-n <name>] <file>  - install plugin"
+            echo "  uninstall <name>                 - uninstall plugin"
+            echo "  list <wsname>|--all              - list plugins added to workpace hooks"
+            echo "  add <wsname> <plugin> ...        - add plugin to workspace hooks"
+            echo "  remove <wsname> <plugin> ...     - remove plugin from workspace hooks"
+            return 0
+            ;;
+        available)
+            if [ -d $plugindir ]; then
+                for plugin in $plugindir/*; do
+                    if [ "$plugin" = "$plugindir/*" ]; then
+                        break
+                    fi
+                    echo ${plugin##$plugindir/}
+                done
+            fi
+            return 0
+            ;;
+        install)
+            local name="" file="" force=false
+            while [ $# -gt 0 ]; do
+                case $1 in
+                    -f) force=true;;
+                    -n) shift; name="$1";;
+                    *) file="$1"; shift; break;;
+                esac
+                shift
+            done
+            if [ $# -gt 0 ]; then
+                echo "Not expecting additional arguments" >&2
+                return 1
+            elif [ -z "$file" ]; then
+                echo "Expecting filename" >&2
+                return 1
+            fi
+            if [ -z "$name" ]; then
+                name=${file##*/}
+            fi
+            if [ x$name = xALL ]; then
+                echo "Error: ALL is a reserved word for plugins" >&2
+                return 1
+            fi
+            mkdir -p "${plugindir}"
+            if [ -x $plugindir/$name -a $force = false ]; then
+                echo "Plugin $name exists" >&2
+                return 1
+            elif [ ! -r $file ]; then
+                echo "Plugin file ($file) not readable" >&2
+                return 1
+            fi
+            cp -p $file $plugindir/$name
+            chmod u+x $plugindir/$name
+            _ws_debug 2 "Installed $plugindir/$name"
+            return 0
+            ;;
+        uninstall)
+            local name="$1" dir wsdir
+            for dir in $WS_DIR/*/.ws; do
+                wsdir=${dir%/.ws}
+                wsname=${wsdir##*/}
+                _ws_plugin remove "$wsname" "$name"
+            done
+            if [ -x "$plugindir/$name" ]; then
+                rm "$plugindir/$name"
+                _ws_debug 2 "Uninstalled $plugindir/$name"
+            else
+                echo "Plugin $name is not installed." >&2
+                return 1
+            fi
+            return 0
+            ;;
+        list)
+            local dir name wsdir wsname="$1"
+            if [ -z "$wsname" ]; then
+                echo "Expecting workspace name" >&2
+                return 1
+            elif [ "x${wsname}" = x- ]; then
+                wsname="${_ws__current:--}"
+            fi
+            if [ "x$wsname" = x--all ]; then
+                for dir in $WS_DIR/*/.ws; do
+                    wsdir="${dir%/*}"
+                    name="${wsdir##*/}"
+                    echo "${name}:"
+                    _ws_plugin list "${name}" | sed 's/^/    /'
+                done
+            else
+                wsdir=$(_ws_getdir "$wsname")
+                if [ $? -ne 0 ]; then
+                    echo "No workspace exists for $wsname" >&2
+                    return 1
+                elif [ -d "${wsdir}/.ws/plugins" ]; then
+                    for name in "${wsdir}/.ws/plugins"/*; do
+                        if [ "$name" = "${wsdir}/.ws/plugins/*" ]; then
+                            break
+                        fi
+                        echo "${name##*/}"
+                    done
+                fi
+            fi
+            return 0
+            ;;
+        add)
+            local wsdir wsname="$1" plugin
+            shift  # rest of the arguments will be plugin names
+            if [ -z "$wsname" ]; then
+                echo "Expecting workspace name" >&2
+                return 1
+            elif [ "x${wsname}" = x- ]; then
+                wsname="${_ws__current:--}"
+            fi
+            wsdir=$(_ws_getdir $wsname)
+            if [ $? -ne 0 ]; then
+                echo "No workspace exist for $wsname" >&2
+                return 1
+            fi
+            mkdir -p "${wsdir}/.ws/plugins"
+            rc=0
+            if [ "x$1" = xALL ]; then
+                set -- $(ws plugin available)
+            fi
+            for plugin in "$@"; do
+                if [ ! -x "${plugindir}/${plugin}" ]; then
+                    echo "Plugin $name not installed" >&2
+                    rc=1
+                elif [ ! -h "${wsdir}/.ws/plugins/${plugin}" ]; then
+                    ln -s "${plugindir}/${plugin}" "${wsdir}/.ws/plugins/${plugin}"
+                    _ws_debug 2 "Added $plugin to $wsname"
+                fi
+            done
+            return $rc
+            ;;
+        remove)
+            local wsdir wsname="$1" plugin
+            shift  # rest of the arguments will be plugin names
+            if [ -z "$wsname" ]; then
+                echo "Expecting workspace name" >&2
+                return 1
+            elif [ "x$wsname" = x- ]; then
+                wsname="${_ws__current:--}"
+            fi
+            wsdir=$(_ws_getdir "$wsname")
+            if [ $? -ne 0 ]; then
+                echo "No workspace exist for $wsname" >&2
+                return 1
+            fi
+            if [ "x$1" = xALL ]; then
+                set -- $(ws plugin list $wsname)
+            fi
+            for plugin in "$@"; do
+                if [ -h "${wsdir}/.ws/plugins/${plugin}" ]; then
+                    rm -f "${wsdir}/.ws/plugins/${plugin}"
+                    _ws_debug 2 "Removed $plugin from $wsname"
+                fi
+            done
+            return 0
+            ;;
+    esac
+}
+
 # copy the skel hook script to the workspace
 # arguments:
 #   workspace directory
@@ -532,6 +733,17 @@ _ws_hooks () {
         fi
         _ws_debug 2 "called $hookfile $op $wsdir; rc=$rc"
     done
+    for plugin in "$wsdir/.ws/plugins"/*; do
+        if [ "$plugin" = "$wsdir/.ws/plugins/*" ]; then
+            break
+        fi
+        source $plugin
+        local irc=$?
+        if [ $irc -ne 0 ]; then
+            rc=$irc
+        fi
+        _ws_debug 2 "called $plugin $op $wsdir; rc=$rc"
+    done
     rm -f $tmpfile
     _ws_debug 4 "will unset ${wshook__variables:-<none>}"
     for var in ${wshook__variables}; do
@@ -643,13 +855,15 @@ _ws_leave () {
 # loaded on calls to {wsdir}/.ws/hooks.sh
 # arguments:
 #  workspace name
-#  cfg ... (optional)
+#  plugins    - list of plugins to add
+#  cfgfile    - file containing var=val pairs
 # result code:
 #   1 if no workspace name given, or
 #     if workspace already exists
 _ws_create () {
     _ws_debug 7 args "$@"
-    local wsdir wsname=${1:-""} configfile=${2:-""}
+    local plugin wsdir wsname=${1:-""} plugins="$2" cfgfile="$3"
+    wsname="${1:-""}"
     wsdir="$(_ws_getdir "$wsname")"
     if [ -z "$wsname" ]; then
         echo "No name given" >&2
@@ -660,33 +874,18 @@ _ws_create () {
         result=$(mkdir "$wsdir" 2>&1)
         if [ $? -eq 0 ]; then
             shift  # pop wsname from the arg list
-            local i tmpfile="${TMPDIR:-/tmp}/ws.cfg.$$.${wsname}"
-            local sedscr1 sedscr2
-            sedscr1='s/\t/ /g;s/^ *//;s/ *$//;/_WS_/d;/_ws_/d;/_wshook_/d;/^[^= ]*=/p'
-            sedscr2="/=\"/{;s//=/;s/\".*//;b;};/='/{;s//=/;s/'.*//;b;};s/\(=[^ ]*\).*/\1/"
-            # process the config (files or assignments) passed on the command-line
-            for i in "$@"; do
-                case $i in
-                    *=*) echo "$i" | sed -ne "$sedscr1" >> $tmpfile;;
-                    *) sed -ne "$sedscr1" $i | sed -e "$sedscr2" >> $tmpfile;;
-                esac
-            done
             mkdir -p "$wsdir/.ws"
             _ws_copy_skel "$wsdir"
             _ws_generate_config "$wsdir/.ws/config.sh"
             # add assignments from cli
-            if [ -s "$tmpfile" ]; then
-                # split the incoming file ($tmpfile) by '='
-                local lhs rhs oldIFS="$IFS"; IFS=$'='
-                while read lhs rhs; do
-                    _ws_config_edit $wsdir/.ws/config.sh set "$lhs" "$rhs"
-                done < $tmpfile
-                IFS="$oldIFS"
-                _ws_debug 0 "Applied vars to $wsdir/.ws/config.sh"
+            if [ -s "$cfgfile" ]; then
+                _ws_process_configvars "$wsdir" "$cfgfile"
             fi
+            for plugin in $plugins; do
+                _ws_plugin add $wsname $plugin
+            done
             _ws_hooks create $wsname
             _ws_debug 1 "$wsdir created"
-            rm -f $tmpfile
         elif [ -d "$wsdir" ]; then
             echo "Workspace already exists" >&2
             _ws_debug 2 "workspace exists"
@@ -811,7 +1010,7 @@ _ws_help () {
 ws [<cmd>] [<name>]
   enter [<name>]             - show the current workspace or enter one
   leave                      - leave current workspace
-  create <name> [<cfg*>]...  - create a new workspace
+  create++ <name> [<cfg*>]...  - create a new workspace
   destroy+ name|-            - destroy a workspace ('-' alias for current)
   current                    - show current workspace (same as 'ws enter')
   relink [<name>]            - reset ~/workspace symlink
@@ -819,6 +1018,7 @@ ws [<cmd>] [<name>]
   stack                      - show workspaces on the stack
   initialize                 - create the workspaces structure
   config+ <op> <wsname> ...  - modify config variables
+  plugin+ <op> ...           - manage plugins (installable hooks)
   help|-h|--help             - this message
   version                    - display version number
   [<name>]                   - same as 'ws enter [<name>]'
@@ -826,6 +1026,7 @@ ws [<cmd>] [<name>]
   or variable assignments in the form VAR=VALUE
   these are added to the config.sh file before the 'create' hook is called.
 + some commands allow '-' as an alias for the current workspace.
+++ plugins added with '-p plugins...' or '--plugins plugins...'
 EOF
 }
 
@@ -857,8 +1058,25 @@ ws () {
             # pop off the command from the arg list
             # the now first argument is the name
             # the rest are cfg files or variable assignments
-            _ws_create "$@"
-            _ws_enter "$1"
+            local plugins plugin configfile wsname
+            while [ $# -gt 0 ]; do
+                case $1 in
+                    -p|--plugins) plugins="$2"; shift;;
+                    -*) echo "Invalid option: $1" >&2; return 1;;
+                    *) break;;  # don't shift
+                esac
+                shift
+            done
+            if [ "x$plugins" = xALL ]; then
+                plugins="$(_ws_plugin available)"
+            fi
+            wsname="$1"; shift
+            configfile="${TMPDIR:-/tmp}/ws.cfg.$$.${wsname}"
+            # process the config (files or assignments) passed on the command-line
+            _ws_parse_configvars ${configfile} "$@"
+            _ws_create "$wsname" "$plugins" $configfile
+            rm -f ${configfile}
+            _ws_enter "$wsname"
             ;;
         destroy)
             local wsname
@@ -889,6 +1107,9 @@ ws () {
         config)
             _ws_config "$@"
             ;;
+        plugin)
+            _ws_plugin "$@"
+            ;;
         state)
             echo "root=$WS_DIR" "ws='$_ws__current'"
             _ws_stack state
@@ -913,7 +1134,7 @@ ws () {
             _ws_debug config "$1"
             ;;
         initialize)
-            mkdir -p $WS_DIR/.ws
+            mkdir -p $WS_DIR/.ws/plugins
             _ws_generate_hook "${WS_DIR}/.ws/hook.sh"
             _ws_generate_hook "${WS_DIR}/.ws/skel.sh"
             _ws_generate_config "${WS_DIR}/.ws/config.sh"
@@ -940,7 +1161,7 @@ if echo $- | fgrep -q i; then  # only for interactive
         fi
         prev="${COMP_WORDS[COMP_CWORD-1]}"
         options="-h --help"
-        operators="config create current destroy enter help initialize leave list relink stack version"
+        operators="config create current destroy enter help initialize leave list plugin relink stack version"
         names=$(ws list | tr -d '*@' | tr '\n' ' ')
         if [ $COMP_CWORD -eq 1 ]; then
             COMPREPLY=( $(compgen -W "$operators $options $names" -- ${cur}) )
@@ -959,8 +1180,16 @@ if echo $- | fgrep -q i; then  # only for interactive
                     COMPREPLY=( $(compgen -W "del get help list set" -- ${cur}) )
                     return 0
                     ;;
+                plugin)
+                    COMPREPLY=( $(compgen -W "add help install available list remove uninstall" -- ${cur}) )
+                    return 0
+                    ;;
                 reload)
                     COMPREPLY=( $(compgen -f -- ${cur}) )
+                    return 0
+                    ;;
+                create)
+                    COMPREPLY=( $(compgen -W "-p --plugins" -- ${cur}) )
                     return 0
                     ;;
             esac
@@ -975,6 +1204,40 @@ if echo $- | fgrep -q i; then  # only for interactive
             case ${COMP_WORDS[2]} in
                 del|get|set)
                     COMPREPLY=( $(compgen -W "$(ws config list ${COMP_WORDS[3]})" -- ${cur}) )
+                    return 0
+                    ;;
+                list)
+                    COMPREPLY=( $(compgen -W "-v --verbose" -- ${cur}) )
+                    return 0
+                    ;;
+            esac
+        elif [ $COMP_CWORD -eq 3 -a ${curop} = plugin ]; then
+            case $prev in
+                available)
+                    COMPREPLY=( )
+                    return 0
+                    ;;
+                install)
+                    COMPREPLY=( $(compgen -f -- ${cur}) )
+                    return 0
+                    ;;
+                uninstall)
+                    COMPREPLY=( $(compgen -W "$(ws plugin available)" -- ${cur}) )
+                    return 0
+                    ;;
+                list)
+                    COMPREPLY=( $(compgen -W "- --all $names" -- ${cur}) )
+                    return 0
+                    ;;
+                add|remove)
+                    COMPREPLY=( $(compgen -W "- $names" -- ${cur}) )
+                    return 0
+                    ;;
+            esac
+        elif [ $COMP_CWORD -ge 4 -a ${curop} = plugin ]; then
+            case ${COMP_WORDS[2]} in
+                add|remove)
+                    COMPREPLY=( $(compgen -W "ALL $(ws plugin available)" -- ${cur}) )
                     return 0
                     ;;
                 list)

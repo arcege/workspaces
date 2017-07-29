@@ -155,6 +155,17 @@ update_hook_scripts () {
     rm -f $tmphook
 }
 
+install_plugins () {
+    local file destdir=$WS_DIR/.ws/plugins
+    for file in plugins/*; do
+        if [ "$file" = "plugins/*" ]; then
+            break
+        elif [ ! -e "$destdir/${file##*/}" ]; then
+            ws plugin install $file
+        fi
+    done
+}
+
 pre_initialization () {
     case $1 in
         ignore)
@@ -198,6 +209,8 @@ initialization () {
 }
 
 post_initialization () {
+    install_plugins
+
     case $1 in
         replace)
             if [ $movingworkspace = true ]; then

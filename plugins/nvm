@@ -1,0 +1,18 @@
+:
+# Uses NODE as the nodejs version
+
+if [ -n "$NODE" ] && command -v nvm >/dev/null; then
+    case ${wshook__op} in
+        create)
+            nvm install $NODE
+            ;;
+        enter)
+            nvm use $NODE
+            export NODEJS_VERSION="${NODE}"
+            ;;
+        leave)
+            nvm use system
+            unset NODEJS_VERSION
+            ;;
+    esac
+fi
