@@ -4,7 +4,7 @@
 # creates a 'cd' function that changes the context
 # of "HOME" to the workspace
 
-case ${_wshook__op} in
+case ${wshook__op} in
     enter)
         export CDPATH="${CDPATH}:$WORKSPACE"
         CDHOME="$WORKSPACE"

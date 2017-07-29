@@ -1,20 +1,19 @@
 :
 # uses VENV as name of virtual environment
 
-[ -z "$VENV" ] && return 0
-command -v workon >/dev/null || return 0
-
-case ${_wshook__op} in
-    create)
-        mkvirtualenv $VENV
-        ;;
-    destroy)
-        rmvirtualenv $VENV
-        ;;
-    enter)
-        workon $VENV
-        ;;
-    leave)
-        deactivate
-        ;;
-esac
+if [ -n "$VENV" ] && command -v workon >/dev/null; then
+    case ${wshook__op} in
+        create)
+            mkvirtualenv $VENV
+            ;;
+        destroy)
+            rmvirtualenv $VENV
+            ;;
+        enter)
+            workon $VENV
+            ;;
+        leave)
+            deactivate
+            ;;
+    esac
+fi

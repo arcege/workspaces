@@ -1,14 +1,13 @@
 # uses Repos="repo1 repo2 repo3"
 # uses bitbucket_org=Arcege or whichever user/organization in bitbucket
 
-[ -z "$bitbucket_repos" ] && return 0
-[ -z "$bitbucket_org" ] && return 0
-
-case ${_wshook__op} in
-    create)
-        for reponame in $bitbucket_repos; do
-            hg clone ssh://@bitbucket.org/${bitbucket_org}/${reponame} $_wshook__workspace/${reponame}
-        done
-        unset reponame
-        ;;
-esac
+if [ -n "$bitbucket_repos" -a -n "$bitbucket_org" ]; then
+    case ${wshook__op} in
+        create)
+            for reponame in $bitbucket_repos; do
+                hg clone ssh://@bitbucket.org/${bitbucket_org}/${reponame} $wshook__workspace/${reponame}
+            done
+            unset reponame
+            ;;
+    esac
+fi
