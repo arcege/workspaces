@@ -274,7 +274,7 @@ pluginfile=$TMPDIR/plugin
 :
 
 plugin_ext_value=plugin-run
-case ${_wshook__op} in
+case ${wshook__op} in
     create) echo creating;;
     destroy) echo destroying;;
     enter) echo entering;;
