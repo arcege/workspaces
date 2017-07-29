@@ -445,8 +445,8 @@ _ws_plugin () {
             echo "  install [-f] [-n <name>] <file>  - install plugin"
             echo "  uninstall <name>                 - uninstall plugin"
             echo "  list <wsname>|--all              - list plugins added to workpace hooks"
-            echo "  add <wsname> <plugin>            - add plugin to workspace hooks"
-            echo "  remove <wsname> <plugin>         - remove plugin from workspace hooks"
+            echo "  add <wsname> <plugin> ...        - add plugin to workspace hooks"
+            echo "  remove <wsname> <plugin> ...     - remove plugin from workspace hooks"
             return 0
             ;;
         available)
@@ -545,12 +545,10 @@ _ws_plugin () {
             return 0
             ;;
         add)
-            local wsdir wsname="$1" plugin="$2"
+            local wsdir wsname="$1" plugin
+            shift  # rest of the arguments will be plugin names
             if [ -z "$wsname" ]; then
                 echo "Expecting workspace name" >&2
-                return 1
-            elif [ -z "$plugin" ]; then
-                echo "Expecting plugin name" >&2
                 return 1
             elif [ "x${wsname}" = x- ]; then
                 wsname="${_ws__current:--}"
@@ -561,22 +559,26 @@ _ws_plugin () {
                 return 1
             fi
             mkdir -p "${wsdir}/.ws/plugins"
-            if [ ! -x "${plugindir}/${plugin}" ]; then
-                echo "Plugin $name not installed" >&2
-                return 1
-            elif [ ! -h "${wsdir}/.ws/plugins/${plugin}" ]; then
-                ln -s "${plugindir}/${plugin}" "${wsdir}/.ws/plugins/${plugin}"
-                _ws_debug 2 "Added $plugin to $wsname"
+            rc=0
+            if [ "x$1" = xALL ]; then
+                set -- $(ws plugin available)
             fi
-            return 0
+            for plugin in "$@"; do
+                if [ ! -x "${plugindir}/${plugin}" ]; then
+                    echo "Plugin $name not installed" >&2
+                    rc=1
+                elif [ ! -h "${wsdir}/.ws/plugins/${plugin}" ]; then
+                    ln -s "${plugindir}/${plugin}" "${wsdir}/.ws/plugins/${plugin}"
+                    _ws_debug 2 "Added $plugin to $wsname"
+                fi
+            done
+            return $rc
             ;;
         remove)
-            local wsdir wsname="$1" plugin="$2"
+            local wsdir wsname="$1" plugin
+            shift  # rest of the arguments will be plugin names
             if [ -z "$wsname" ]; then
                 echo "Expecting workspace name" >&2
-                return 1
-            elif [ -z "$plugin" ]; then
-                echo "Expecting plugin name" >&2
                 return 1
             elif [ "x$wsname" = x- ]; then
                 wsname="${_ws__current:--}"
@@ -586,10 +588,15 @@ _ws_plugin () {
                 echo "No workspace exist for $wsname" >&2
                 return 1
             fi
-            if [ -h "${wsdir}/.ws/plugins/${plugin}" ]; then
-                rm -f "${wsdir}/.ws/plugins/${plugin}"
-                _ws_debug 2 "Removed $plugin from $wsname"
+            if [ "x$1" = xALL ]; then
+                set -- $(ws plugin list $wsname)
             fi
+            for plugin in "$@"; do
+                if [ -h "${wsdir}/.ws/plugins/${plugin}" ]; then
+                    rm -f "${wsdir}/.ws/plugins/${plugin}"
+                    _ws_debug 2 "Removed $plugin from $wsname"
+                fi
+            done
             return 0
             ;;
     esac
@@ -1215,23 +1222,19 @@ if echo $- | fgrep -q i; then  # only for interactive
                     COMPREPLY=( $(compgen -W "- --all $names" -- ${cur}) )
                     return 0
                     ;;
-                add)
-                    COMPREPLY=( $(compgen -W "- $names" -- ${cur}) )
-                    return 0
-                    ;;
-                remove)
+                add|remove)
                     COMPREPLY=( $(compgen -W "- $names" -- ${cur}) )
                     return 0
                     ;;
             esac
-        elif [ $COMP_CWORD -eq 4 -a ${curop} = plugin ]; then
+        elif [ $COMP_CWORD -ge 4 -a ${curop} = plugin ]; then
             case ${COMP_WORDS[2]} in
-                add)
-                    COMPREPLY=( $(compgen -W "$(ws plugin available)" -- ${cur}) )
+                add|remove)
+                    COMPREPLY=( $(compgen -W "ALL $(ws plugin available)" -- ${cur}) )
                     return 0
                     ;;
-                remove)
-                    COMPREPLY=( $(compgen -W "$(ws plugin available)" -- ${cur}) )
+                list)
+                    COMPREPLY=( $(compgen -W "-v --verbose" -- ${cur}) )
                     return 0
                     ;;
             esac

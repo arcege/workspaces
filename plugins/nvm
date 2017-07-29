@@ -1,0 +1,20 @@
+:
+
+# Uses NODE as the nodejs version
+
+[ -z "$NODE" ] && return 0
+command -v nvm >/dev/null || return 0
+
+case ${_wshook__op} in
+    create)
+        nvm install $NODE
+        ;;
+    enter)
+        nvm use $NODE
+        export NODEJS_VERSION="${NODE}"
+        ;;
+    leave)
+        nvm use system
+        unset NODEJS_VERSION
+        ;;
+esac

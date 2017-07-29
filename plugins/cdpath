@@ -1,0 +1,18 @@
+:
+
+# This adds the workspace to the end of CDPATH and
+# creates a 'cd' function that changes the context
+# of "HOME" to the workspace
+
+case ${_wshook__op} in
+    enter)
+        export CDPATH="${CDPATH}:$WORKSPACE"
+        CDHOME="$WORKSPACE"
+        cd () { [ $# -eq 0 ] && builtin cd ${CDHOME} || builtin cd "$@"; }
+        ;;
+    leave)
+        CDPATH="${CDPATH%:*}
+        unset CDHOME
+        [ $(type -t cd) = function ] && unset cd
+        ;;
+esac
