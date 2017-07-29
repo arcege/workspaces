@@ -75,11 +75,12 @@ update_hook () {
             elif [ $state != overwritten ]; then
                 if fgrep -q wshook__op= $newfile; then
                     cp $tmpdir $newfile.new
-                    local sedscr1 sedscr2
+                    local sedscr1 sedscr2 sedscr3
                     sedscr1='/_wshook__op=/,/\[ -s "$_wshook__configdir\/config\.sh"/d'
                     sedscr2='/^# unset the variables registered/,/^unset _wshook__op/d'
+                    sedscr3='s/_wshook__/wshook__/g'
                     mv $newfile $newfile.old
-                    sed -e "$sedscr1" -e "$sedscr2" $newfile.old > $newfile
+                    sed -e "$sedscr1" -e "$sedscr2" -e "$sedscr3" $newfile.old > $newfile
                     state=modified
                 else
                     cp $tmphook $newfile.new
