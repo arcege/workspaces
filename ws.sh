@@ -1018,6 +1018,7 @@ ws [<cmd>] [<name>]
   stack                      - show workspaces on the stack
   initialize                 - create the workspaces structure
   config+ <op> <wsname> ...  - modify config variables
+  hook+ edit <wsname>        - edit hook scripts
   plugin+ <op> ...           - manage plugins (installable hooks)
   help|-h|--help             - this message
   version                    - display version number
