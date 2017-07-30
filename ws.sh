@@ -428,7 +428,7 @@ _ws_process_configvars () {
 _ws_parse_configvars () {
     local i cfgfile="$1"
     local sedscr1 sedscr2
-    sedscr1='s/\t/ /g;s/^ *//;s/ *$//;/_WS_/d;/_ws_/d;/_wshook_/d;/^[^= ]*=/p'
+    sedscr1='s/\\t/ /g;s/^ *//;s/ *$//;/_WS_/d;/_ws_/d;/_wshook_/d;/^[^= ]*=/p'
     sedscr2="/=\"/{;s//=/;s/\".*//;b;};/='/{;s//=/;s/'.*//;b;};s/\(=[^ ]*\).*/\1/"
     shift
     for i in "$@"; do
