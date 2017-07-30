@@ -30,7 +30,7 @@ rm -f $_WS_DEBUGFILE
 source $cdir/ws.sh
 
 md5_config_sh='fcf0781bba73612cdc4ed6e26fcea8fc'
-md5_hook_sh='f8f437e22d6023c08e3fb0657a2043a0'
+md5_hook_sh='ce3e735d54ea9e54d26360b03f2fe57f'
 
 fail () { rc=$?; echo "failure: $*"; exit $rc; }
 

@@ -651,9 +651,12 @@ _ws_generate_hook () {
 # commands could be run and the environment/shell could be modified.
 # anything set by the enter operation should be wound back by leave;
 # similarly, anything set by create should be removed by destroy.
+#
+# wshook__op         - hook operation: 'create', 'destroy', etc.
+# wshook__workspace  - location of the workspace
+# wshook__configdir  - location of the .ws in the workspace
+# wshook__variables  - variable to unset when finished
 
-# any variables you use here should be unset at the end; local
-# would not work as this is source'd
 case ${wshook__op} in
     # the current context is NOT this workspace
     create)

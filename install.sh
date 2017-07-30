@@ -28,6 +28,7 @@ oldmd5s_hook_sh="\
 5434fb008efae18f9478ecd8840c61c6
 c57af9e435988bcaed1dad4ca3c942fe
 bbaf9610a8a1d6fcb59f07db76244ebc
+ce3e735d54ea9e54d26360b03f2fe57f
 "
 
 case $(uname) in
