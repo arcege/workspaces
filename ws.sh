@@ -11,7 +11,7 @@
 #   create [-p <plugin>...] <name> [<cfg*>]...
 #                               - create a new workspace
 #   destroy <name>|-            - delete an existing workspace ('-' is alias for current workspace)
-#   current                     - show the current workspace (same as enter operator with no name)
+#   current                     - show the current workspace (same as enter command with no name)
 #   relink                      - (re)create ~/workspace symbolic link
 #   list                        - show workspaces, '@' shows which is linked with
 #                                 with ~/workspace, '*' shows the current workspace
@@ -21,7 +21,7 @@
 #   plugin <op> ...             - manage plugins
 #   help|-h|--help              - display help information
 #   version                     - display version number
-#   [name]                      - same as enter operator
+#   [name]                      - same as enter command
 #
 # * cfg is either a filename containing variable assignments or variable assignments on the command-line
 #   these are added to the .ws/config.sh script read during hooks
@@ -1110,6 +1110,32 @@ ws () {
         plugin)
             _ws_plugin "$@"
             ;;
+        hook)
+            local hookfile="" editor=${VISUAL:-${EDITOR:-vi}}
+            case $1 in
+                edit)
+                    if [ "x$2" = x--global ]; then
+                        hookfile=$WS_DIR/.ws/hook.sh
+                    elif [ "x$2" = x--skel ]; then
+                        hookfile=$WS_DIR/.ws/skel.sh
+                    elif [ "x$2" = x- -a -n "$_ws__current" ]; then
+                        hookfile=$(_ws_getdir)/.ws/hook.sh
+                    elif [ "x$2" = x- ]; then
+                        echo "No workspace" >&2
+                        return 1
+                    elif [ -n "$2" ] && _ws_getdir "$2" >/dev/null 2>&1; then
+                        hookfile="$(_ws_getdir "$2")/.ws/hook.sh"
+                    else
+                        echo "No workspace exists for $2" >&2
+                        return 1
+                    fi
+                    "${editor}" "${hookfile}"
+                    ;;
+                help)
+                    echo "ws hook edit -|--global|--skel|wsname"
+                    ;;
+            esac
+            ;;
         state)
             echo "root=$WS_DIR" "ws='$_ws__current'"
             _ws_stack state
@@ -1161,10 +1187,11 @@ if echo $- | fgrep -q i; then  # only for interactive
         fi
         prev="${COMP_WORDS[COMP_CWORD-1]}"
         options="-h --help"
-        operators="config create current destroy enter help initialize leave list plugin relink stack version"
+        commands="config create current debug destroy enter help hook initialize leave list plugin"
+        commands="$commands relink reload stack state validate version"
         names=$(ws list | tr -d '*@' | tr '\n' ' ')
         if [ $COMP_CWORD -eq 1 ]; then
-            COMPREPLY=( $(compgen -W "$operators $options $names" -- ${cur}) )
+            COMPREPLY=( $(compgen -W "$commands $options $names" -- ${cur}) )
             return 0
         elif [ $COMP_CWORD -eq 2 ]; then
             case $curop in
@@ -1192,6 +1219,10 @@ if echo $- | fgrep -q i; then  # only for interactive
                     COMPREPLY=( $(compgen -W "-p --plugins" -- ${cur}) )
                     return 0
                     ;;
+                hook)
+                    COMPREPLY=( $(compgen -W "edit help" -- ${cur}) )
+                    return 0
+                    ;;
             esac
         elif [ $COMP_CWORD -ge 3 -a ${curop} = create ]; then
             COMPREPLY=( $(compgen -f -v -- ${cur}) )
@@ -1211,6 +1242,9 @@ if echo $- | fgrep -q i; then  # only for interactive
                     return 0
                     ;;
             esac
+        elif [ $COMP_CWORD -eq 3 -a ${curop} = hook ]; then
+            COMPREPLY=( $(compgen -W "$names - --global --skel" -- ${cur}) )
+            return 0
         elif [ $COMP_CWORD -eq 3 -a ${curop} = plugin ]; then
             case $prev in
                 available)
