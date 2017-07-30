@@ -1,5 +1,8 @@
 :
+# Copyright @ 2017 Michael P. Reilly. All rights reserved.
+
 # uses VENV as name of virtual environment
+# uses VENV_shared - non-empty (true) or empty (false)
 
 if [ -n "$VENV" ] && command -v workon >/dev/null; then
     case ${wshook__op} in
@@ -7,7 +10,9 @@ if [ -n "$VENV" ] && command -v workon >/dev/null; then
             mkvirtualenv $VENV
             ;;
         destroy)
-            rmvirtualenv $VENV
+            if [ -z "$VENV_shared" ]; then
+                rmvirtualenv $VENV
+            fi
             ;;
         enter)
             workon $VENV

@@ -1,4 +1,5 @@
 :
+# Copyright @ 2017 Michael P. Reilly. All rights reserved.
 
 # This adds the workspace to the end of CDPATH and
 # creates a 'cd' function that changes the context

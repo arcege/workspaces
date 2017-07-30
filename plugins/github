@@ -1,6 +1,10 @@
 :
+# Copyright @ 2017 Michael P. Reilly. All rights reserved.
+
 # uses github_repos="repo1 repo2 repo3"
 # uses github_org=Arcege or whichever user/organization in github
+# uses github_fetch_on_enter - non-empty (true) or empty (false)
+# uses github_push_on_leave - non-empty (true) or empty (false)
 
 if [ -n "$github_repos" -a -n "$github_org" ]; then
     case ${wshook__op} in
@@ -9,6 +13,22 @@ if [ -n "$github_repos" -a -n "$github_org" ]; then
                 git clone git@github.com:${github_org}/${reponame}.git $wshook__workspace/${reponame}
             done
             unset reponame
+            ;;
+        enter)
+            if [ -n "$github_fetch_on_enter" ]; then
+                for reponame in $github_repos; do
+                    git -C $wshook_workspace/${reponame} fetch
+                done
+                unset reponame
+            fi
+            ;;
+        leave)
+            if [ -n "$github_push_on_leave" ]; then
+                for reponame in $github_repos; do
+                    git -C $wshook_workspace/${reponame} push
+                done
+                unset reponame
+            fi
             ;;
     esac
 fi

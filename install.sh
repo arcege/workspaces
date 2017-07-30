@@ -1,4 +1,5 @@
 #!/bin/bash
+# Copyright @ 2017 Michael P. Reilly. All rights reserved.
 
 if [ ${DEBUG:-0} = 1 ]; then
     cp () { echo "cp $*"; }
