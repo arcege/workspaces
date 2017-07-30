@@ -12,7 +12,7 @@ case ${wshook__op} in
         cd () { [ $# -eq 0 ] && builtin cd ${CDHOME} || builtin cd "$@"; }
         ;;
     leave)
-        CDPATH="${CDPATH%:*}
+        CDPATH="${CDPATH%:*}"
         unset CDHOME
         [ $(type -t cd) = function ] && unset cd
         ;;
