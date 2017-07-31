@@ -29,12 +29,14 @@
 # for example:
 #    $ cat def.cfg
 #    java_dir=/opt/jdk1.8.0_1
-#    $ ws create myproduct Repos="MyApi MyCore MyUi" def.cfg
+#    $ ws create -p github myproduct github_repos="MyApi MyCore MyUi" def.cfg
 # getting:
 #    $ cat ~/workspaces/myproduct/.ws/config.sh
 #    : assignment used in .ws/hook.sh
-#    Repos="MyApi MyCore MyUI"
+#    github_repos="MyApi MyCore MyUI"
 #    java_dir="/opt/jdk1.8.0_1"
+#    $ ls ~/workspaces/myproduct/.ws/plugins
+#    github
 #
 # if a workspace has a '.ws/hook.sh' script at the top, it will get source'd
 # with the arguments 'enter', 'create', 'destroy', or 'leave' when those
