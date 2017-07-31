@@ -1256,7 +1256,7 @@ if echo $- | fgrep -q i; then  # only for interactive
                     return 0
                     ;;
                 install)
-                    COMPREPLY=( $(compgen -f -- ${cur}) )
+                    COMPREPLY=( $(compgen -f -W "-f --force -n --name" -- ${cur}) )
                     return 0
                     ;;
                 uninstall)
@@ -1274,6 +1274,17 @@ if echo $- | fgrep -q i; then  # only for interactive
             esac
         elif [ $COMP_CWORD -ge 4 -a ${curop} = plugin ]; then
             case ${COMP_WORDS[2]} in
+                install)
+                    if [ "x${prev}" = x-f ]; then
+                        COMPREPLY=( $(compgen -f -W "-n" -- ${cur}) )
+                        return 0
+                    elif [ "x${prev}" = x-n ]; then
+                        :  # no completion
+                    else
+                        COMPREPLY=( $(compgen -f -- ${cur}) )
+                        return 0
+                    fi
+                    ;;
                 add|remove)
                     COMPREPLY=( $(compgen -W "ALL $(ws plugin available)" -- ${cur}) )
                     return 0
