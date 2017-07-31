@@ -1010,11 +1010,12 @@ _ws_show_stack () {
 _ws_help () {
     _ws_debug 7 args "$@"
     \cat <<'EOF'
-ws [<cmd>] [<name>]
+ws [<cmd> [<args>]]
   enter [<name>]             - show the current workspace or enter one
   leave                      - leave current workspace
-  create++ <name> [<cfg*>]...  - create a new workspace
-  destroy+ name|-            - destroy a workspace ('-' alias for current)
+  create [-p <plugins>] <name> [<cfg*>]...
+                             - create a new workspace
+  destroy+ name              - destroy a workspace ('-' alias for current)
   current                    - show current workspace (same as 'ws enter')
   relink [<name>]            - reset ~/workspace symlink
   list                       - show available workspaces
@@ -1030,7 +1031,6 @@ ws [<cmd>] [<name>]
   or variable assignments in the form VAR=VALUE
   these are added to the config.sh file before the 'create' hook is called.
 + some commands allow '-' as an alias for the current workspace.
-++ plugins added with '-p plugins...' or '--plugins plugins...'
 EOF
 }
 
