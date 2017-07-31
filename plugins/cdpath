@@ -5,11 +5,14 @@
 # creates a 'cd' function that changes the context
 # of "HOME" to the workspace
 
+# Users cdpath_startdir to change to a specific directory before entering
+
 case ${wshook__op} in
     enter)
         export CDPATH="${CDPATH}:$WORKSPACE"
         CDHOME="$WORKSPACE"
         cd () { [ $# -eq 0 ] && builtin cd ${CDHOME} || builtin cd "$@"; }
+        [ -d "${cdpath_startdir}" ] && cd ${cdpath_startdir}
         ;;
     leave)
         CDPATH="${CDPATH%:*}"
