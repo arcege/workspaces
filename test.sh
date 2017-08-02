@@ -47,6 +47,7 @@ command -v _ws_validate >&4 || fail routine _ws_validate
 command -v _ws_stack >&4 || fail routine _ws_stack
 command -v _ws_getdir >&4 || fail routine _ws_getdir
 command -v _ws_link >&4 || fail routine _ws_link
+command -v _ws_initialize >&4 || fail routine _ws_initialize
 command -v _ws_copy_skel >&4 || fail routine _ws_copy_skel
 command -v _ws_generate_hook >&4 || fail routine _ws_generate_hook
 command -v _ws_generate_config >&4 || fail routine _ws_generate_config

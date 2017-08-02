@@ -1009,6 +1009,16 @@ _ws_show_stack () {
     fi
 }
 
+_ws_initialize () {
+    mkdir -p $WS_DIR/.ws/plugins
+    _ws_generate_hook "${WS_DIR}/.ws/hook.sh"
+    _ws_generate_hook "${WS_DIR}/.ws/skel.sh"
+    _ws_generate_config "${WS_DIR}/.ws/config.sh"
+    # we don't want to delete it
+    _ws_create default
+    _ws_link set $(_ws_getdir default)
+}
+
 _ws_help () {
     _ws_debug 7 args "$@"
     \cat <<'EOF'
@@ -1166,13 +1176,12 @@ ws () {
             _ws_debug config "$1"
             ;;
         initialize)
-            mkdir -p $WS_DIR/.ws/plugins
-            _ws_generate_hook "${WS_DIR}/.ws/hook.sh"
-            _ws_generate_hook "${WS_DIR}/.ws/skel.sh"
-            _ws_generate_config "${WS_DIR}/.ws/config.sh"
-            # we don't want to delete it
-            _ws_create default
-            _ws_link set $(_ws_getdir default)
+            if [ -d "$WS_DIR" ]; then
+                echo "Already initialized..." >&2
+                return 1
+            else
+                _ws_initialize
+            fi
             ;;
         *)
             _ws_enter "$cmd"
