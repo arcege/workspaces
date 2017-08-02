@@ -13,6 +13,8 @@ if [ ${DEBUG:-0} = 1 ]; then
     cat () { echo "cat $*"; }
 fi
 
+srcdir=$(dirname "${BASE_SOURCE[0]}")
+
 installation () {
     if [ -d $HOME/.bash ]; then
         BASHDIR=$HOME/.bash
@@ -310,7 +312,7 @@ main () {
 
     installation
 
-    source ./ws.sh
+    source $srcdir/ws.sh
 
     # for just in this script, we'll ignore the upgrade warnings
     # (or we'll get false messages).
