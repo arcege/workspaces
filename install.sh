@@ -159,13 +159,15 @@ update_hook_scripts () {
     rm -f $tmphook
 }
 
-install_plugins () {
+update_plugins () {
     local file destdir=$WS_DIR/.ws/plugins
     for file in plugins/*; do
         if [ "$file" = "plugins/*" ]; then
             break
         elif [ ! -e "$destdir/${file##*/}" ]; then
             ws plugin install $file
+        elif [ $file -nt "$destdir/${file##*/}" ]; then
+            ws plugin install --force $file
         fi
     done
 }
@@ -213,7 +215,7 @@ initialization () {
 }
 
 post_initialization () {
-    install_plugins
+    update_plugins
 
     case $1 in
         replace)
