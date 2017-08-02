@@ -1018,8 +1018,7 @@ _ws_initialize () {
     _ws_generate_hook "${WS_DIR}/.ws/hook.sh"
     _ws_generate_hook "${WS_DIR}/.ws/skel.sh"
     _ws_generate_config "${WS_DIR}/.ws/config.sh"
-    # we don't want to delete it
-    _ws_create default
+    _ws_create -p ALL default
     _ws_link set $(_ws_getdir default)
 }
 
