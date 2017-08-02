@@ -312,7 +312,7 @@ EOF
 main () {
     parse_args "$@"
 
-    unset _WS_SOURCE W_DIR  # in case of leak from calling shell
+    unset _WS_SOURCE WS_DIR  # in case of leak from calling shell
 
     installation
 
