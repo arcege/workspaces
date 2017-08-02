@@ -645,7 +645,7 @@ EOF
 _ws_generate_hook () {
     _ws_debug 7 args "$@"
     # Create an empty hook script in the workspace
-    if [ -n "$1" ]; then
+    if [ -d "$(dirname $1)" -a -n "$1" ]; then
         _ws_debug 3 "create %1"
         cat > "$1" <<'EOF'
 :
