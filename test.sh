@@ -27,6 +27,11 @@ _WS_DEBUGFILE=$PWD/test.log
 WS_DEBUG=4
 rm -f $_WS_DEBUGFILE
 
+mkdir -p $HOME  # relative to TMPDIR
+
+# generate the plugins tarball that the install.sh script would
+tar cjfC $HOME/.ws_plugins.tbz2 $cdir plugins
+
 source $cdir/ws.sh
 
 md5_config_sh='fcf0781bba73612cdc4ed6e26fcea8fc'
@@ -102,6 +107,10 @@ test "$(_ws_getdir default)" = "$WS_DIR/default" || fail routine getdir
 
 test "$(ws list)" = "default@" || fail init cmd ws+list
 test "$(ws stack)" = "($PWD)" || fail init cmd ws+stack
+
+# test plugins extracted properly
+test -d $WS_DIR/.ws/plugins || fail init dir plugins
+test -f $WS_DIR/.ws/plugins/cdpath -a -f $WS_DIR/.ws/plugins/github || fail init file plugins
 
 result=$(_ws_getdir default)
 test $? -eq 0 -a "$result" = "$WS_DIR/default" || fail unit _ws_getdir ws
@@ -283,12 +292,20 @@ case ${wshook__op} in
 esac
 EOF
 
+packaged_plugins="\
+bitbucket
+cdpath
+github
+nvm
+virtualenvwrapper"
 ws plugin available >$cmdout 2>$cmderr
-test $? -eq 0 -a "$(cat $cmdout)" = "" || fail ws+plugin available empty
+test $? -eq 0 -a "$(cat $cmdout)" = "${packaged_plugins}" || fail ws+plugin available packaged
 ws plugin install $TMPDIR/plugin
 test $? -eq 0 -a -x $WS_DIR/.ws/plugins/plugin || fail ws+plugin install
 ws plugin available >$cmdout 2>$cmderr
-test $? -eq 0 -a "$(cat $cmdout)" = "plugin" || fail ws+plugin available non-empty
+new_plugins=$(echo "${packaged_plugins}
+plugin" | sort)
+test $? -eq 0 -a "$(cat $cmdout)" = "${new_plugins}" || fail ws+plugin available non-empty
 ws create --plugins plugin testplugin1 >$cmdout 2>$cmderr
 test $? -eq 0 -a -h $WS_DIR/testplugin1/.ws/plugins/plugin || fail ws+create plugin
 test "$(cat $cmdout)" = $'creating\nentering' || fail ws+create plugin running

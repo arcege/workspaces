@@ -11,6 +11,7 @@ if [ ${DEBUG:-0} = 1 ]; then
     chmod () { echo "chmod $*"; }
     touch () { echo "touch $*"; }
     cat () { echo "cat $*"; }
+    tar () { echo "tar $*"; }
 fi
 
 srcdir=$(dirname "${BASH_SOURCE[0]}")
@@ -23,6 +24,8 @@ installation () {
     fi
     mkdir -p $BASHDIR
     cp -p ./ws.sh $BASHDIR/ws.sh
+    # put the plugins into a tarball for ws+initialize to use
+    tar cjf $HOME/.ws_plugins.tbz2 plugins
 }
 
 oldmd5s_hook_sh="\

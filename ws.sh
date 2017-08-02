@@ -1011,6 +1011,10 @@ _ws_show_stack () {
 
 _ws_initialize () {
     mkdir -p $WS_DIR/.ws/plugins
+    # extract the plugins
+    if [ -f $HOME/.ws_plugins.tbz2 ]; then
+        tar xjfC $HOME/.ws_plugins.tbz2 $WS_DIR/.ws plugins
+    fi
     _ws_generate_hook "${WS_DIR}/.ws/hook.sh"
     _ws_generate_hook "${WS_DIR}/.ws/skel.sh"
     _ws_generate_config "${WS_DIR}/.ws/config.sh"
