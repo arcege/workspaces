@@ -333,4 +333,11 @@ ws plugin uninstall other >$cmdout 2>$cmderr
 test $? -eq 0 -a ! -e $WS_DIR/.ws/plugins/other -a ! -e $WS_DIR/testplugin2/.ws/plugin/other ||
     fail ws+plugin uninstall
 
+# Testing alternate structure
+
+ws initialize $HOME/alternate
+
+test $WS_DIR = $HOME/alternate || fail init alternate set
+test -d $HOME/alternate || fail init alternate created
+
 echo "tests complete."

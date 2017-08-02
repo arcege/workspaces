@@ -16,7 +16,7 @@
 #   list                        - show workspaces, '@' shows which is linked with
 #                                 with ~/workspace, '*' shows the current workspace
 #   stack                       - show workspaces on the stack, '*' shows current workspace
-#   initialize                  - (re)create the environment
+#   initialize[{wsdir}]         - (re)create the environment
 #   config <op> <wsname> ...    - modify config variables
 #   plugin <op> ...             - manage plugins
 #   help|-h|--help              - display help information
@@ -1009,7 +1009,16 @@ _ws_show_stack () {
     fi
 }
 
+# generate the initial structure with an empty default workspace
 _ws_initialize () {
+    if [ $# -gt 0 ]; then
+        # change WS_DIR
+        WS_DIR="$1"
+    fi
+    if [ -d $WS_DIR ]; then
+        echo "Already initialized, aborting..."
+        return 1
+    fi
     mkdir -p $WS_DIR/.ws/plugins
     # extract the plugins
     if [ -f $HOME/.ws_plugins.tbz2 ]; then
@@ -1018,7 +1027,7 @@ _ws_initialize () {
     _ws_generate_hook "${WS_DIR}/.ws/hook.sh"
     _ws_generate_hook "${WS_DIR}/.ws/skel.sh"
     _ws_generate_config "${WS_DIR}/.ws/config.sh"
-    _ws_create -p ALL default
+    _ws_create default ALL
     _ws_link set $(_ws_getdir default)
 }
 
@@ -1035,7 +1044,7 @@ ws [<cmd> [<args>]]
   relink [<name>]            - reset ~/workspace symlink
   list                       - show available workspaces
   stack                      - show workspaces on the stack
-  initialize                 - create the workspaces structure
+  initialize [{wsdir}]       - create the workspaces structure
   config+ <op> <wsname> ...  - modify config variables
   hook+ edit <wsname>        - edit hook scripts
   plugin+ <op> ...           - manage plugins (installable hooks)
@@ -1179,12 +1188,7 @@ ws () {
             _ws_debug config "$1"
             ;;
         initialize)
-            if [ -d "$WS_DIR" ]; then
-                echo "Already initialized..." >&2
-                return 1
-            else
-                _ws_initialize
-            fi
+            _ws_initialize "$@"
             ;;
         *)
             _ws_enter "$cmd"
