@@ -312,6 +312,8 @@ EOF
 main () {
     parse_args "$@"
 
+    unset _WS_SOURCE W_DIR  # in case of leak from calling shell
+
     installation
 
     source $srcdir/ws.sh
