@@ -13,7 +13,7 @@ if [ ${DEBUG:-0} = 1 ]; then
     cat () { echo "cat $*"; }
 fi
 
-srcdir=$(dirname "${BASE_SOURCE[0]}")
+srcdir=$(dirname "${BASH_SOURCE[0]}")
 
 installation () {
     if [ -d $HOME/.bash ]; then
