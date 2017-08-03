@@ -42,28 +42,30 @@ fail () { rc=$?; echo "failure: $*"; exit $rc; }
 
 # check the existence of the main routine ('ws') and subroutines
 command -v ws >&4 || fail cmd ws
-command -v _ws_help >&4 || fail routine _ws_help
-command -v _ws_enter >&4 || fail routine _ws_enter
-command -v _ws_leave >&4 || fail routine _ws_leave
-command -v _ws_create >&4 || fail routine _ws_create
-command -v _ws_destroy >&4 || fail routine _ws_destroy
-command -v _ws_relink >&4 || fail routine _ws_relink
-command -v _ws_list >&4 || fail routine _ws_list
+command -v _ws_cmd_help >&4 || fail routine _ws_cmd_help
+command -v _ws_cmd_enter >&4 || fail routine _ws_cmd_enter
+command -v _ws_cmd_leave >&4 || fail routine _ws_cmd_leave
+command -v _ws_cmd_create >&4 || fail routine _ws_cmd_create
+command -v _ws_cmd_destroy >&4 || fail routine _ws_cmd_destroy
+command -v _ws_cmd_relink >&4 || fail routine _ws_cmd_relink
+command -v _ws_cmd_list >&4 || fail routine _ws_cmd_list
 command -v _ws_validate >&4 || fail routine _ws_validate
+command -v _ws_cmd_show_stack >&4 || fail routine _ws_cmd_show_stack
 command -v _ws_stack >&4 || fail routine _ws_stack
 command -v _ws_getdir >&4 || fail routine _ws_getdir
 command -v _ws_link >&4 || fail routine _ws_link
-command -v _ws_initialize >&4 || fail routine _ws_initialize
+command -v _ws_cmd_initialize >&4 || fail routine _ws_cmd_initialize
 command -v _ws_copy_skel >&4 || fail routine _ws_copy_skel
 command -v _ws_generate_hook >&4 || fail routine _ws_generate_hook
 command -v _ws_generate_config >&4 || fail routine _ws_generate_config
-command -v _ws_hook >&4 || fail routine _ws_hook
+command -v _ws_cmd_hook >&4 || fail routine _ws_cmd_hook
 command -v _ws_run_hooks >&4 || fail routine _ws_run_hooks
-command -v _ws_config >&4 || fail routine _ws_config
+command -v _ws_cmd_config >&4 || fail routine _ws_cmd_config
 command -v _ws_config_edit >&4 || fail routine _ws_config_edit
-command -v _ws_plugin >&4 || fail routine _ws_plugin
+command -v _ws_cmd_plugin >&4 || fail routine _ws_cmd_plugin
 command -v _ws_parse_configvars >&4 || fail routine _ws_parse_configvars
 command -v _ws_process_configvars >&4 || fail routine _ws_process_configvars
+command -v _ws_prompt_yesno >&4 || fail routine _ws_prompt_yesno
 
 # check the global variables
 test "$(declare -p WS_DIR)" = "declare -- WS_DIR=\"$HOME/workspaces\"" || fail declare WS_DIR
@@ -270,14 +272,14 @@ fgrep -q hook_4 $configsh && fail ws_config_edit del check
 var="$(_ws_config_edit $configsh del hook_4)"
 test $? -eq 0 -a "$var" = "" || fail ws_config_edit del novar
 
-test "$(_ws_config list xyzzy)" = $'hook_1\nhook_2\nhook_3' || fail ws+config list
-test "$(_ws_config get xyzzy hook_1)" = "hello" || fail ws+config get
-var="$(_ws_config set xyzzy hook_4 adios)"
+test "$(_ws_cmd_config list xyzzy)" = $'hook_1\nhook_2\nhook_3' || fail ws+config list
+test "$(_ws_cmd_config get xyzzy hook_1)" = "hello" || fail ws+config get
+var="$(_ws_cmd_config set xyzzy hook_4 adios)"
 test $? -eq 0 -a "$var" = "" || tail ws+config set new rc
-test "$(_ws_config get xyzzy hook_4)" = "adios" || fail ws+config set new value
-var="$(_ws_config del xyzzy hook_4 adios)"
+test "$(_ws_cmd_config get xyzzy hook_4)" = "adios" || fail ws+config set new value
+var="$(_ws_cmd_config del xyzzy hook_4 adios)"
 test $? -eq 0 -a "$var" = "" || tail ws+config del
-var="$(_ws_config get xyzzy hook_4)"
+var="$(_ws_cmd_config get xyzzy hook_4)"
 test $? -eq 1 -a "$var" = "" || tail ws+config get novar
 
 # testing for plugin

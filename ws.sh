@@ -366,7 +366,7 @@ _ws_config_edit () {
 }
 
 # ws+config subcommand
-_ws_config () {
+_ws_cmd_config () {
     _ws_debug 7 args "$@"
     local wsdir op="$1" wsname="$2" var="$3" val="$4"
     case $op in
@@ -446,7 +446,7 @@ _ws_parse_configvars () {
     done
 }
 
-_ws_plugin () {
+_ws_cmd_plugin () {
     _ws_debug 7 args "$@"
     local wsdir op="$1" wsname="$2"
     local plugin plugindir=$WS_DIR/.ws/plugins
@@ -515,7 +515,7 @@ _ws_plugin () {
             for dir in $WS_DIR/*/.ws; do
                 wsdir=${dir%/.ws}
                 wsname=${wsdir##*/}
-                _ws_plugin remove "$wsname" "$name"
+                _ws_cmd_plugin remove "$wsname" "$name"
             done
             if [ -x "$plugindir/$name" ]; then
                 rm "$plugindir/$name"
@@ -539,7 +539,7 @@ _ws_plugin () {
                     wsdir="${dir%/*}"
                     name="${wsdir##*/}"
                     echo "${name}:"
-                    _ws_plugin list "${name}" | sed 's/^/    /'
+                    _ws_cmd_plugin list "${name}" | sed 's/^/    /'
                 done
             else
                 wsdir=$(_ws_getdir "$wsname")
@@ -761,7 +761,7 @@ _ws_run_hooks () {
     return $rc
 }
 
-_ws_hook () {
+_ws_cmd_hook () {
     local hookfile="" editor=${VISUAL:-${EDITOR:-vi}}
     case $1 in
         edit)
@@ -788,7 +788,7 @@ _ws_hook () {
     esac
 }
 
-# enter a workspace, or show the current
+# enter a workspace, or show the current workspace
 # the WORKSPACE envvar is set to the workspace
 # directory and change to that directory
 # the current working directory and the workspace
@@ -797,7 +797,7 @@ _ws_hook () {
 #   workspace name (optional)
 # return code:
 #   1 if workspace directory does not exist
-_ws_enter () {
+_ws_cmd_enter () {
     _ws_debug 7 args "$@"
     local wsdir wsname=${1:-""}
     wsdir="$(_ws_getdir "$wsname")"
@@ -830,7 +830,7 @@ _ws_enter () {
 # and if present, reentering the old workspace
 # arguments: none
 # result code: 0
-_ws_leave () {
+_ws_cmd_leave () {
     _ws_debug 7 args "$@"
     local oldws=${_ws__current} context oldIFS wsname wsdir
     if [ "x${_ws__current:+X}" = xX ]; then
@@ -896,7 +896,7 @@ _ws_leave () {
 # result code:
 #   1 if no workspace name given, or
 #     if workspace already exists
-_ws_create () {
+_ws_cmd_create () {
     _ws_debug 7 args "$@"
     local plugin wsdir wsname=${1:-""} plugins="$2" cfgfile="$3"
     wsname="${1:-""}"
@@ -918,7 +918,7 @@ _ws_create () {
                 _ws_process_configvars "$wsdir" "$cfgfile"
             fi
             for plugin in $plugins; do
-                _ws_plugin add $wsname $plugin
+                _ws_cmd_plugin add $wsname $plugin
             done
             _ws_run_hooks create $wsname
             _ws_debug 1 "$wsdir created"
@@ -941,7 +941,7 @@ _ws_create () {
 # result code:
 #   1 if no workspace name given, or
 #     if no workspace directory exists
-_ws_destroy () {
+_ws_cmd_destroy () {
     _ws_debug 7 args "$@"
     local linkptr wsdir wsname=${1:-""}
     wsdir="$(_ws_getdir "$wsname")"
@@ -954,7 +954,7 @@ _ws_destroy () {
         return 1
     else
         if [ "$wsname" = "$_ws__current" ]; then
-            _ws_leave
+            _ws_cmd_leave
         fi
         _ws_run_hooks destroy $wsname
         rm -rf "$wsdir"
@@ -973,7 +973,7 @@ _ws_destroy () {
 # result code:
 #   1 if no workspace given and no current workspace, or
 #     if no workspace directory exists
-_ws_relink () {
+_ws_cmd_relink () {
     _ws_debug 7 args "$@"
     local wsdir wsname="${1:-$_ws__current}"
     if [ -z "$wsname" ]; then
@@ -998,7 +998,7 @@ _ws_relink () {
 # arguments: none
 # result code:
 #   1 if WS_DIR does not exist
-_ws_list () {
+_ws_cmd_list () {
     _ws_debug 7 args "$@"
     local link sedscript=""
     link=$(_ws_link get)
@@ -1019,7 +1019,7 @@ _ws_list () {
 # including the current workspace
 # arguments: none
 # result code: none
-_ws_show_stack () {
+_ws_cmd_show_stack () {
     _ws_debug 7 args "$@"
     if [ x${_ws__current:+X} = xX ]; then
         local context oldIFS i=$(_ws_stack size)
@@ -1041,7 +1041,7 @@ _ws_show_stack () {
 }
 
 # generate the initial structure with an empty default workspace
-_ws_initialize () {
+_ws_cmd_initialize () {
     if [ $# -gt 0 ]; then
         # change WS_DIR
         WS_DIR="$1"
@@ -1059,12 +1059,12 @@ _ws_initialize () {
     _ws_generate_hook "${WS_DIR}/.ws/hook.sh"
     _ws_generate_hook "${WS_DIR}/.ws/skel.sh"
     _ws_generate_config "${WS_DIR}/.ws/config.sh"
-    _ws_create default ALL
+    _ws_cmd_create default ALL
     _ws_link set $(_ws_getdir default)
 }
 
 # remove the workspaces structure, and optionally the application
-_ws_release () {
+_ws_cmd_release () {
     local to_move full=false force=false
     while [ $# -gt 0 ]; do
         case $1 in
@@ -1155,7 +1155,7 @@ _ws_prompt_yesno () {
     fi
 }
 
-_ws_help () {
+_ws_cmd_help () {
     _ws_debug 7 args "$@"
     \cat <<'EOF'
 ws [<cmd> [<args>]]
@@ -1198,13 +1198,13 @@ ws () {
     shift
     case $cmd in
         help)
-            _ws_help
+            _ws_cmd_help
             ;;
         enter)
-            _ws_enter "$1"
+            _ws_cmd_enter "$1"
             ;;
         leave)
-            _ws_leave
+            _ws_cmd_leave
             ;;
         create)
             # create can take an optional filename of the
@@ -1222,15 +1222,15 @@ ws () {
                 shift
             done
             if [ "x$plugins" = xALL ]; then
-                plugins="$(_ws_plugin available)"
+                plugins="$(_ws_cmd_plugin available)"
             fi
             wsname="$1"; shift
             configfile="${TMPDIR:-/tmp}/ws.cfg.$$.${wsname}"
             # process the config (files or assignments) passed on the command-line
             _ws_parse_configvars ${configfile} "$@"
-            _ws_create "$wsname" "$plugins" $configfile
+            _ws_cmd_create "$wsname" "$plugins" $configfile
             rm -f ${configfile}
-            _ws_enter "$wsname"
+            _ws_cmd_enter "$wsname"
             ;;
         destroy)
             local wsname
@@ -1241,31 +1241,31 @@ ws () {
             else
                 wsname=$1
             fi
-            _ws_destroy "$wsname"
+            _ws_cmd_destroy "$wsname"
             ;;
         current)
-            _ws_enter ""
+            _ws_cmd_enter ""
             ;;
         relink)
-            _ws_relink "$1"
+            _ws_cmd_relink "$1"
             ;;
         list)
-            _ws_list
+            _ws_cmd_list
             ;;
         stack)
-            _ws_show_stack
+            _ws_cmd_show_stack
             ;;
         version)
             echo "$WS_VERSION"
             ;;
         config)
-            _ws_config "$@"
+            _ws_cmd_config "$@"
             ;;
         plugin)
-            _ws_plugin "$@"
+            _ws_cmd_plugin "$@"
             ;;
         hook)
-            _ws_hook "$@"
+            _ws_cmd_hook "$@"
             ;;
         state)
             echo "root=$WS_DIR" "ws='$_ws__current'"
@@ -1291,13 +1291,13 @@ ws () {
             _ws_debug config "$1"
             ;;
         initialize)
-            _ws_initialize "$@"
+            _ws_cmd_initialize "$@"
             ;;
         release)
-            _ws_release "$@"
+            _ws_cmd_release "$@"
             ;;
         *)
-            _ws_enter "$cmd"
+            _ws_cmd_enter "$cmd"
             ;;
     esac
 }
