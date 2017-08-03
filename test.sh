@@ -57,7 +57,8 @@ command -v _ws_initialize >&4 || fail routine _ws_initialize
 command -v _ws_copy_skel >&4 || fail routine _ws_copy_skel
 command -v _ws_generate_hook >&4 || fail routine _ws_generate_hook
 command -v _ws_generate_config >&4 || fail routine _ws_generate_config
-command -v _ws_hooks >&4 || fail routine _ws_hooks
+command -v _ws_hook >&4 || fail routine _ws_hook
+command -v _ws_run_hooks >&4 || fail routine _ws_run_hooks
 command -v _ws_config >&4 || fail routine _ws_config
 command -v _ws_config_edit >&4 || fail routine _ws_config_edit
 command -v _ws_plugin >&4 || fail routine _ws_plugin
@@ -126,7 +127,7 @@ test $? -eq 0 -a "$result" = "" -a $(readlink $HOME/workspace) = "$WS_DIR/defaul
 ( echo 'TEST_VALUE_1=hi'
   echo 'TEST_VALUE_2=bye'
 ) >> $TMPDIR/workspaces/.ws/config.sh
-_ws_hooks enter default || fail hook+call
+_ws_run_hooks enter default || fail hook+call
 test x${TEST_VALUE_1:+X} = x || fail hook+config "value_1 unset"
 test x${TEST_VALUE_2:+X} = x || fail hook+config "value_2 unset"
 
@@ -189,16 +190,16 @@ InConfig=$wshook__workspace
 EOF
 
 unset wsstate IsDestroyed HasEntered HasLeft
-_ws_hooks enter foobar; rc=$?
+_ws_run_hooks enter foobar; rc=$?
 test $rc -eq 0 || tail hook+var failed
 test x$wsstate = xenter || fail hook+var wsstate
 test x$HasEntered = xyep || fail hook+var HasEntered
 test x$HasLeft = x || fail hook+var unset
 test x$InConfig = x || fail hook+unset InConfig
-_ws_hooks leave foobar
+_ws_run_hooks leave foobar
 test x$wsstate = xleave || fail hook+var wsstate
 test x$HasLeft = xElvis || fail hook+var HasLeft
-_ws_hooks create foobar
+_ws_run_hooks create foobar
 test x$Which = x$WS_DIR/foobar || fail hook+config passthru
 test x${InConfig:+X} = x || fail hook+config unset
 

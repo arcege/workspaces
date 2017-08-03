@@ -685,7 +685,7 @@ EOF
     fi
 }
 
-_ws_hooks () {
+_ws_run_hooks () {
     _ws_debug 7 args "$@"
     # run $WS_DIR/.ws/hook.sh and $WS_DIR/wsname/.ws.hook.sh scripts,
     # passing "create", "destroy", "enter" or "leave"
@@ -761,6 +761,33 @@ _ws_hooks () {
     return $rc
 }
 
+_ws_hook () {
+    local hookfile="" editor=${VISUAL:-${EDITOR:-vi}}
+    case $1 in
+        edit)
+            if [ "x$2" = x--global ]; then
+                hookfile=$WS_DIR/.ws/hook.sh
+            elif [ "x$2" = x--skel ]; then
+                hookfile=$WS_DIR/.ws/skel.sh
+            elif [ "x$2" = x- -a -n "$_ws__current" ]; then
+                hookfile=$(_ws_getdir)/.ws/hook.sh
+            elif [ "x$2" = x- ]; then
+                echo "No workspace" >&2
+                return 1
+            elif [ -n "$2" ] && _ws_getdir "$2" >/dev/null 2>&1; then
+                hookfile="$(_ws_getdir "$2")/.ws/hook.sh"
+            else
+                echo "No workspace exists for $2" >&2
+                return 1
+            fi
+            "${editor}" "${hookfile}"
+            ;;
+        help)
+            echo "ws hook edit -|--global|--skel|wsname"
+            ;;
+    esac
+}
+
 # enter a workspace, or show the current
 # the WORKSPACE envvar is set to the workspace
 # directory and change to that directory
@@ -784,7 +811,7 @@ _ws_enter () {
         _ws_debug 1 "no workspace for $wsname"
         return 1
     else
-        _ws_hooks leave $_ws__current
+        _ws_run_hooks leave $_ws__current
         if [ -n "$_ws__current" ]; then
             _ws_stack push "$_ws__current:$PWD"
         else
@@ -793,7 +820,7 @@ _ws_enter () {
         _ws__current="$wsname"
         export WORKSPACE="$wsdir"
         cd "$wsdir"
-        _ws_hooks enter $_ws__current
+        _ws_run_hooks enter $_ws__current
         _ws_debug 2 "entered $wsname $wsdir"
     fi
 }
@@ -807,7 +834,7 @@ _ws_leave () {
     _ws_debug 7 args "$@"
     local oldws=${_ws__current} context oldIFS wsname wsdir
     if [ "x${_ws__current:+X}" = xX ]; then
-        _ws_hooks leave $_ws__current
+        _ws_run_hooks leave $_ws__current
         local notvalid=true
         while $notvalid; do
             context=$(_ws_stack last)
@@ -850,7 +877,7 @@ _ws_leave () {
             cd "$2"  # return to old directory
         fi
         if [ -n "$_ws__current" ]; then
-            _ws_hooks enter $_ws__current
+            _ws_run_hooks enter $_ws__current
         fi
         _ws_debug 2 "left $oldws"
     fi
@@ -893,7 +920,7 @@ _ws_create () {
             for plugin in $plugins; do
                 _ws_plugin add $wsname $plugin
             done
-            _ws_hooks create $wsname
+            _ws_run_hooks create $wsname
             _ws_debug 1 "$wsdir created"
         elif [ -d "$wsdir" ]; then
             echo "Workspace already exists" >&2
@@ -929,7 +956,7 @@ _ws_destroy () {
         if [ "$wsname" = "$_ws__current" ]; then
             _ws_leave
         fi
-        _ws_hooks destroy $wsname
+        _ws_run_hooks destroy $wsname
         rm -rf "$wsdir"
         linkptr=$(_ws_link get)
         if [ $? -eq 0 -a "x$linkptr" = "x$wsdir" ]; then
@@ -1238,30 +1265,7 @@ ws () {
             _ws_plugin "$@"
             ;;
         hook)
-            local hookfile="" editor=${VISUAL:-${EDITOR:-vi}}
-            case $1 in
-                edit)
-                    if [ "x$2" = x--global ]; then
-                        hookfile=$WS_DIR/.ws/hook.sh
-                    elif [ "x$2" = x--skel ]; then
-                        hookfile=$WS_DIR/.ws/skel.sh
-                    elif [ "x$2" = x- -a -n "$_ws__current" ]; then
-                        hookfile=$(_ws_getdir)/.ws/hook.sh
-                    elif [ "x$2" = x- ]; then
-                        echo "No workspace" >&2
-                        return 1
-                    elif [ -n "$2" ] && _ws_getdir "$2" >/dev/null 2>&1; then
-                        hookfile="$(_ws_getdir "$2")/.ws/hook.sh"
-                    else
-                        echo "No workspace exists for $2" >&2
-                        return 1
-                    fi
-                    "${editor}" "${hookfile}"
-                    ;;
-                help)
-                    echo "ws hook edit -|--global|--skel|wsname"
-                    ;;
-            esac
+            _ws_hook "$@"
             ;;
         state)
             echo "root=$WS_DIR" "ws='$_ws__current'"
