@@ -118,7 +118,11 @@ _ws_debug () {
                 proc="($$:$(tty))"
                 when=$(date +%Y%m%d.%H%M%S)
                 func="${FUNCNAME[1]}"  # The calling routine
-                echo "${when}${proc}${func}[$lvl] $*" >> ${_WS_DEBUGFILE}
+                if [ "x${_WS_DEBUGFILE}" = x- ]; then # stdout
+                    echo "${when}${proc}${func}[$lvl] $*"
+                else
+                    echo "${when}${proc}${func}[$lvl] $*" >> ${_WS_DEBUGFILE}
+                fi
             fi
             ;;
         *)
@@ -507,7 +511,7 @@ _ws_plugin () {
             return 0
             ;;
         uninstall)
-            local name="$1" dir wsdir
+            local dir wsdir name="$1"
             for dir in $WS_DIR/*/.ws; do
                 wsdir=${dir%/.ws}
                 wsname=${wsdir##*/}
@@ -574,7 +578,7 @@ _ws_plugin () {
             fi
             for plugin in "$@"; do
                 if [ ! -x "${plugindir}/${plugin}" ]; then
-                    echo "Plugin $name not installed" >&2
+                    echo "Plugin $plugin not installed" >&2
                     rc=1
                 elif [ ! -h "${wsdir}/.ws/plugins/${plugin}" ]; then
                     ln -s "${plugindir}/${plugin}" "${wsdir}/.ws/plugins/${plugin}"
@@ -646,7 +650,7 @@ _ws_generate_hook () {
     _ws_debug 7 args "$@"
     # Create an empty hook script in the workspace
     if [ -d "$(dirname $1)" -a -n "$1" ]; then
-        _ws_debug 3 "create %1"
+        _ws_debug 3 "create $1"
         cat > "$1" <<'EOF'
 :
 # this is sourced by `ws` (workspaces)
@@ -1023,12 +1027,105 @@ _ws_initialize () {
     # extract the plugins
     if [ -f $HOME/.ws_plugins.tbz2 ]; then
         tar xjfC $HOME/.ws_plugins.tbz2 $WS_DIR/.ws plugins
+        chmod +x $WS_DIR/.ws/plugins/*
     fi
     _ws_generate_hook "${WS_DIR}/.ws/hook.sh"
     _ws_generate_hook "${WS_DIR}/.ws/skel.sh"
     _ws_generate_config "${WS_DIR}/.ws/config.sh"
     _ws_create default ALL
     _ws_link set $(_ws_getdir default)
+}
+
+# remove the workspaces structure, and optionally the application
+_ws_release () {
+    local to_move full=false force=false
+    while [ $# -gt 0 ]; do
+        case $1 in
+            -h|--help)
+                echo "ws release [--help|--full] [-y|--yes] [{wsname}]"
+                ceho "  --help    - this message"
+                echo "  --full    - uninstall the code and workspace"
+                echo "  -y|--yes  - force the operation (when no tty)"
+                echo "  {wsname}  - optionall restore workspace to ~/workspace"
+                return 0
+                ;;
+            --full)
+                full=true
+                ;;
+            -y|--yes)
+                force=true
+                ;;
+            *)
+                to_move="$(_ws_getdir $1)"
+                if [ $? -ne 0 ]; then
+                    echo "Not a valid workspace, aborting..." >&2
+                    return 1
+                fi
+                ;;
+        esac
+        shift
+    done
+    # ensure that we really want to destroy the whole thing
+    if $force || _ws_prompt_yesno "Do you really wish to release ${WS_DIR}?"; then
+        _ws_debug config -
+        _ws_debug 3 "releasing ${WS_DIR}..."
+        _ws_link del  # unlink ~/workspace@
+        if [ -n "$to_move" -a ! -d "$to_move" ]; then
+            echo "Invalid workspace to restore, aborting..." >&2
+            return 1
+        elif [ -n "$to_move" ]; then
+            mv "$to_move" "$HOME/workspace"
+            _ws_debug 1 "moved $to_move $HOME/workspace"
+            rm -rf $HOME/workspace/.ws  # delete the workspace's .ws structure
+        fi
+        rm -rf $WS_DIR  # remove the workspaces and ~/workspaces/
+        _ws_debug 1 "removed workspace structure"
+        if $full; then
+            local name variables
+            _ws_debug 3 "removing code."
+            rm -f $_WS_SOURCE  # remove the application file
+            rm -f $HOME/.ws_plugins.tbz2
+            variables=$(set | sed -ne '/^_ws_[a-zA-Z0-9_]*/s/ ()//p')
+            for name in $variables; do
+                unset $name
+            done
+            unset ws
+            unset W_DIR _ws__stack unset _ws__current
+            unset WS_DEBUG _WS_DEBUGFILE _WS_SOURCE
+            unset _ws__seen_upgrade_warning
+            return 0
+        else
+            WS_DIR=$HOME/workspaces
+            _ws__stack=()
+            _ws__current=""
+            return 0
+        fi
+    else
+        return 1
+    fi
+}
+
+_ws_prompt_yesno () {
+    local msg="$*"
+    if [ -t 0 ]; then
+        echo -n "$msg [y/N]  "
+        while true; do
+            read ANS
+            case $ANS in
+                y|Y|ye|YE|yes|YES)
+                    return 0
+                    ;;
+                n|N|no|NO)
+                    return 1
+                    ;;
+                *)
+                    echo 'Expecting "y" or "n"... try again.'
+                    ;;
+            esac
+        done
+    else
+        return 1
+    fi
 }
 
 _ws_help () {
@@ -1045,6 +1142,8 @@ ws [<cmd> [<args>]]
   list                       - show available workspaces
   stack                      - show workspaces on the stack
   initialize [{wsdir}]       - create the workspaces structure
+  release [--full] [--yes] [{wsname}]
+                             - delete ~/workspaces, restoring workspace
   config+ <op> <wsname> ...  - modify config variables
   hook+ edit <wsname>        - edit hook scripts
   plugin+ <op> ...           - manage plugins (installable hooks)
@@ -1190,6 +1289,9 @@ ws () {
         initialize)
             _ws_initialize "$@"
             ;;
+        release)
+            _ws_release "$@"
+            ;;
         *)
             _ws_enter "$cmd"
             ;;
@@ -1210,7 +1312,7 @@ if echo $- | fgrep -q i; then  # only for interactive
         prev="${COMP_WORDS[COMP_CWORD-1]}"
         options="-h --help"
         commands="config create current debug destroy enter help hook initialize leave list plugin"
-        commands="$commands relink reload stack state validate version"
+        commands="$commands release relink reload stack state validate version"
         names=$(ws list | tr -d '*@' | tr '\n' ' ')
         if [ $COMP_CWORD -eq 1 ]; then
             COMPREPLY=( $(compgen -W "$commands $options $names" -- ${cur}) )
@@ -1245,9 +1347,16 @@ if echo $- | fgrep -q i; then  # only for interactive
                     COMPREPLY=( $(compgen -W "edit help" -- ${cur}) )
                     return 0
                     ;;
+                release)
+                    COMPREPLY=( $(compgen -W "--full -h --help $names" -- ${cur}) )
+                    return 0
+                    ;;
             esac
         elif [ $COMP_CWORD -ge 3 -a ${curop} = create ]; then
             COMPREPLY=( $(compgen -f -v -- ${cur}) )
+            return 0
+        elif [ $COMP_CWORD -eq 3 -a ${curop} = release -a x${prev} = x--full ]; then
+            COMPREPLY=( $(compgen -W "${names}" -- ${cur}) )
             return 0
         elif [ $COMP_CWORD -eq 3 -a ${curop} = config ]; then
             # "-" is the same as the current workspace

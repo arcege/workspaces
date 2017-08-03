@@ -32,7 +32,8 @@ mkdir -p $HOME  # relative to TMPDIR
 # generate the plugins tarball that the install.sh script would
 tar cjfC $HOME/.ws_plugins.tbz2 $cdir plugins
 
-source $cdir/ws.sh
+cp -p $cdir/ws.sh $HOME/ws.sh
+source $HOME/ws.sh  # deleted during the ws+release testing
 
 md5_config_sh='fcf0781bba73612cdc4ed6e26fcea8fc'
 md5_hook_sh='ce3e735d54ea9e54d26360b03f2fe57f'
@@ -299,16 +300,16 @@ github
 nvm
 virtualenvwrapper"
 ws plugin available >$cmdout 2>$cmderr
-test $? -eq 0 -a "$(cat $cmdout)" = "${packaged_plugins}" || fail ws+plugin available packaged
+test $? -eq 0 -a "$(\cat $cmdout)" = "${packaged_plugins}" || fail ws+plugin available packaged
 ws plugin install $TMPDIR/plugin
 test $? -eq 0 -a -x $WS_DIR/.ws/plugins/plugin || fail ws+plugin install
 ws plugin available >$cmdout 2>$cmderr
 new_plugins=$(echo "${packaged_plugins}
 plugin" | sort)
-test $? -eq 0 -a "$(cat $cmdout)" = "${new_plugins}" || fail ws+plugin available non-empty
+test $? -eq 0 -a "$(\cat $cmdout)" = "${new_plugins}" || fail ws+plugin available non-empty
 ws create --plugins plugin testplugin1 >$cmdout 2>$cmderr
 test $? -eq 0 -a -h $WS_DIR/testplugin1/.ws/plugins/plugin || fail ws+create plugin
-test "$(cat $cmdout)" = $'creating\nentering' || fail ws+create plugin running
+test "$(\cat $cmdout)" = $'creating\nentering' || fail ws+create plugin running
 test "x${plugin_ext_value}" = xplugin-run || fail ws+plugin add var carried
 var=$(ws plugin list testplugin1)
 test $? -eq 0 -a "x$var" = xplugin || fail ws+plugin list non-empty
@@ -318,9 +319,9 @@ ws plugin add testplugin1 plugin
 test $? -eq 0 -a -h $WS_DIR/testplugin1/.ws/plugins/plugin || fail ws+plugin add
 
 ws plugin install $TMPDIR/plugin >$cmdout 2>$cmderr
-test $? -eq 1 -a "$(cat $cmderr)" = "Plugin plugin exists" || fail ws+plugin reinstall
+test $? -eq 1 -a "$(\cat $cmderr)" = "Plugin plugin exists" || fail ws+plugin reinstall
 ws plugin install -f $TMPDIR/plugin >$cmdout 2>$cmderr
-test $? -eq 0 -a "$(cat $cmdout)" = "" -a -x $WS_DIR/.ws/plugins/plugin || fail ws+plugin reinstall-force
+test $? -eq 0 -a "$(\cat $cmdout)" = "" -a -x $WS_DIR/.ws/plugins/plugin || fail ws+plugin reinstall-force
 test ! -e $WS_DIR/.ws/plugins/other || fail ws+plugin assert no-other
 ws plugin install -n other $TMPDIR/plugin
 test $? -eq 0 -a -x $WS_DIR/.ws/plugins/other || fail ws+plugin install-name
@@ -339,5 +340,23 @@ ws initialize $HOME/alternate
 
 test $WS_DIR = $HOME/alternate || fail init alternate set
 test -d $HOME/alternate || fail init alternate created
+
+# Testing releasing the structure and uninstallation
+
+touch "$HOME/alternate/default/foo.c"
+ws release default <&4 >$cmdout 2>$cmderr
+test $? -eq 1 -a -d $HOME/alternate || fail release no
+ws release --yes default <&4 >$cmdout 2>$cmderr
+test $? -eq 0 -a ! -d $HOME/alternate || fail release yes
+test -d $HOME/workspace -a -f $HOME/workspace/foo.c -a ! -d $HOME/workspace/.ws || fail release keep
+
+rm -rf $HOME/workspace
+ws initialize $HOME/alternate >$cmdout 2>$cmderr
+
+ws release -y <&4 >$cmdout 2>$cmderr
+test $? -eq 0 -a ! -d $HOME/alternate -a ! -d $HOME/workspace || fail release clean
+
+ws release -y --full <&4 >$cmdout 2>$cmderr
+test $? -eq 0 -a ! -f $HOME/.bash.d/ws.sh -a ! -f $HOME/.ws_plugins.tbz2 || fail release full
 
 echo "tests complete."

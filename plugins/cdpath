@@ -12,11 +12,15 @@ case ${wshook__op} in
         export CDPATH="${CDPATH}:$WORKSPACE"
         CDHOME="$WORKSPACE"
         cd () { [ $# -eq 0 ] && builtin cd ${CDHOME} || builtin cd "$@"; }
-        [ -d "${cdpath_startdir}" ] && cd ${cdpath_startdir}
+        if [ -n "$cdpath_startdir" ]; then
+            cd ${cdpath_startdir}
+        fi
         ;;
     leave)
         CDPATH="${CDPATH%:*}"
         unset CDHOME
-        [ $(type -t cd) = function ] && unset cd
+        if [ $(type -t cd) = function ]; then
+            unset cd
+        fi
         ;;
 esac
