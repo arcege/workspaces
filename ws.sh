@@ -129,7 +129,7 @@ _ws_debug () {
 }
 
 _ws_upgrade_warning () {
-    if [ x$_ws_seen_upgrade_warning != xtrue ]; then
+    if [ x$_ws__seen_upgrade_warning != xtrue ]; then
         \cat <<'EOF' >&2
 It appears that the install program did not run. While hooks will still be
 called for backward compatibility, some aspects (e.g. config mgmt) may not
@@ -137,7 +137,7 @@ work properly.
 Please run ./install.sh from the distribution which will upgrade the
 data structures for the new release of workspaces.
 EOF
-        _ws_seen_upgrade_warning=true
+        _ws__seen_upgrade_warning=true
     fi
 }
 
@@ -1060,7 +1060,7 @@ EOF
 
 ws () {
     _ws_debug 7 args "$@"
-    _ws_seen_upgrade_warning=false
+    _ws__seen_upgrade_warning=false
     if [ "x$1" = x--help -o "x$1" = x-h ]; then
         set -- help
     fi
