@@ -5,7 +5,7 @@
 # creates a 'cd' function that changes the context
 # of "HOME" to the workspace
 
-# Users cdpath_startdir to change to a specific directory before entering
+# uses cdpath_startdir - change to a specific directory before entering
 
 case ${wshook__op} in
     enter)

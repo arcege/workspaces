@@ -1,7 +1,7 @@
 :
 # Copyright @ 2017 Michael P. Reilly. All rights reserved.
 
-# Uses NODE as the nodejs version
+# uses NODE - the nodejs version
 
 if [ -n "$NODE" ] && command -v nvm >/dev/null; then
     case ${wshook__op} in

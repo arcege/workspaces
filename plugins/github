@@ -1,8 +1,8 @@
 :
 # Copyright @ 2017 Michael P. Reilly. All rights reserved.
 
-# uses github_repos="repo1 repo2 repo3"
-# uses github_org=Arcege or whichever user/organization in github
+# uses github_repos - list of repository names under {org}, e.g. "repo1 repo2 repo3"
+# uses github_org - Arcege or whichever user/organization in github
 # uses github_fetch_on_enter - non-empty (true) or empty (false)
 # uses github_push_on_leave - non-empty (true) or empty (false)
 
