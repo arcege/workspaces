@@ -446,11 +446,28 @@ _ws_parse_configvars () {
     done
 }
 
+_ws_show_config_vars () {
+    local sdir wsdir sedscr
+    sedscr='/^[A-Za-z0-9_]*=/s/=.*//p'
+    wsdir=$(_ws_getdir)
+    (
+        if [ -f "$WS_DIR/.ws/config.sh" ]; then
+            sed -ne "${sedscr}" "$WS_DIR/.ws/config.sh"
+        fi
+        if [ -n "$wsdir" -a -f "$wsdir/.ws/config.sh" ]; then
+            sed -ne "${sedscr}" "$wsdir/.ws/config.sh"
+        fi
+    ) | sort
+}
+
 _ws_show_plugin_vars () {
-    local file name
-    local awkscr='BEGIN{i=0; max=0}
+    local file name quiet=0
+    if [ $# -gt 0 -a "x$1" = x-q ]; then
+        quiet=1
+    fi
+    local awkscr='BEGIN{i=0; max=0; '"quiet=$quiet"'}
     /# uses /{sub(/^# uses /, ""); f[i] = FILENAME; l=length(FILENAME); if (l > max) {max=l}; e[i] = $0; i++}
-    END {for (c=0;c<i;c++) {printf("%*s: %s\n", max, f[c], e[c])}}'
+    END {for (c=0;c<i;c++) {if (quiet) {sub(/ .*/, "", e[c]); print e[c]} else {printf("%*s: %s\n", max, f[c], e[c])}}}'
     if [ -d "$WS_DIR/.ws/plugins" ]; then
         (cd $WS_DIR/.ws/plugins; awk "$awkscr" *)
     fi
@@ -472,7 +489,7 @@ _ws_cmd_plugin () {
             echo "  list <wsname>|--all              - list plugins added to workpace hooks"
             echo "  add <wsname> <plugin> ...        - add plugin to workspace hooks"
             echo "  remove <wsname> <plugin> ...     - remove plugin from workspace hooks"
-            echo "  show                             - show vars in available plugins"
+            echo "  show [-q]                        - show config vars in available plugins"
             return 0
             ;;
         available)
@@ -626,7 +643,7 @@ _ws_cmd_plugin () {
             return 0
             ;;
         show)
-            _ws_show_plugin_vars
+            _ws_show_plugin_vars "$@"
             ;;
     esac
 }
@@ -1385,7 +1402,10 @@ if echo $- | fgrep -q i; then  # only for interactive
         elif [ $COMP_CWORD -eq 4 -a ${curop} = config ]; then
             case ${COMP_WORDS[2]} in
                 del|get|set)
-                    COMPREPLY=( $(compgen -W "$(ws config list ${COMP_WORDS[3]})" -- ${cur}) )
+                    local configvars pluginvars
+                    configvars=$(_ws_show_config_vars)
+                    pluginvars=$(_ws_cmd_plugin show -q)
+                    COMPREPLY=( $(compgen -W "${configvars} ${pluginvars}" -- ${cur}) )
                     return 0
                     ;;
                 list)
