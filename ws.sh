@@ -446,6 +446,18 @@ _ws_parse_configvars () {
     done
 }
 
+_ws_show_plugin_vars () {
+    local file name
+    local awkscr='BEGIN{i=0; max=0}
+    /# uses /{sub(/^# uses /, ""); f[i] = FILENAME; l=length(FILENAME); if (l > max) {max=l}; e[i] = $0; i++}
+    END {for (c=0;c<i;c++) {printf("%*s: %s\n", max, f[c], e[c])}}'
+    if [ -d "$WS_DIR/.ws/plugins" ]; then
+        (cd $WS_DIR/.ws/plugins; awk "$awkscr" *)
+    fi
+    return 0
+}
+
+
 _ws_cmd_plugin () {
     _ws_debug 7 args "$@"
     local wsdir op="$1" wsname="$2"
@@ -460,6 +472,7 @@ _ws_cmd_plugin () {
             echo "  list <wsname>|--all              - list plugins added to workpace hooks"
             echo "  add <wsname> <plugin> ...        - add plugin to workspace hooks"
             echo "  remove <wsname> <plugin> ...     - remove plugin from workspace hooks"
+            echo "  show                             - show vars in available plugins"
             return 0
             ;;
         available)
@@ -611,6 +624,9 @@ _ws_cmd_plugin () {
                 fi
             done
             return 0
+            ;;
+        show)
+            _ws_show_plugin_vars
             ;;
     esac
 }
@@ -1336,7 +1352,7 @@ if echo $- | fgrep -q i; then  # only for interactive
                     return 0
                     ;;
                 plugin)
-                    COMPREPLY=( $(compgen -W "add help install available list remove uninstall" -- ${cur}) )
+                    COMPREPLY=( $(compgen -W "add help install available list remove show uninstall" -- ${cur}) )
                     return 0
                     ;;
                 reload)
