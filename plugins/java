@@ -1,0 +1,25 @@
+:
+# Copyright @ 2017 Michael P. Reilly. All rights reserved.
+
+# uses JAVA - location of JDK
+
+if [ -n "$JAVA" ]; then
+    case ${wshook__op} in
+        enter)
+            if [ -d $JAVA ]; then
+                export JAVA_HOME=$JAVA
+                export PATH=$JAVA/bin:$PATH  # adding $JAVA_HOME/bin to the path
+            else
+                echo "java directory $JAVA not found; ignoring"
+            fi
+            ;;
+        leave)
+            if [ -d $JAVA ]; then
+                unset JAVA_HOME
+                PATH=:$PATH:  # surround to remove special cases
+                PATH=${PATH/:$JAVA\/bin:/:}
+                PATH=${PATH%:}; PATH=${PATH#:}  # remove surrounding delimitors
+            fi
+            ;;
+    esac
+fi

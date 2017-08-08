@@ -1,0 +1,25 @@
+:
+# Copyright @ 2017 Michael P. Reilly. All rights reserved.
+
+# uses virtualenv - non-empty (true) to create a local virutalenv (not wrapper)
+
+if [ -n "$virtualenv" ] && command -v virtualenv >/dev/null; then
+    case ${wshook__op} in
+        create)
+            virtualenv $wshook__workspace/.venv
+            ;;
+
+        destroy)
+            ;;
+        enter)
+            if [ -d $wshook__workspace/.venv/bin ]; then
+                . $wshook_workspace/.venv/bin/activate
+            fi
+            ;;
+        leave)
+            if [ -d $wshook__workspace/.venv/bin ]; then
+                deactivate
+            fi
+            ;;
+    esac
+fi
