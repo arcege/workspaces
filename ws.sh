@@ -1303,7 +1303,7 @@ ws () {
         state)
             echo "root=$WS_DIR" "ws='$_ws__current'"
             _ws_stack state
-            _ws_list | tr '\n' ' '; echo
+            _ws_cmd_list | tr '\n' ' '; echo
             ;;
         reload)
             local wsfile
