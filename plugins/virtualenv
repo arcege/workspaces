@@ -13,7 +13,7 @@ if [ -n "$virtualenv" ] && command -v virtualenv >/dev/null; then
             ;;
         enter)
             if [ -d $wshook__workspace/.venv/bin ]; then
-                . $wshook_workspace/.venv/bin/activate
+                . $wshook__workspace/.venv/bin/activate
             fi
             ;;
         leave)
