@@ -48,13 +48,13 @@
 # config structure
 # workspaces/.ws/
 #       config.sh  - file with shell variable assignments
-#       hook.sh    - executed for each workspace by _ws_hook
+#       hook.sh    - executed for each workspace by _ws_run_hooks
 #       plugins/   - directory containing available plugin hook scripts
 #       skel.sh    - copied to workspace config directory as hook.sh
 #    <wsname>/
 #       .ws/
 #           config.sh  - file with shell variable assignments
-#           hook.sh  - executed by _ws_hook
+#           hook.sh  - executed by _ws_run_hooks
 #           plugins/   - directory containing symlinks to active plugin hooks
 #
 # the config.sh is called on every operation, commands should not be executed
