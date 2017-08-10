@@ -5,7 +5,7 @@
 # handle internal redirection
 exec 2>test.err 3>&2 4>/dev/null
 
-versionstr=0.2.6
+versionstr=0.2.7
 
 cdir=$PWD
 
