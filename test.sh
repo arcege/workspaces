@@ -300,7 +300,9 @@ packaged_plugins="\
 bitbucket
 cdpath
 github
+java
 nvm
+virtualenv
 virtualenvwrapper"
 ws plugin available >$cmdout 2>$cmderr
 test $? -eq 0 -a "$(\cat $cmdout)" = "${packaged_plugins}" || fail ws+plugin available packaged
