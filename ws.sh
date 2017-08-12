@@ -409,7 +409,7 @@ _ws_cmd_config () {
                     text=$(_ws_cmd_config get --global $val)
                     printf '%*s: '"$val=$text"'\n' $maxlen "--global"
                 done
-                for wsname in $(_ws_cmd_list --workspace -q); do
+                for wsname in $(_ws_cmd_list -q); do
                     _ws_cmd_config list -w -q $wsname | grep -e "$var" | while read val; do
                         text=$(_ws_cmd_config get $wsname $val)
                         printf '%*s: '"$val=$text"'\n' $maxlen "$wsname"
@@ -471,7 +471,7 @@ _ws_parse_configvars () {
 
 _ws_show_config_vars () {
     local sdir wsdir sedscr wsname
-    local wantgl=true wantws=true mode=normal modesed
+    local wantgl=true wantws=true mode=normal modechr
     sedscr=';s/=.*//'
     while true; do
         case $1 in
@@ -493,12 +493,12 @@ _ws_show_config_vars () {
     wsdir=$(_ws_getdir ${wsname})
     (
         if [ $wantgl = true -a -f "$WS_DIR/.ws/config.sh" ]; then
-            [ $mode = quiet ] && modesed='' || modesed=';s/^/%/'
-            sed -ne "/^[A-Za-z0-9_]*=/{${sedscr}${modesed};p}" "$WS_DIR/.ws/config.sh"
+            [ $mode = quiet ] && modechr='' || modechr='%'
+            sed -ne "/^[A-Za-z0-9_]*=/{${sedscr};s/^/${modechr}/;p}" "$WS_DIR/.ws/config.sh"
         fi
         if [ $wantws = true -a -n "$wsdir" -a -f "$wsdir/.ws/config.sh" ]; then
-            [ $mode = quiet ] && modesed='' || modesed=';s/^/*/'
-            sed -ne "/^[A-Za-z0-9_]*=/{${sedscr}${modesed};p}" "$wsdir/.ws/config.sh"
+            [ $mode = quiet ] && modechr='' || modechr='*'
+            sed -ne "/^[A-Za-z0-9_]*=/{${sedscr};s/^/${modechr}/;p}" "$wsdir/.ws/config.sh"
         fi
     ) | sort
 }

@@ -282,6 +282,10 @@ test $? -eq 0 -a "$var" = "" || tail ws+config del
 var="$(_ws_cmd_config get xyzzy hook_4)"
 test $? -eq 1 -a "$var" = "" || tail ws+config get novar
 
+var=$(_ws_cmd_config search .)
+result=$'--global: TEST_VALUE_1=\n--global: TEST_VALUE_2=\n  xyzzy: hook_1=hello\n  xyzzy: hook_2=goodbye\n  xyzzy: hook_3=hola'
+test $? -eq 0 -a "$var" = "$result" || fail ws+config search
+
 # testing for plugin
 pluginfile=$TMPDIR/plugin
 \cat > $pluginfile <<'EOF'
