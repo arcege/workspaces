@@ -372,14 +372,19 @@ _ws_cmd_config () {
     case $op in
         help)
             echo "ws config op args ..."
-            echo "  list <wsname>   - show variables in workspace's config"
+            echo "  list <wsname>       - show variables in workspace's config"
             echo "  del <wsname> <var>  - remove variable from config"
             echo "  get <wsname> <var>  - return value of variable from config"
             echo "  set <wsname> <var> <val> - set value of variable in config"
+            echo "  search <re> ...     - search workspaces for variables"
             echo "wsname could be --global for the global configs"
             return 0
             ;;
-        list) ;;
+        list)
+            shift
+            _ws_show_config_vars "$@"
+            return 0
+            ;;
         del|get)
             if [ -z "$var" ]; then
                 echo 'config: expecting variable name' >&2
@@ -394,6 +399,24 @@ _ws_cmd_config () {
                 echo 'config: expecting value' >&2
                 return 1
             fi
+            ;;
+        search)
+            local text maxlen workspaces=$(_ws_cmd_list --workspace -q)
+            maxlen=$(echo "$workspaces" | awk '{if (length>max) {max=length}} END{print max}')
+            shift  # move over op
+            for var in "$@"; do
+                _ws_cmd_config list --global -q | grep -e "$var" | while read val; do
+                    text=$(_ws_cmd_config get --global $val)
+                    printf '%*s: '"$val=$text"'\n' $maxlen "--global"
+                done
+                for wsname in $(_ws_cmd_list --workspace -q); do
+                    _ws_cmd_config list -w -q $wsname | grep -e "$var" | while read val; do
+                        text=$(_ws_cmd_config get $wsname $val)
+                        printf '%*s: '"$val=$text"'\n' $maxlen "$wsname"
+                    done
+                done
+            done
+            return 0
             ;;
         "")
             echo "config: expecting 'del', 'get', 'help', 'list' or 'set'" >&2
@@ -447,15 +470,35 @@ _ws_parse_configvars () {
 }
 
 _ws_show_config_vars () {
-    local sdir wsdir sedscr
-    sedscr='/^[A-Za-z0-9_]*=/s/=.*//p'
-    wsdir=$(_ws_getdir)
+    local sdir wsdir sedscr wsname
+    local wantgl=true wantws=true mode=normal modesed
+    sedscr=';s/=.*//'
+    while true; do
+        case $1 in
+            -) wsname=$_ws_current; break;;
+            -h|--help) echo "ws config list [-q|-v] [-b|-q|-w] [wsname|-]"; return;;
+            -g|--global) wantgl=true; wantws=false;;
+            -b|--both) wantgl=true; wantws=true;;
+            -w|--workspace) wantgl=false; wantws=true;;
+            -q|--quiet) mode=quiet;;
+            -v|--verbose) mode=verbose;;
+            -*|--*) echo "Error: invalid option" >&2; return 1;;
+            *) wsname=$1; break;;
+        esac
+        shift
+    done
+    if [ $mode = verbose ]; then
+        sedscr=''
+    fi
+    wsdir=$(_ws_getdir ${wsname})
     (
-        if [ -f "$WS_DIR/.ws/config.sh" ]; then
-            sed -ne "${sedscr}" "$WS_DIR/.ws/config.sh"
+        if [ $wantgl = true -a -f "$WS_DIR/.ws/config.sh" ]; then
+            [ $mode = quiet ] && modesed='' || modesed=';s/^/%/'
+            sed -ne "/^[A-Za-z0-9_]*=/{${sedscr}${modesed};p}" "$WS_DIR/.ws/config.sh"
         fi
-        if [ -n "$wsdir" -a -f "$wsdir/.ws/config.sh" ]; then
-            sed -ne "${sedscr}" "$wsdir/.ws/config.sh"
+        if [ $wantws = true -a -n "$wsdir" -a -f "$wsdir/.ws/config.sh" ]; then
+            [ $mode = quiet ] && modesed='' || modesed=';s/^/*/'
+            sed -ne "/^[A-Za-z0-9_]*=/{${sedscr}${modesed};p}" "$wsdir/.ws/config.sh"
         fi
     ) | sort
 }
@@ -1033,12 +1076,15 @@ _ws_cmd_relink () {
 #   1 if WS_DIR does not exist
 _ws_cmd_list () {
     _ws_debug 7 args "$@"
-    local link sedscript=""
+    local link sedscript="" quiet=false
+    if [ "x$1" = x-q ]; then
+        quiet=true
+    fi
     link=$(_ws_link get)
-    if [ $? -eq 0 ]; then
+    if [ $? -eq 0 -a $quiet = false ]; then
         sedscript="${sedscript};/^$(basename $link)\$/s/\$/@/"
     fi
-    if [ x${_ws__current:+X} = xX ]; then
+    if [ x${_ws__current:+X} = xX -a $quiet = false ]; then
         sedscript="${sedscript};/^${_ws__current}@\{0,1\}\$/s/\$/*/"
     fi
     if [ ! -d $WS_DIR ]; then
@@ -1190,7 +1236,13 @@ _ws_prompt_yesno () {
 
 _ws_cmd_help () {
     _ws_debug 7 args "$@"
-    \cat <<'EOF'
+    local cmd
+    if [ $# -gt 0 ]; then
+        cmd=$1
+        shift
+        ws $cmd help "$@"
+    else
+        \cat <<'EOF'
 ws [<cmd> [<args>]]
   enter [<name>]             - show the current workspace or enter one
   leave                      - leave current workspace
@@ -1215,6 +1267,7 @@ ws [<cmd> [<args>]]
   these are added to the config.sh file before the 'create' hook is called.
 + some commands allow '-' as an alias for the current workspace.
 EOF
+    fi
 }
 
 ws () {
@@ -1231,7 +1284,7 @@ ws () {
     shift
     case $cmd in
         help)
-            _ws_cmd_help
+            _ws_cmd_help "$@"
             ;;
         enter)
             _ws_cmd_enter "$1"
@@ -1283,7 +1336,7 @@ ws () {
             _ws_cmd_relink "$1"
             ;;
         list)
-            _ws_cmd_list
+            _ws_cmd_list "$@"
             ;;
         stack)
             _ws_cmd_show_stack
@@ -1365,7 +1418,7 @@ if echo $- | fgrep -q i; then  # only for interactive
                     return 0
                     ;;
                 config)
-                    COMPREPLY=( $(compgen -W "del get help list set" -- ${cur}) )
+                    COMPREPLY=( $(compgen -W "del get help list search set" -- ${cur}) )
                     return 0
                     ;;
                 plugin)
@@ -1397,13 +1450,23 @@ if echo $- | fgrep -q i; then  # only for interactive
             return 0
         elif [ $COMP_CWORD -eq 3 -a ${curop} = config ]; then
             # "-" is the same as the current workspace
-            COMPREPLY=( $(compgen -W "- --global $names" -- $cur) )
-            return 0
+            case ${COMP_WORDS[2]} in
+                search)
+                    local configvars pluginvars
+                    configvars=$(_ws_show_config_vars -b -q $(_ws_cmd_list -q))
+                    pluginvars=$(_ws_cmd_plugin show -q)
+                    COMPREPLY=( $(compgen -W "${configvars} ${pluginvars}" -- ${cur}) )
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=( $(compgen -W "- --global $names" -- $cur) )
+                    return 0
+            esac
         elif [ $COMP_CWORD -eq 4 -a ${curop} = config ]; then
             case ${COMP_WORDS[2]} in
                 del|get|set)
                     local configvars pluginvars
-                    configvars=$(_ws_show_config_vars)
+                    configvars=$(_ws_show_config_vars -b -q $(_ws_cmd_list -q))
                     pluginvars=$(_ws_cmd_plugin show -q)
                     COMPREPLY=( $(compgen -W "${configvars} ${pluginvars}" -- ${cur}) )
                     return 0

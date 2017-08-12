@@ -272,7 +272,7 @@ fgrep -q hook_4 $configsh && fail ws_config_edit del check
 var="$(_ws_config_edit $configsh del hook_4)"
 test $? -eq 0 -a "$var" = "" || fail ws_config_edit del novar
 
-test "$(_ws_cmd_config list xyzzy)" = $'hook_1\nhook_2\nhook_3' || fail ws+config list
+test "$(_ws_cmd_config list -w -q xyzzy)" = $'hook_1\nhook_2\nhook_3' || fail ws+config list
 test "$(_ws_cmd_config get xyzzy hook_1)" = "hello" || fail ws+config get
 var="$(_ws_cmd_config set xyzzy hook_4 adios)"
 test $? -eq 0 -a "$var" = "" || tail ws+config set new rc
