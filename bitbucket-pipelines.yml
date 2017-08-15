@@ -9,8 +9,16 @@ pipelines:
           - ./pyerect test
 
   custom:  # manually triggered
-    - step:
-        script:
-          - apt-get install -y python-pip
-          - pip install -r requirements.txt
-          - ./pyerect test
+    manual:
+      - step:
+          script:
+            - apt-get install -y python-pip
+            - pip install -r requirements.txt
+            - ./pyerect test
+
+    package:
+      - step:
+          script:
+            - apt-get install -y python-pip
+            - pip install -r requirements.txt
+            - ./pyerect upload
