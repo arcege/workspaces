@@ -30,4 +30,35 @@ Testonly.tasks = (
 InitDirs.files = ( 'build/workspaces', 'dist' )
 Clean.files = ( 'build', 'dist' )
 
+class Bitbucket_Pipelines_Upload(Task):
+    baseurl = 'https://api.bitbucket.org/2.0/repositories/%(user)s/%(slug)s/downloads'
+    bb_creds = 'Arcege:eCV6DVbS8ZXa4D86ky6z'
+    def run(self):
+        import os, urllib2
+        distfile = Path('dist', 'workspaces.tgz')
+        basename = os.environ.get('BITBUCKET_REPO_SLUG', 'workspaces')
+        if 'BITBUCKET_TAG' in os.environ:
+            vers = os.environ['BITBUCKET_TAG']
+        elif 'BITBUCKET_BUILD_NUMBER' in os.environ:
+            vers = 'b' + os.environ['BITBUCKET_BUILD_NUMBER']
+        else:
+            vers = 'SNAPSHOT'
+        name = '%s-%s.tgz' % (basename, vers)
+        url = self.baseurl % {
+                'user': 'Arcege',
+                'slug': 'workspaces'
+        }
+        newname = Path(distfile.dirname, name)
+        distfile.copy(newname)
+        cmd = (
+            'curl', '-X', 'POST', '--user', self.bb_creds,
+            url, '--form', 'files=@%s' % newname
+        )
+        Subcommand(cmd)
+
+class Upload(Target):
+    """Upload to bitbucket downloads."""
+    dependencies = ( Dist, )
+    tasks = ( Bitbucket_Pipelines_Upload, )
+
 PyErector()
