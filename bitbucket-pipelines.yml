@@ -8,6 +8,14 @@ pipelines:
           - pip install -r requirements.txt
           - ./pyerect test
 
+  branches:
+    - release-*:
+        - step:
+            script:
+              - apt-get install -y python-pip
+              - pip install -r requirements.txt
+              - ./pyerect test upload
+
   custom:  # manually triggered
     manual:
       - step:

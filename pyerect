@@ -37,7 +37,7 @@ class Bitbucket_Pipelines_Upload(Task):
         import os, urllib2
         distfile = Path('dist', 'workspaces.tgz')
         basename = os.environ.get('BITBUCKET_REPO_SLUG', 'workspaces')
-        if 'BITBUCKET_TAG' in os.environ:
+        if 'BITBUCKET_BOOKMARK' in os.environ:
             vers = os.environ['BITBUCKET_TAG']
         elif 'BITBUCKET_BUILD_NUMBER' in os.environ:
             vers = 'b' + os.environ['BITBUCKET_BUILD_NUMBER']
