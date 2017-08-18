@@ -148,9 +148,13 @@ test "$(ws stack)" = "($PWD)" || fail leave ws+stack
 ws create foobar
 test -d "$WS_DIR/foobar" || fail create dir WS_DIR/foobar
 test -d "$WS_DIR/foobar/.ws" || fail create dir WS_DIR/foobar/.ws/
-test -s "$WS_DIR/.ws/hook.sh" -a -x "$WS_DIR/foobar/.ws/hook.sh" || fail create file WS_DIR/foobar/.ws/hook.sh
-test -s "$WS_DIR/.ws/config.sh" || fail create file WS_DIR/foobar/.ws/config.sh
+test -s "$WS_DIR/foobar/.ws/hook.sh" -a -x "$WS_DIR/foobar/.ws/hook.sh" || fail create file WS_DIR/foobar/.ws/hook.sh
+test -s "$WS_DIR/foobar/.ws/config.sh" || fail create file WS_DIR/foobar/.ws/config.sh
 test "$_ws__current" = "foobar" || fail str _ws__current
+test -d "$WS_DIR/foobar/.ws/plugins" || fail create dir WS_DIR/foobar/.ws/plugins
+for plugin in $(ls -1 $WS_DIR/.ws/plugins); do
+    test -h $WS_DIR/foobar/.ws/plugins/$plugin || fail create plugin+add $plugin
+done
 
 # more intensive testing of the hooks
 \cat > "$WS_DIR/foobar/.ws/hook.sh" <<'EOF'
