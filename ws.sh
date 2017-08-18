@@ -1298,7 +1298,7 @@ ws () {
             # pop off the command from the arg list
             # the now first argument is the name
             # the rest are cfg files or variable assignments
-            local plugins plugin configfile wsname
+            local plugins="ALL" plugin configfile wsname
             while [ $# -gt 0 ]; do
                 case $1 in
                     -p|--plugins) plugins="$2"; shift;;
