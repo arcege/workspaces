@@ -9,12 +9,12 @@ pipelines:
           - ./pyerect test
 
   branches:
-    - release-*:
-        - step:
-            script:
-              - apt-get install -y python-pip
-              - pip install -r requirements.txt
-              - ./pyerect test upload
+    release-*:
+     - step:
+         script:
+           - apt-get install -y python-pip
+           - pip install -r requirements.txt
+           - ./pyerect test upload
 
   custom:  # manually triggered
     manual:
