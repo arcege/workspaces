@@ -170,7 +170,7 @@ update_plugins () {
         elif [ ! -e "$destdir/${file##*/}" ]; then
             ws plugin install $file
         elif [ $file -nt "$destdir/${file##*/}" ]; then
-            ws plugin install --force $file
+            ws plugin install -f $file
         fi
     done
 }
