@@ -8,9 +8,9 @@ pipelines:
           - pip install -r requirements.txt
           - ./pyerect test
 
-  branches:
+  bookmarks:
     release-*:
-     - step:
+      - step:
          script:
            - apt-get install -y python-pip
            - pip install -r requirements.txt
