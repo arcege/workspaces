@@ -473,9 +473,10 @@ _ws_show_config_vars () {
     local sdir wsdir sedscr wsname
     local wantgl=true wantws=true mode=normal modechr
     sedscr=';s/=.*//'
-    while true; do
+    while [ $# -gt 0 ]; do
         case $1 in
-            -) wsname=$_ws_current; break;;
+            --|"") break;;
+            -) wsname=$_ws_current;;
             -h|--help) echo "ws config list [-q|-v] [-b|-q|-w] [wsname|-]"; return;;
             -g|--global) wantgl=true; wantws=false;;
             -b|--both) wantgl=true; wantws=true;;
@@ -483,7 +484,7 @@ _ws_show_config_vars () {
             -q|--quiet) mode=quiet;;
             -v|--verbose) mode=verbose;;
             -*|--*) echo "Error: invalid option" >&2; return 1;;
-            *) wsname=$1; break;;
+            *) wsname=$1;;
         esac
         shift
     done
@@ -491,7 +492,7 @@ _ws_show_config_vars () {
         sedscr=''
     fi
     wsdir=$(_ws_getdir ${wsname})
-    (
+    {
         if [ $wantgl = true -a -f "$WS_DIR/.ws/config.sh" ]; then
             [ $mode = quiet ] && modechr='' || modechr='%'
             sed -ne "/^[A-Za-z0-9_]*=/{${sedscr};s/^/${modechr}/;p}" "$WS_DIR/.ws/config.sh"
@@ -500,7 +501,7 @@ _ws_show_config_vars () {
             [ $mode = quiet ] && modechr='' || modechr='*'
             sed -ne "/^[A-Za-z0-9_]*=/{${sedscr};s/^/${modechr}/;p}" "$wsdir/.ws/config.sh"
         fi
-    ) | sort
+    } | sort
 }
 
 _ws_show_plugin_vars () {
