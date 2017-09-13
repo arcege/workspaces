@@ -495,11 +495,11 @@ _ws_show_config_vars () {
     {
         if [ $wantgl = true -a -f "$WS_DIR/.ws/config.sh" ]; then
             [ $mode = quiet ] && modechr='' || modechr='%'
-            sed -ne "/^[A-Za-z0-9_]*=/{${sedscr};s/^/${modechr}/;p}" "$WS_DIR/.ws/config.sh"
+            sed -ne "/^[A-Za-z0-9_]*=/{${sedscr};s/^/${modechr}/;p;}" "$WS_DIR/.ws/config.sh"
         fi
         if [ $wantws = true -a -n "$wsdir" -a -f "$wsdir/.ws/config.sh" ]; then
             [ $mode = quiet ] && modechr='' || modechr='*'
-            sed -ne "/^[A-Za-z0-9_]*=/{${sedscr};s/^/${modechr}/;p}" "$wsdir/.ws/config.sh"
+            sed -ne "/^[A-Za-z0-9_]*=/{${sedscr};s/^/${modechr}/;p;}" "$wsdir/.ws/config.sh"
         fi
     } | sort
 }
