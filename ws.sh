@@ -457,16 +457,36 @@ _ws_process_configvars () {
 _ws_parse_configvars () {
     local i cfgfile="$1"
     local sedscr1 sedscr2
-    sedscr1='s/\\t/ /g;s/^ *//;s/ *$//;/_WS_/d;/_ws_/d;/_wshook_/d;/^[^= ]*=/p'
-    sedscr2="/=\"/{;s//=/;s/\".*//;b;};/='/{;s//=/;s/'.*//;b;};s/\(=[^ ]*\).*/\1/"
-    shift
-    for i in "$@"; do
-        case $i in
-            *=*) echo "$i" | sed -ne "$sedscr1" >> $cfgfile;;
-            *)
-                sed -ne "$sedscr1" "$i" | sed -e "$sedscr2" >> $cfgfile;;
-        esac
-    done
+    local sedfile=$(mktemp)
+    cat <<'EOF' > ${sedfile}
+/=/!d
+/_WS_/d
+/_ws_/d
+/_wshook_/d
+s/\\t/ /g
+s/^ *//
+s/ *$//
+/="/{
+  s//=/
+  s/".*//
+  b
+}
+/='/{
+  s//=/
+  s/'.*//
+  b
+}
+s/\(=[^ *]*\).*/\1/
+EOF
+    (
+        shift
+        for i in "$@"; do
+            case $i in
+                *=*) echo "$i";;
+                *)  cat "$i";;
+            esac
+        done
+    ) | sed -f "$sedfile" >> $cfgfile
 }
 
 _ws_show_config_vars () {
@@ -1092,7 +1112,7 @@ _ws_cmd_list () {
         echo "Fatal: no such directory: $WS_DIR" >&2
         return 1
     fi
-    ls -1 $WS_DIR | sed -e "$sedscript"
+    command ls -1 $WS_DIR | sed -e "$sedscript"
 }
 
 # display to stdout the list of workspaces on the stack
@@ -1150,7 +1170,7 @@ _ws_cmd_release () {
         case $1 in
             -h|--help)
                 echo "ws release [--help|--full] [-y|--yes] [{wsname}]"
-                ceho "  --help    - this message"
+                echo "  --help    - this message"
                 echo "  --full    - uninstall the code and workspace"
                 echo "  -y|--yes  - force the operation (when no tty)"
                 echo "  {wsname}  - optionall restore workspace to ~/workspace"
