@@ -7,7 +7,9 @@
 if [ -n "$VENV" ] && command -v workon >/dev/null; then
     case ${wshook__op} in
         create)
-            mkvirtualenv $VENV
+            if [ ! -d "${WORKON_HOME:-$HOME/.virtualenvs}/${VENV}" ]; then
+                mkvirtualenv $VENV
+            fi
             ;;
         destroy)
             if [ -z "$VENV_shared" ]; then
