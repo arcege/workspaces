@@ -5,6 +5,11 @@
 # handle internal redirection
 exec 2>test.err 3>&2 4>/dev/null
 
+case $(uname -s) in
+    Darwin) is_linux=false;;
+    Linux) is_linux=true;;
+esac
+
 versionstr=0.2.7.2
 
 cdir=$PWD
@@ -34,6 +39,10 @@ tar cjfC $HOME/.ws_plugins.tbz2 $cdir plugins
 
 cp -p $cdir/ws.sh $HOME/ws.sh
 source $HOME/ws.sh  # deleted during the ws+release testing
+
+if ! command -v md5sum >/dev/null 2>&1; then
+    function md5sum { command md5 ${1:+"$@"} | command sed 's/.* = //;s/$/  -/'; }
+fi
 
 md5_config_sh='fcf0781bba73612cdc4ed6e26fcea8fc'
 md5_hook_sh='ce3e735d54ea9e54d26360b03f2fe57f'
