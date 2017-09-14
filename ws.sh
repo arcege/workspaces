@@ -73,7 +73,7 @@ esac
 
 # global constants, per shell
 # unfortunately, bash 3 (macos) does not support declaring global vars
-WS_VERSION=0.2.7.2
+WS_VERSION=0.2.7.3
 
 : ${WS_DIR:=$HOME/workspaces}
 : ${_WS_DEBUGFILE:=$WS_DIR/.log}
@@ -372,17 +372,13 @@ _ws_cmd_config () {
     case $op in
         help)
             echo "ws config op args ..."
-            echo "  list <wsname>       - show variables in workspace's config"
-            echo "  del <wsname> <var>  - remove variable from config"
-            echo "  get <wsname> <var>  - return value of variable from config"
+            echo "  del <wsname> <var>       - remove variable from config"
+            echo "  get <wsname> <var>       - return value of variable from config"
             echo "  set <wsname> <var> <val> - set value of variable in config"
-            echo "  search <re> ...     - search workspaces for variables"
-            echo "wsname could be --global for the global configs"
-            return 0
-            ;;
-        list)
-            shift
-            _ws_show_config_vars "$@"
+            echo "  list <wsname>            - show variables in workspace's config"
+            echo "  load <wsname> <file>     - set values from a file"
+            echo "  search <re> ...          - search workspaces for variables"
+            echo "wsname could be '--global' for the global configs or '-' for current workspace"
             return 0
             ;;
         del|get)
@@ -399,6 +395,19 @@ _ws_cmd_config () {
                 echo 'config: expecting value' >&2
                 return 1
             fi
+            ;;
+        list)
+            shift
+            _ws_show_config_vars "$@"
+            return 0
+            ;;
+        load)
+            local cfgfile="$3" oldIFS="$IFS" IFS=$'='
+            _ws_debug 1 "Applying vars from $cfgfile"
+            while read var val; do
+                _ws_cmd_config set ${wsname} "$var" "$val"
+            done < $cfgfile
+            return 0
             ;;
         search)
             local text maxlen workspaces=$(_ws_cmd_list --workspace -q)
@@ -442,16 +451,6 @@ _ws_cmd_config () {
     fi
     file=$wsdir/.ws/config.sh
     _ws_config_edit "$file" $op "$var" "$val"
-}
-
-_ws_process_configvars () {
-    # split the incoming file ($cfgfile) by '='
-    local wsdir="$1" cfgfile="$2" lhs rhs oldIFS="$IFS" IFS=$'='
-    while read lhs rhs; do
-        _ws_config_edit "$wsdir/.ws/config.sh" set "$lhs" "$rhs"
-    done < $cfgfile
-    IFS="$oldIFS"
-    _ws_debug 0 "Applied vars to $wsdir/.ws/config.sh"
 }
 
 _ws_parse_configvars () {
@@ -1012,7 +1011,7 @@ _ws_cmd_create () {
             _ws_generate_config "$wsdir/.ws/config.sh"
             # add assignments from cli
             if [ -s "$cfgfile" ]; then
-                _ws_process_configvars "$wsdir" "$cfgfile"
+                _ws_cmd_config load "$wsname" "$cfgfile"
             fi
             for plugin in $plugins; do
                 _ws_cmd_plugin add $wsname $plugin
@@ -1414,6 +1413,7 @@ if echo $- | fgrep -q i; then  # only for interactive
         # handle bash completion
         local cur curop prev options commands names
         COMPREPLY=()
+        compopt +o default
         cur="${COMP_WORDS[COMP_CWORD]}"
         if [ $COMP_CWORD -gt 1 ]; then
             curop="${COMP_WORDS[1]}"
@@ -1439,7 +1439,7 @@ if echo $- | fgrep -q i; then  # only for interactive
                     return 0
                     ;;
                 config)
-                    COMPREPLY=( $(compgen -W "del get help list search set" -- ${cur}) )
+                    COMPREPLY=( $(compgen -W "del get help list load search set" -- ${cur}) )
                     return 0
                     ;;
                 plugin)
@@ -1483,6 +1483,10 @@ if echo $- | fgrep -q i; then  # only for interactive
                     COMPREPLY=( $(compgen -W "- --global $names" -- $cur) )
                     return 0
             esac
+        elif [ $COMP_CWORD -ge 4 -a ${curop} = config -a ${COMP_WORDS[2]} = load ]; then
+            compopt -o default
+            COMPREPLY=( $(compgen -f -v -- ${cur}) )
+            return 0
         elif [ $COMP_CWORD -eq 4 -a ${curop} = config ]; then
             case ${COMP_WORDS[2]} in
                 del|get|set)

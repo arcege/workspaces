@@ -10,7 +10,7 @@ case $(uname -s) in
     Linux) is_linux=true;;
 esac
 
-versionstr=0.2.7.2
+versionstr=0.2.7.3
 
 cdir=$PWD
 
@@ -73,7 +73,6 @@ command -v _ws_cmd_config >&4 || fail routine _ws_cmd_config
 command -v _ws_config_edit >&4 || fail routine _ws_config_edit
 command -v _ws_cmd_plugin >&4 || fail routine _ws_cmd_plugin
 command -v _ws_parse_configvars >&4 || fail routine _ws_parse_configvars
-command -v _ws_process_configvars >&4 || fail routine _ws_process_configvars
 command -v _ws_prompt_yesno >&4 || fail routine _ws_prompt_yesno
 
 # check the global variables
