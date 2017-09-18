@@ -90,7 +90,7 @@ rc=$?
 test $rc -eq 1 -a "$result" = "" || fail unit "_ws_link+get" none
 result=$(_ws_link set 2>&1)
 rc=$?
-test $rc -eq 1 -a "$result" = "Error: invalid workspace" || fail unit "_ws_link+set" none
+test $rc -eq 1 -a "$result" = "Error: expecting directory" || fail unit "_ws_link+set" none
 mkdir $HOME/workspace
 result=$(_ws_link set /usr 2>&1)
 rc=$?
