@@ -282,19 +282,22 @@ _ws_link () {
             fi
             ;;
         set)
-            if [ -z "$2" -o ! -d "$2" ]; then
-                echo "Error: invalid workspace" >&2
-                _ws_debug 2 "workspace does not exist"
-                return 1
-            elif [ ! -e ${linkfile} -o -h ${linkfile} ]; then
-                rm -f ${linkfile}
-                ln -s "$2" ${linkfile}
-                _ws_debug 2 "$2"
-            elif [ -e ${linkfile} ]; then
+            if [ -e ${linkfile} -a ! -h ${linkfile} ]; then
                 echo "Error: ~/workspace is not a symlink" >&2
                 _ws_debug 1 "~/workspace is not a symlink"
-                return 1;
+                return 1
+            elif [ $# -le 1 ]; then
+                echo "Error: expecting directory" >&2
+                _ws_debug 1 "No argument given."
+                return 1
+            elif [ ! -e "$2" ]; then
+                echo "Error: no such workspace" >&2
+                _ws_debug 1 "No file given."
+                return 1
             fi
+            rm -f ${linkfile}
+            ln -s "$2" ${linkfile}
+            _ws_debug 2 "linking to $2"
             ;;
         del)
             if [ -h ${linkfile} ]; then
