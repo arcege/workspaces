@@ -5,7 +5,11 @@
 # handle internal redirection
 exec 2>test.err 3>&2 4>/dev/null
 
-case $(uname -s) in
+# clear the path, use explicit pathnames in the test script, this
+# will ensure that aliases and functions cannot corrupt
+PATH=
+
+case $(/bin/uname -s) in
     Darwin) is_linux=false;;
     Linux) is_linux=true;;
 esac
@@ -15,8 +19,8 @@ versionstr=0.2.7.3
 cdir=$PWD
 
 TMPDIR=/tmp/ws.test.$$
-trap "rm -rf $TMPDIR" 0 1 2 3 15
-mkdir $TMPDIR
+trap "/bin/rm -rf $TMPDIR" 0 1 2 3 15
+/bin/mkdir $TMPDIR
 #trap 'rc=$?; echo test failed; exit $rc' ERR
 
 # these are for capturing the output while still running within the shell
@@ -30,17 +34,19 @@ export HOME=$TMPDIR
 
 _WS_DEBUGFILE=$PWD/test.log
 WS_DEBUG=4
-rm -f $_WS_DEBUGFILE
+/bin/rm -f $_WS_DEBUGFILE
 
-mkdir -p $HOME  # relative to TMPDIR
+/bin/mkdir -p $HOME  # relative to TMPDIR
 
 # generate the plugins tarball that the install.sh script would
-tar cjfC $HOME/.ws_plugins.tbz2 $cdir plugins
+PATH=/bin:/usr/bin /bin/tar cjfC $HOME/.ws_plugins.tbz2 $cdir plugins
 
-cp -p $cdir/ws.sh $HOME/ws.sh
+/bin/cp -p $cdir/ws.sh $HOME/ws.sh
 source $HOME/ws.sh  # deleted during the ws+release testing
 
-if ! command -v md5sum >/dev/null 2>&1; then
+if $is_linux; then
+    function md5sum { command /usr/bin/md5sum ${1:+"$@"}; }
+else
     function md5sum { command md5 ${1:+"$@"} | command sed 's/.* = //;s/$/  -/'; }
 fi
 
@@ -91,11 +97,11 @@ test $rc -eq 1 -a "$result" = "" || fail unit "_ws_link+get" none
 result=$(_ws_link set 2>&1)
 rc=$?
 test $rc -eq 1 -a "$result" = "Error: expecting directory" || fail unit "_ws_link+set" none
-mkdir $HOME/workspace
+/bin/mkdir $HOME/workspace
 result=$(_ws_link set /usr 2>&1)
 rc=$?
 test $rc -eq 1 -a "$result" = "Error: ~/workspace is not a symlink" || fail unit "_ws_link+set" dir
-rmdir $HOME/workspace
+/bin/rmdir $HOME/workspace
 
 # more unit tests to follow after initialization
 
@@ -114,7 +120,7 @@ test -s "$WS_DIR/.ws/config.sh" || fail init dir WS_DIR/.ws/config.sh
 test -s "$WS_DIR/.ws/hook.sh" -a -x "$WS_DIR/default/.ws/hook.sh" || fail init file WS_DIR/default/.ws/hook.sh
 test "$(md5sum < $WS_DIR/.ws/hook.sh)" = "$md5_hook_sh  -" || fail init md5 hook.sh
 test "$(md5sum < $WS_DIR/.ws/config.sh)" = "$md5_config_sh  -" || fail init md5 config.sh
-test "$(readlink $HOME/workspace)" = "$WS_DIR/default" || fail init link
+test "$(/bin/readlink $HOME/workspace)" = "$WS_DIR/default" || fail init link
 test "$(_ws_getdir default)" = "$WS_DIR/default" || fail routine getdir
 
 test "$(ws list)" = "default@" || fail init cmd ws+list
@@ -131,7 +137,7 @@ test $? -eq 1 -a "$result" = "$WS_DIR/foobar" || fail unit _ws_getdir nodir
 result=$(_ws_link get)
 test $? -eq 0 -a "$result" = "$WS_DIR/default" || fail unit _ws_link ws
 result=$(_ws_link set $WS_DIR/default)
-test $? -eq 0 -a "$result" = "" -a $(readlink $HOME/workspace) = "$WS_DIR/default" || fail unit _ws_link ws
+test $? -eq 0 -a "$result" = "" -a $(/bin/readlink $HOME/workspace) = "$WS_DIR/default" || fail unit _ws_link ws
 
 # checking the hook system
 ( echo 'TEST_VALUE_1=hi'
@@ -146,7 +152,7 @@ test "${_ws__current}" = "default" || fail enter1 str _ws__current
 test "$(ws)" = "default" || fail enter1 cmd ws
 test "$(ws enter)" = "default" || fail enter1 cmd ws+enter
 test "$(ws list)" = "default@*" || fail enter1 cmd ws+list
-test "$(ws stack | tr '\n' ' ')" = "default* (${cdir}) " || fail enter1 cmd ws+stack
+test "$(ws stack | /usr/bin/tr '\n' ' ')" = "default* (${cdir}) " || fail enter1 cmd ws+stack
 
 ws leave
 test "${_ws__current}" = "" || fail leave _ws__current
@@ -160,12 +166,12 @@ test -s "$WS_DIR/foobar/.ws/hook.sh" -a -x "$WS_DIR/foobar/.ws/hook.sh" || fail 
 test -s "$WS_DIR/foobar/.ws/config.sh" || fail create file WS_DIR/foobar/.ws/config.sh
 test "$_ws__current" = "foobar" || fail str _ws__current
 test -d "$WS_DIR/foobar/.ws/plugins" || fail create dir WS_DIR/foobar/.ws/plugins
-for plugin in $(ls -1 $WS_DIR/.ws/plugins); do
+for plugin in $(/bin/ls -1 $WS_DIR/.ws/plugins); do
     test -h $WS_DIR/foobar/.ws/plugins/$plugin || fail create plugin+add $plugin
 done
 
 # more intensive testing of the hooks
-\cat > "$WS_DIR/foobar/.ws/hook.sh" <<'EOF'
+/bin/cat > "$WS_DIR/foobar/.ws/hook.sh" <<'EOF'
 :
 # this is sourced by `ws` (workspaces)
 # commands could be run and the environment/shell could be modified.
@@ -199,7 +205,7 @@ case ${wshook__op} in
 esac
 EOF
 
-\cat > "$WS_DIR/foobar/.ws/config.sh" <<'EOF'
+/bin/cat > "$WS_DIR/foobar/.ws/config.sh" <<'EOF'
 InConfig=$wshook__workspace
 EOF
 
@@ -221,7 +227,7 @@ ws enter default
 test -d "$WS_DIR/default" || fail enter2 dir WS_DIR/default
 test "${_ws__stack[*]}" = ":$cdir foobar:$WS_DIR/foobar" || fail enter2 stack
 test "${_ws__current}" = "default" || fail enter2 str _ws__current
-test "$(ws stack | tr '\n' ' ')" = "default* foobar (${cdir}) " || fail enter2 cmd ws+stack
+test "$(ws stack | /usr/bin/tr '\n' ' ')" = "default* foobar (${cdir}) " || fail enter2 cmd ws+stack
 
 ws leave
 test "${_ws__current}" = "foobar" || fail leave str _ws__current
@@ -229,7 +235,7 @@ test "${_ws__stack[*]}" = ":$cdir" || fail leave stack
 test "$(_ws_getdir)" = "$WS_DIR/foobar" || fail routine _ws_getdir
 
 ws relink foobar
-test $(readlink $HOME/workspace) = "$WS_DIR/foobar" || fail relink link
+test $(/bin/readlink $HOME/workspace) = "$WS_DIR/foobar" || fail relink link
 test "$(ws list)" = "$(echo 'default'; echo 'foobar@*')" || fail relink ws+list
 
 ws destroy foobar >/dev/null
@@ -256,7 +262,7 @@ test "$(ws current)" = "" -a "${_ws__stack[*]}" = "" || fail destroy foo2-none
 
 # for testing passing config variables to ws+create
 configfile=$TMPDIR/config.test
-\cat > $configfile << EOF
+/bin/cat > $configfile << EOF
 hook_1=hello
 hook_2=goodbye
 EOF
@@ -264,9 +270,9 @@ EOF
 ws create xyzzy $configfile hook_3=hola
 configsh=$WS_DIR/xyzzy/.ws/config.sh
 test "$(md5sum < $configsh)" != "$md5_config_sh  -" || fail create+config md5 config.sh
-grep -q '^hook_1=' $configsh; rc1=$?
-grep -q '^hook_2=' $configsh; rc2=$?
-grep -q '^hook_3=' $configsh; rc3=$?
+/bin/grep -q '^hook_1=' $configsh; rc1=$?
+/bin/grep -q '^hook_2=' $configsh; rc2=$?
+/bin/grep -q '^hook_3=' $configsh; rc3=$?
 test $rc1 -eq 0 -a $rc2 -eq 0 -a $rc3 -eq 0 || fail create+config vars included
 
 test "$(_ws_config_edit $configsh list)" = $'hook_1\nhook_2\nhook_3' || fail ws_config list
@@ -280,7 +286,7 @@ var="$(_ws_config_edit $configsh set hook_4 caio)"
 test "$(_ws_config_edit $configsh get hook_4)" = "caio" || fail ws_config_edit exstvar value
 var="$(_ws_config_edit $configsh del hook_4)"
 test $? -eq 0 -a "$var" = "" || fail ws_config_edit del op
-fgrep -q hook_4 $configsh && fail ws_config_edit del check
+/bin/grep -Fq hook_4 $configsh && fail ws_config_edit del check
 var="$(_ws_config_edit $configsh del hook_4)"
 test $? -eq 0 -a "$var" = "" || fail ws_config_edit del novar
 
@@ -300,7 +306,7 @@ test $? -eq 0 -a "$var" = "$result" || fail ws+config search
 
 # testing for plugin
 pluginfile=$TMPDIR/plugin
-\cat > $pluginfile <<'EOF'
+/bin/cat > $pluginfile <<'EOF'
 :
 
 plugin_ext_value=plugin-run
@@ -321,16 +327,16 @@ nvm
 virtualenv
 virtualenvwrapper"
 ws plugin available >$cmdout 2>$cmderr
-test $? -eq 0 -a "$(\cat $cmdout)" = "${packaged_plugins}" || fail ws+plugin available packaged
+test $? -eq 0 -a "$(/bin/cat $cmdout)" = "${packaged_plugins}" || fail ws+plugin available packaged
 ws plugin install $TMPDIR/plugin
 test $? -eq 0 -a -x $WS_DIR/.ws/plugins/plugin || fail ws+plugin install
 ws plugin available >$cmdout 2>$cmderr
 new_plugins=$(echo "${packaged_plugins}
-plugin" | sort)
-test $? -eq 0 -a "$(\cat $cmdout)" = "${new_plugins}" || fail ws+plugin available non-empty
+plugin" | /usr/bin/sort)
+test $? -eq 0 -a "$(/bin/cat $cmdout)" = "${new_plugins}" || fail ws+plugin available non-empty
 ws create --plugins plugin testplugin1 >$cmdout 2>$cmderr
 test $? -eq 0 -a -h $WS_DIR/testplugin1/.ws/plugins/plugin || fail ws+create plugin
-test "$(\cat $cmdout)" = $'creating\nentering' || fail ws+create plugin running
+test "$(/bin/cat $cmdout)" = $'creating\nentering' || fail ws+create plugin running
 test "x${plugin_ext_value}" = xplugin-run || fail ws+plugin add var carried
 var=$(ws plugin list testplugin1)
 test $? -eq 0 -a "x$var" = xplugin || fail ws+plugin list non-empty
@@ -340,9 +346,9 @@ ws plugin add testplugin1 plugin
 test $? -eq 0 -a -h $WS_DIR/testplugin1/.ws/plugins/plugin || fail ws+plugin add
 
 ws plugin install $TMPDIR/plugin >$cmdout 2>$cmderr
-test $? -eq 1 -a "$(\cat $cmderr)" = "Plugin plugin exists" || fail ws+plugin reinstall
+test $? -eq 1 -a "$(/bin/cat $cmderr)" = "Plugin plugin exists" || fail ws+plugin reinstall
 ws plugin install -f $TMPDIR/plugin >$cmdout 2>$cmderr
-test $? -eq 0 -a "$(\cat $cmdout)" = "" -a -x $WS_DIR/.ws/plugins/plugin || fail ws+plugin reinstall-force
+test $? -eq 0 -a "$(/bin/cat $cmdout)" = "" -a -x $WS_DIR/.ws/plugins/plugin || fail ws+plugin reinstall-force
 test ! -e $WS_DIR/.ws/plugins/other || fail ws+plugin assert no-other
 ws plugin install -n other $TMPDIR/plugin
 test $? -eq 0 -a -x $WS_DIR/.ws/plugins/other || fail ws+plugin install-name
@@ -364,14 +370,14 @@ test -d $HOME/alternate || fail init alternate created
 
 # Testing releasing the structure and uninstallation
 
-touch "$HOME/alternate/default/foo.c"
+/usr/bin/touch "$HOME/alternate/default/foo.c"
 ws release default <&4 >$cmdout 2>$cmderr
 test $? -eq 1 -a -d $HOME/alternate || fail release no
 ws release --yes default <&4 >$cmdout 2>$cmderr
 test $? -eq 0 -a ! -d $HOME/alternate || fail release yes
 test -d $HOME/workspace -a -f $HOME/workspace/foo.c -a ! -d $HOME/workspace/.ws || fail release keep
 
-rm -rf $HOME/workspace
+/bin/rm -rf $HOME/workspace
 ws initialize $HOME/alternate >$cmdout 2>$cmderr
 
 ws release -y <&4 >$cmdout 2>$cmderr
