@@ -60,7 +60,7 @@
 # the config.sh is called on every operation, commands should not be executed
 # variables should be assigned
 
-_ws_dir="$(command cd $(command dirname ${BASH_SOURCE[0]}); command pwd)"
+_ws_dir="$(command cd $(/usr/bin/dirname ${BASH_SOURCE[0]}); command pwd)"
 _WS_SOURCE="$_ws_dir/${BASH_SOURCE[0]##*/}"  # used by ws+reload later
 unset _ws_dir
 
@@ -92,22 +92,30 @@ if [ x${_ws__current:+X} != xX ]; then
     _ws__stack=()
 fi
 
-# To help avoid overridden commands by functions or aliases, we'll create our own aliases here to use
-# throughout the app
-function _ws_ls { command ls ${1:+"$@"}; }
-function _ws_cat { command cat ${1:+"$@"}; }
-function _ws_readlink { command readlink "$@"; }
-function _ws_ln { command ln "$@"; }
-function _ws_cp { command cp "$@"; }
-function _ws_mv { command mv "$@"; }
-function _ws_rm { command rm "$@"; }
-function _ws_mkdir { command mkdir "$@"; }
-function _ws_grep { command grep "$@"; }
-function _ws_sed { command sed "$@"; }
-function _ws_awk { command awk "$@"; }
+# To help avoid overridden commands by functions, aliases or paths,
+# we'll create our own functions here to use throughout the app; 
+function _ws_awk { /usr/bin/awk "$@"; }
+function _ws_basename { /usr/bin/basename ${1:+"$@"}; }
+function _ws_cat { /bin/cat ${1:+"$@"}; }
 function _ws_cd { command cd ${1:+"$@"}; }
+function _ws_chmod { /bin/chmod "$@"; }
+function _ws_cp { /bin/cp "$@"; }
+function _ws_date { /bin/date ${1:+"$@"}; }
+function _ws_dirname { /usr/bin/dirname ${1:+"$@"}; }
 function _ws_echo { command echo "$@"; }
-function _ws_chmod { command chmod "$@"; }
+function _ws_grep { /bin/grep "$@"; }
+function _ws_ln { /bin/ln "$@"; }
+function _ws_ls { /bin/ls ${1:+"$@"}; }
+function _ws_mkdir { /bin/mkdir "$@"; }
+function _ws_mktemp { /bin/mktemp ${1:+"$@"}; }
+function _ws_mv { /bin/mv "$@"; }
+function _ws_readlink { /bin/readlink "$@"; }
+function _ws_rm { /bin/rm "$@"; }
+function _ws_sed { /bin/sed "$@"; }
+function _ws_sort { /usr/bin/sort ${1:+"$@"}; }
+function _ws_tar { PATH=/bin:/usr/bin command /bin/tar "$@"; }
+function _ws_tr { /usr/bin/tr "$@"; }
+function _ws_tty { /usr/bin/tty; }
 
 _ws_debug () {
     case $1 in
@@ -132,8 +140,8 @@ _ws_debug () {
             if [ "$1" -le "$WS_DEBUG" ]; then
                 local proc func when lvl=$1
                 shift
-                proc="($$:$(tty))"
-                when=$(date +%Y%m%d.%H%M%S)
+                proc="($$:$(_ws_tty))"
+                when=$(_ws_date +%Y%m%d.%H%M%S)
                 func="${FUNCNAME[1]}"  # The calling routine
                 if [ "x${_WS_DEBUGFILE}" = x- ]; then # stdout
                     _ws_echo "${when}${proc}${func}[$lvl] $*"
@@ -292,7 +300,7 @@ _ws_link () {
     case $1 in
         get)
             if [ -h ${linkfile} ]; then
-                readlink ${linkfile}
+                _ws_readlink ${linkfile}
             else
                 _ws_debug 3 "no link"
                 return 1
@@ -300,27 +308,27 @@ _ws_link () {
             ;;
         set)
             if [ -e ${linkfile} -a ! -h ${linkfile} ]; then
-                echo "Error: ~/workspace is not a symlink" >&2
+                _ws_echo "Error: ~/workspace is not a symlink" >&2
                 _ws_debug 1 "~/workspace is not a symlink"
                 return 1
             elif [ $# -le 1 ]; then
-                echo "Error: expecting directory" >&2
+                _ws_echo "Error: expecting directory" >&2
                 _ws_debug 1 "No argument given."
                 return 1
             elif [ ! -e "$2" ]; then
-                echo "Error: no such workspace" >&2
+                _ws_echo "Error: no such workspace" >&2
                 _ws_debug 1 "No file given."
                 return 1
             fi
-            rm -f ${linkfile}
-            ln -s "$2" ${linkfile}
+            _ws_rm -f ${linkfile}
+            _ws_ln -s "$2" ${linkfile}
             _ws_debug 2 "linking to $2"
             ;;
         del)
             if [ -h ${linkfile} ]; then
-                rm -f ${linkfile}
+                _ws_rm -f ${linkfile}
             elif [ -e ${linkfile} ]; then
-                echo "Error: ~/workspace is not a symlink" >&2
+                _ws_echo "Error: ~/workspace is not a symlink" >&2
                 _ws_debug 1 "~/workspace is not a symlink"
                 return 1
             fi
@@ -476,8 +484,8 @@ _ws_cmd_config () {
 _ws_parse_configvars () {
     local i cfgfile="$1"
     local sedscr1 sedscr2
-    local sedfile=$(mktemp)
-    _ws_cat <<'EOF' > ${sedfile}
+    local sedfile=$(_ws_mktemp)
+    _ws_cat > ${sedfile} <<'EOF'
 /=/!d
 /_WS_/d
 /_ws_/d
@@ -540,7 +548,7 @@ _ws_show_config_vars () {
             [ $mode = quiet ] && modechr='' || modechr='*'
             _ws_sed -ne "/^[A-Za-z0-9_]*=/{${sedscr};s/^/${modechr}/;p;}" "$wsdir/.ws/config.sh"
         fi
-    } | sort
+    } | _ws_sort
 }
 
 _ws_show_plugin_vars () {
@@ -765,7 +773,7 @@ EOF
 _ws_generate_hook () {
     _ws_debug 7 args "$@"
     # Create an empty hook script in the workspace
-    if [ -d "$(dirname $1)" -a -n "$1" ]; then
+    if [ -d "$(_ws_dirname $1)" -a -n "$1" ]; then
         _ws_debug 3 "create $1"
         _ws_cat > "$1" <<'EOF'
 :
@@ -797,7 +805,7 @@ case ${wshook__op} in
         ;;
 esac
 EOF
-    chmod +x "$1"
+    _ws_chmod +x "$1"
     fi
 }
 
@@ -841,7 +849,7 @@ _ws_run_hooks () {
         fi
     done
     # register the variables for later unset
-    wshook__variables=$(_ws_sed -n '/=.*/s///p' $tmpfile | tr '\n' ' ')
+    wshook__variables=$(_ws_sed -n '/=.*/s///p' $tmpfile | _ws_tr '\n' ' ')
     # load the gathered variables
     [ -s $tmpfile ] && source $tmpfile
     for sdir in $WS_DIR $wsdir; do
@@ -1122,7 +1130,7 @@ _ws_cmd_list () {
     fi
     link=$(_ws_link get)
     if [ $? -eq 0 -a $quiet = false ]; then
-        sedscript="${sedscript};/^$(basename $link)\$/s/\$/@/"
+        sedscript="${sedscript};/^$(_ws_basename $link)\$/s/\$/@/"
     fi
     if [ x${_ws__current:+X} = xX -a $quiet = false ]; then
         sedscript="${sedscript};/^${_ws__current}@\{0,1\}\$/s/\$/*/"
@@ -1172,8 +1180,8 @@ _ws_cmd_initialize () {
     _ws_mkdir -p $WS_DIR/.ws/plugins
     # extract the plugins
     if [ -f $HOME/.ws_plugins.tbz2 ]; then
-        tar xjfC $HOME/.ws_plugins.tbz2 $WS_DIR/.ws plugins
-        chmod +x $WS_DIR/.ws/plugins/*
+        _ws_tar xjfC $HOME/.ws_plugins.tbz2 $WS_DIR/.ws plugins
+        _ws_chmod +x $WS_DIR/.ws/plugins/*
     fi
     _ws_generate_hook "${WS_DIR}/.ws/hook.sh"
     _ws_generate_hook "${WS_DIR}/.ws/skel.sh"
@@ -1396,7 +1404,7 @@ ws () {
         state)
             _ws_echo "root=$WS_DIR" "ws='$_ws__current'"
             _ws_stack state
-            _ws_cmd_list | tr '\n' ' '; _ws_echo
+            _ws_cmd_list | _ws_tr '\n' ' '; _ws_echo
             ;;
         reload)
             local wsfile
@@ -1428,7 +1436,7 @@ ws () {
     esac
 }
 
-if _ws_echo $- | fgrep -q i; then  # only for interactive
+if _ws_echo $- | _ws_grep -Fq i; then  # only for interactive
     _ws_complete () {
         # handle bash completion
         local cur curop prev options commands names
@@ -1444,7 +1452,7 @@ if _ws_echo $- | fgrep -q i; then  # only for interactive
         options="-h --help"
         commands="config create current debug destroy enter help hook initialize leave list plugin"
         commands="$commands release relink reload stack state validate version"
-        names=$(ws list | tr -d '*@' | tr '\n' ' ')
+        names=$(ws list | _ws_tr -d '*@' | _ws_tr '\n' ' ')
         if [ $COMP_CWORD -eq 1 ]; then
             COMPREPLY=( $(compgen -W "$commands $options $names" -- ${cur}) )
             return 0
