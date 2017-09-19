@@ -14,7 +14,7 @@ case $(/bin/uname -s) in
     Linux) is_linux=true;;
 esac
 
-versionstr=0.2.7.3
+versionstr=0.2.7.4
 
 cdir=$PWD
 
