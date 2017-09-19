@@ -10,14 +10,14 @@ if [ -n "$github_repos" -a -n "$github_org" ]; then
     case ${wshook__op} in
         create)
             for reponame in $github_repos; do
-                git clone git@github.com:${github_org}/${reponame}.git $wshook__workspace/${reponame}
+                /usr/bin/git clone git@github.com:${github_org}/${reponame}.git $wshook__workspace/${reponame}
             done
             unset reponame
             ;;
         enter)
             if [ -n "$github_fetch_on_enter" ]; then
                 for reponame in $github_repos; do
-                    git -C $wshook__workspace/${reponame} fetch
+                    /usr/bin/git -C $wshook__workspace/${reponame} fetch
                 done
                 unset reponame
             fi
@@ -25,7 +25,7 @@ if [ -n "$github_repos" -a -n "$github_org" ]; then
         leave)
             if [ -n "$github_push_on_leave" ]; then
                 for reponame in $github_repos; do
-                    git -C $wshook__workspace/${reponame} push
+                    /usr/bin/git -C $wshook__workspace/${reponame} push
                 done
                 unset reponame
             fi
