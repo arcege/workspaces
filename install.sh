@@ -223,13 +223,8 @@ post_initialization () {
     case $1 in
         replace)
             if [ $movingworkspace = true ]; then
-                if [ ! -d $HOME/workspace.$$/.ws ]; then
-                    mv $HOME/workspaces/default/.ws $HOME/workspace.$$/
-                else
-                    rm -rf $HOME/workspaces/default/.ws
-                fi
-                rmdir $HOME/workspaces/default
-                mv $HOME/workspace.$$ $HOME/workspaces/default
+                rm -rf $HOME/workspaces/default
+                _ws_cmd_convert default $HOME/workspace.$$ ALL /dev/null
             fi
             ;;
     esac

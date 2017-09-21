@@ -73,7 +73,7 @@ esac
 
 # global constants, per shell
 # unfortunately, bash 3 (macos) does not support declaring global vars
-WS_VERSION=0.2.7.4
+WS_VERSION=0.2.8
 
 : ${WS_DIR:=$HOME/workspaces}
 : ${_WS_DEBUGFILE:=$WS_DIR/.log}
@@ -1033,17 +1033,7 @@ _ws_cmd_create () {
         local result
         result=$(_ws_mkdir "$wsdir" 2>&1)
         if [ $? -eq 0 ]; then
-            shift  # pop wsname from the arg list
-            _ws_mkdir -p "$wsdir/.ws"
-            _ws_copy_skel "$wsdir"
-            _ws_generate_config "$wsdir/.ws/config.sh"
-            # add assignments from cli
-            if [ -s "$cfgfile" ]; then
-                _ws_cmd_config load "$wsname" "$cfgfile"
-            fi
-            for plugin in $plugins; do
-                _ws_cmd_plugin add $wsname $plugin
-            done
+            _ws_convert_ws "$wsname" "$plugins" "$cfgfile"
             _ws_run_hooks create $wsname
             _ws_debug 1 "$wsdir created"
         elif [ -d "$wsdir" ]; then
@@ -1165,6 +1155,66 @@ _ws_cmd_show_stack () {
     else
         _ws_echo "($PWD)"
     fi
+}
+
+# convert a directory to a workspace, do:
+# - create a .ws/ directory
+# - copy the skel.sh to hook.sh
+# - create a config.sh db
+# - update configs db from cli data
+# - add plugins
+_ws_convert_ws () {
+    _ws_debug 7 args "$@"
+    local plugin wsdir wsname="$1" plugins="$2" cfgfile="$3"
+    # we don't use _ws_getdir here since it may give a false value
+    wsdir="$WS_DIR/$wsname"
+    if [ -z "$wsname" ]; then
+        _ws_echo "No name given" >&2
+        _ws_debug 2 "no name"
+        return 1
+    elif [ ! -d "$wsdir" ]; then
+        _ws_echo "No directory to convert: $wsdir" >&2
+        _ws_debug 2 "no directory"
+        return 1
+    elif [ -d "$wsdir/.ws" ]; then
+        _ws_echo "Already a workspace"
+        _ws_debug 2 "Workspace exists"
+        return 1
+    fi
+    _ws_mkdir $wsdir/.ws
+    _ws_copy_skel "$wsdir"
+    _ws_generate_config "$wsdir/.ws/config.sh"
+    # add assignments from cli
+    if [ -s "$cfgfile" ]; then
+        _ws_cmd_config load "$wsname" "$cfgfile"
+    fi
+    for plugin in $plugins; do
+        _ws_cmd_plugin add $wsname $plugin
+    done
+    _ws_debug 1 "$wsdir converted"
+}
+
+# convert a directory to a workspaces structure
+# move it into $WS_DIR if it is not already
+_ws_cmd_convert () {
+    _ws_debug 7 args "$@"
+    local moveto wsname="$1" srcdir="$2" plugins="$3" cfgfile="$4"
+    if [ ! -d "$srcdir" ]; then
+        _ws_echo "No such directory: $srcdir" >&2
+        _ws_debug 2 "src directory does not exist"
+        return 1
+    fi
+    if [ "$srcdir" = "$WS_DIR/$wsname" ]; then
+        moveto="$srcdir"
+    elif [ -d "$WS_DIR/$wsname" ]; then
+        _ws_echo "Workspace already exists: $wsname" >&2
+        _wsdebug 2 "workspace exists"
+        return 1
+    else
+        moveto="$WS_DIR/$wsname"
+        _ws_mv "$srcdir" "$moveto"
+    fi
+    _ws_convert_ws $wsname "$plugins" "$cfgfile"
 }
 
 # generate the initial structure with an empty default workspace
@@ -1307,6 +1357,8 @@ ws [<cmd> [<args>]]
   config+ <op> <wsname> ...  - modify config variables
   hook+ edit <wsname>        - edit hook scripts
   plugin+ <op> ...           - manage plugins (installable hooks)
+  convert [-p <plugins>] [-n <name>] <dir> <cfg*>]...
+                             - convert directory to workspace
   help|-h|--help             - this message
   version                    - display version number
   [<name>]                   - same as 'ws enter [<name>]'
@@ -1401,6 +1453,36 @@ ws () {
         hook)
             _ws_cmd_hook "$@"
             ;;
+        convert)
+            # convert a non-workspace structure into a workspace
+            # and move it under $WS_DIR
+            local plugins="ALL" plugin configfile wsname srcdir
+            while [ $# -gt 0 ]; do
+                case $1 in
+                    -h|--help)
+                        _ws_echo "ws convert [-n name] [-p plugins] DIR cnf..."
+                        return
+                        ;;
+                    -p|--plugins) plugins="$2"; shift;;
+                    -n) wsname="$2"; shift;;
+                    -*) _ws_echo "Invalid option: $1" >&2; return 1;;
+                    *) break;;  # don't shift
+                esac
+                shift
+            done
+            srcdir="$1"; shift
+            if [ ! -d "$srcdir" ]; then
+                _ws_echo "Expecting directory" >&2
+                return 1
+            elif [ -z "$wsname" ]; then
+                wsname=$(basename "$srcdir")
+            fi
+            configfile="${TMPDIR:-/tmp}/ws.cfg.$$.${wsname}"
+            # process the config (files or assignments) passed on the command-line
+            _ws_parse_configvars "${configfile}" "$@"
+            _ws_cmd_convert "$wsname" "$srcdir" "$plugins" "$configfile"
+            _ws_rm -f ${configfile}
+            ;;
         state)
             _ws_echo "root=$WS_DIR" "ws='$_ws__current'"
             _ws_stack state
@@ -1450,8 +1532,9 @@ if _ws_echo $- | _ws_grep -Fq i; then  # only for interactive
         fi
         prev="${COMP_WORDS[COMP_CWORD-1]}"
         options="-h --help"
-        commands="config create current debug destroy enter help hook initialize leave list plugin"
-        commands="$commands release relink reload stack state validate version"
+        commands="config convert create current debug destroy enter help hook"
+        commands="$commands initialize leave list plugin relink reload stack"
+        commands="$commands release state validate version"
         names=$(ws list | _ws_tr -d '*@' | _ws_tr '\n' ' ')
         if [ $COMP_CWORD -eq 1 ]; then
             COMPREPLY=( $(compgen -W "$commands $options $names" -- ${cur}) )
@@ -1468,6 +1551,10 @@ if _ws_echo $- | _ws_grep -Fq i; then  # only for interactive
                     ;;
                 config)
                     COMPREPLY=( $(compgen -W "del get help list load search set" -- ${cur}) )
+                    return 0
+                    ;;
+                convert)
+                    COMPREPLY=( $(compgen -d -v -W "-p --plugins -n --name" -- ${cur}) )
                     return 0
                     ;;
                 plugin)
@@ -1493,6 +1580,16 @@ if _ws_echo $- | _ws_grep -Fq i; then  # only for interactive
             esac
         elif [ $COMP_CWORD -ge 3 -a ${curop} = create ]; then
             COMPREPLY=( $(compgen -f -v -- ${cur}) )
+            return 0
+        elif [ $COMP_CWORD -ge 3 -a ${curop} = convert ]; then
+            if [ "x${prev}" = x-n -o "x${prev}" = x--name ]; then
+                COMPREPLY=( )
+            elif [ "x${prev}" = x-p -o "x${prev}" = x--plugins ]; then
+                local plugins=$(_ws_cmd_plugin available)
+                COMPREPLY=( $(compgen -W "ALL ${plugins}" -- ${cur}) )
+            else
+                COMPREPLY=( $(compgen -d -v -- ${cur}) )
+            fi
             return 0
         elif [ $COMP_CWORD -eq 3 -a ${curop} = release -a x${prev} = x--full ]; then
             COMPREPLY=( $(compgen -W "${names}" -- ${cur}) )

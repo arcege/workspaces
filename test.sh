@@ -14,7 +14,7 @@ case $(/bin/uname -s) in
     Linux) is_linux=true;;
 esac
 
-versionstr=0.2.7.4
+versionstr=0.2.8
 
 cdir=$PWD
 
@@ -80,6 +80,7 @@ command -v _ws_config_edit >&4 || fail routine _ws_config_edit
 command -v _ws_cmd_plugin >&4 || fail routine _ws_cmd_plugin
 command -v _ws_parse_configvars >&4 || fail routine _ws_parse_configvars
 command -v _ws_prompt_yesno >&4 || fail routine _ws_prompt_yesno
+command -v _ws_convert_ws >&4 || fail routine _ws_convert_ws
 
 # check the global variables
 test "$(declare -p WS_DIR)" = "declare -- WS_DIR=\"$HOME/workspaces\"" || fail declare WS_DIR
@@ -158,6 +159,21 @@ ws leave
 test "${_ws__current}" = "" || fail leave _ws__current
 test "${_ws__stack[*]}" = "" || fail leave stack
 test "$(ws stack)" = "($PWD)" || fail leave ws+stack
+
+/bin/mkdir -p $WS_DIR/foobar1
+/bin/cat > $TMPDIR/config_vars <<EOF
+doset=false
+dontset=true
+EOF
+_ws_convert_ws foobar1 'cdpath java' $TMPDIR/config_vars
+test -d $WS_DIR/foobar1/.ws || fail convert_ws dir .ws
+test -s "$WS_DIR/foobar1/.ws/hook.sh" -a -x "$WS_DIR/foobar1/.ws/hook.sh" ||
+    fail convert_ws hook.sh
+test -s "$WS_DIR/foobar1/.ws/config.sh" || fail convert_ws config.sh
+result=$(ws config get foobar1 doset)
+test $? -eq 0 -a "$result" = "false" || fail convert_ws config value \"doset\"
+result=$(ws config get foobar1 dontset) || fail convert_ws config value \"dontset\"
+/bin/rm -rf $WS_DIR/foobar1
 
 ws create foobar
 test -d "$WS_DIR/foobar" || fail create dir WS_DIR/foobar
