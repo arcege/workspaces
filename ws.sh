@@ -1521,160 +1521,272 @@ ws () {
 if _ws_echo $- | _ws_grep -Fq i; then  # only for interactive
     _ws_complete () {
         # handle bash completion
-        local cur curop prev options commands names
-        COMPREPLY=()
-        compopt +o default
-        cur="${COMP_WORDS[COMP_CWORD]}"
-        if [ $COMP_CWORD -gt 1 ]; then
-            curop="${COMP_WORDS[1]}"
-        else
-            curop=""
-        fi
-        prev="${COMP_WORDS[COMP_CWORD-1]}"
+        local soptions commands names
         options="-h --help"
         commands="config convert create current debug destroy enter help hook"
         commands="$commands initialize leave list plugin relink reload stack"
         commands="$commands release state validate version"
-        names=$(ws list | _ws_tr -d '*@' | _ws_tr '\n' ' ')
+        names=$(ws list -q | _ws_tr '\n' ' ')
+        COMPREPLY=()
+        compopt +o default
         if [ $COMP_CWORD -eq 1 ]; then
-            COMPREPLY=( $(compgen -W "$commands $options $names" -- ${cur}) )
+            COMPREPLY=( $(compgen -W "$commands $options $names" -- ${COMP_WORDS[COMP_CWORD]}) )
             return 0
-        elif [ $COMP_CWORD -eq 2 ]; then
-            case $curop in
-                enter|destroy|relink)
-                    COMPREPLY=($(compgen -W "$names" -- $cur))
-                    return 0
-                    ;;
-                debug)
-                    COMPREPLY=( $(compgen -W "reset 0 1 2 3 4 5 6 7 8 9" -f -- ${cur}) )
-                    return 0
-                    ;;
-                config)
-                    COMPREPLY=( $(compgen -W "del get help list load search set" -- ${cur}) )
-                    return 0
-                    ;;
-                convert)
-                    COMPREPLY=( $(compgen -d -v -W "-p --plugins -n --name" -- ${cur}) )
-                    return 0
-                    ;;
-                plugin)
-                    COMPREPLY=( $(compgen -W "add help install available list remove show uninstall" -- ${cur}) )
-                    return 0
-                    ;;
-                reload)
-                    COMPREPLY=( $(compgen -f -- ${cur}) )
-                    return 0
-                    ;;
-                create)
-                    COMPREPLY=( $(compgen -W "-p --plugins" -- ${cur}) )
-                    return 0
-                    ;;
-                hook)
-                    COMPREPLY=( $(compgen -W "edit help" -- ${cur}) )
-                    return 0
-                    ;;
-                release)
-                    COMPREPLY=( $(compgen -W "--full -h --help $names" -- ${cur}) )
-                    return 0
-                    ;;
-            esac
-        elif [ $COMP_CWORD -ge 3 -a ${curop} = create ]; then
-            COMPREPLY=( $(compgen -f -v -- ${cur}) )
-            return 0
-        elif [ $COMP_CWORD -ge 3 -a ${curop} = convert ]; then
-            if [ "x${prev}" = x-n -o "x${prev}" = x--name ]; then
-                COMPREPLY=( )
-            elif [ "x${prev}" = x-p -o "x${prev}" = x--plugins ]; then
-                local plugins=$(_ws_cmd_plugin available)
-                COMPREPLY=( $(compgen -W "ALL ${plugins}" -- ${cur}) )
-            else
-                COMPREPLY=( $(compgen -d -v -- ${cur}) )
-            fi
-            return 0
-        elif [ $COMP_CWORD -eq 3 -a ${curop} = release -a x${prev} = x--full ]; then
-            COMPREPLY=( $(compgen -W "${names}" -- ${cur}) )
-            return 0
-        elif [ $COMP_CWORD -eq 3 -a ${curop} = config ]; then
-            # "-" is the same as the current workspace
-            case ${COMP_WORDS[2]} in
-                search)
-                    local configvars pluginvars
-                    configvars=$(_ws_show_config_vars -b -q $(_ws_cmd_list -q))
-                    pluginvars=$(_ws_cmd_plugin show -q)
-                    COMPREPLY=( $(compgen -W "${configvars} ${pluginvars}" -- ${cur}) )
-                    return 0
-                    ;;
-                *)
-                    COMPREPLY=( $(compgen -W "- --global $names" -- $cur) )
-                    return 0
-            esac
-        elif [ $COMP_CWORD -ge 4 -a ${curop} = config -a ${COMP_WORDS[2]} = load ]; then
-            compopt -o default
-            COMPREPLY=( $(compgen -f -v -- ${cur}) )
-            return 0
-        elif [ $COMP_CWORD -eq 4 -a ${curop} = config ]; then
-            case ${COMP_WORDS[2]} in
-                del|get|set)
-                    local configvars pluginvars
-                    configvars=$(_ws_show_config_vars -b -q $(_ws_cmd_list -q))
-                    pluginvars=$(_ws_cmd_plugin show -q)
-                    COMPREPLY=( $(compgen -W "${configvars} ${pluginvars}" -- ${cur}) )
-                    return 0
-                    ;;
-                list)
-                    COMPREPLY=( $(compgen -W "-v --verbose" -- ${cur}) )
-                    return 0
-                    ;;
-            esac
-        elif [ $COMP_CWORD -eq 3 -a ${curop} = hook ]; then
-            COMPREPLY=( $(compgen -W "$names - --global --skel" -- ${cur}) )
-            return 0
-        elif [ $COMP_CWORD -eq 3 -a ${curop} = plugin ]; then
-            case $prev in
-                available)
-                    COMPREPLY=( )
-                    return 0
-                    ;;
-                install)
-                    COMPREPLY=( $(compgen -f -W "-f --force -n --name" -- ${cur}) )
-                    return 0
-                    ;;
-                uninstall)
-                    COMPREPLY=( $(compgen -W "$(ws plugin available)" -- ${cur}) )
-                    return 0
-                    ;;
-                list)
-                    COMPREPLY=( $(compgen -W "- --all $names" -- ${cur}) )
-                    return 0
-                    ;;
-                add|remove)
-                    COMPREPLY=( $(compgen -W "- $names" -- ${cur}) )
-                    return 0
-                    ;;
-            esac
-        elif [ $COMP_CWORD -ge 4 -a ${curop} = plugin ]; then
-            case ${COMP_WORDS[2]} in
-                install)
-                    if [ "x${prev}" = x-f ]; then
-                        COMPREPLY=( $(compgen -f -W "-n" -- ${cur}) )
-                        return 0
-                    elif [ "x${prev}" = x-n ]; then
-                        :  # no completion
-                    else
-                        COMPREPLY=( $(compgen -f -- ${cur}) )
-                        return 0
+        else
+            local i=2 state cur curop prev names
+            cur="${COMP_WORDS[COMP_CWORD]}"
+            curop="${COMP_WORDS[1]}"
+            prev="${COMP_WORDS[COMP_CWORD-1]}"
+            case ${curop} in
+                help)
+                    if [ $COMP_CWORD -eq 2 ]; then
+                        COMPREPLY=( $(compgen -W "$commands" -- ${cur}) )
                     fi
                     ;;
-                add|remove)
-                    COMPREPLY=( $(compgen -W "ALL $(ws plugin available)" -- ${cur}) )
-                    return 0
+                leave|current|stack|state|version|validate)
+                    if [ $COMP_CWORD -eq 2 ]; then
+                        COMPREPLY=( $(compgen -W "-h --help" -- ${cur}) )
+                    fi
+                    ;;
+                enter)
+                    if [ $COMP_CWORD -eq 2 ]; then
+                        COMPREPLY=( $(compgen -W "-h --help $names" -- $cur) )
+                    fi
+                    ;;
+                destroy|relink)
+                    if [ $COMP_CWORD -eq 2 ]; then
+                        COMPREPLY=( $(compgen -W "-h --help $names -" -- $cur) )
+                    fi
+                    ;;
+                debug)
+                    if [ $COMP_CWORD -eq 2 ]; then
+                        COMPREPLY=( $(compgen -W "-h --help reset 0 1 2 3 4 5 6 8 9" -f -- ${cur}) )
+                    fi
                     ;;
                 list)
-                    COMPREPLY=( $(compgen -W "-v --verbose" -- ${cur}) )
-                    return 0
+                    if [ $COMP_CWORD -eq 2 ]; then
+                        COMPREPLY=( $(compgen -W "-q --quiet" -- ${cur}) )
+                    fi
+                    ;;
+                reload)
+                    if [ $COMP_CWORD -eq 2 ]; then
+                        COMPREPLY=( $(compgen -f -W "-h --help" -- ${cur}) )
+                    fi
+                    ;;
+                initialize)
+                    if [ $COMP_CWORD -eq 2 ]; then
+                        COMPREPLY=( $(compgen -d -- ${cur}) )
+                    fi
+                    ;;
+                release)
+                    if [ $COMP_CWORD -eq 2 ]; then
+                        COMPREPLY=( $(compgen -W "--full -h --help $names" -- ${cur}) )
+                    elif [ $COMP_CWORD -eq 3 -a "x${prev}" = x--full]; then
+                        COMPREPLY=( $(compgen -W "${names}" -- ${cur}) )
+                    fi
+                    ;;
+                hook)
+                    if [ $COMP_CWORD -eq 2 ]; then
+                        COMPREPLY=( $(compgen -W "edit help -h --help" -- ${cur}) )
+                    elif [ $COMP_CWORD -eq 3 -a "x${prev}" = xedit ]; then
+                        COMPREPLY=( $(compgen -W "$names - --global --skel" -- ${cur}) )
+                    fi
+                    ;;
+                create)
+                    state=name  # one of 'plugins', 'name', 'cfg'
+                    while [ $i -lt $COMP_CWORD ]; do
+                        case $state in
+                            name)
+                                case ${COMP_WORDS[i]} in
+                                    -p|--plugins) state=plugins;;
+                                    *) state=cfg;;
+                                esac
+                                ;;
+                            plugins) state=name ;;
+                            cfg) : ;;  # no state change
+                        esac
+                        let i++
+                    done
+                    case $state in
+                        plugins)
+                            COMPREPLY=( $(compgen -W "ALL $(_ws_cmd_plugin available)" - ${cur}) )
+                            ;;
+                        name)
+                            COMPREPLY=( $(compgen -W "-h --help -p --plugins" -- ${cur}) )
+                            ;;
+                        cfg)
+                            local configvars pluginvars
+                            configvars=$(_ws_show_config_vars -b -q $(_ws_cmd_list -q))
+                            pluginvars=$(_ws_cmd_plugin show -q)
+                            COMPREPLY=( $(compgen -W "${configvars} ${pluginvars}" -- ${cur}) )
+                            ;;
+                    esac
+                    ;;
+                config)
+                    local cmd
+                    # one of 'cmd', 'name', 'var', 'val', 'verb', 'file', 're' or 'end'
+                    state=cmd
+                    while [ $i -lt $COMP_CWORD ]; do
+                        case $state in
+                            val) state=end;;
+                            var)
+                                case $cmd in
+                                    set) state=val;;
+                                    *) state=end;;
+                                esac
+                                ;;
+                            name)
+                                case $cmd in
+                                    -h|--help) state=end;;
+                                    list) state=verb;;
+                                    load) state=file;;
+                                    set|get|del) state=var;;
+                                    *) state=end
+                                esac
+                                ;;
+                            cmd)
+                                cmd=${COMP_WORDS[i]}
+                                case $cmd in
+                                    search) state=re;;
+                                    *) state=name;;
+                                esac
+                                ;;
+                            *) state=end;;
+                        esac
+                        if [ $state = end ]; then
+                            break
+                        fi
+                        let i++
+                    done
+                    case $state in
+                        verb)
+                            COMPREPLY=( $(compgen -W " -v --verbose" -- ${cur}) )
+                            ;;
+                        cmd)
+                            COMPREPLY=( $(compgen -W "-h --help del get help list load search set" -- ${cur}) )
+                            ;;
+                        name)
+                            COMPREPLY=( $(compgen -W "- --global ${names}" -- ${cur}) )
+                            ;;
+                        file)
+                            COMPREPLY=( $(compgen -f -- ${cur}) )
+                            ;;
+                        var|re)
+                            local configvars pluginvars
+                            configvars=$(_ws_show_config_vars -b -q $(_ws_cmd_list -q))
+                            pluginvars=$(_ws_cmd_plugin show -q)
+                            COMPREPLY=( $(compgen -W "$configvars $pluginvars" -- ${cur}) )
+                            ;;
+                    esac
+                    ;;
+                plugin)
+                    local cmd
+                    state=cmd  # one of 'cmd', 'install', 'name', 'wsname', 'file', 'end', "quiet"
+                    while [ $i -lt $COMP_CWORD ]; do
+                        case $state in
+                            file|quiet) state=end;;
+                            cmd)
+                                cmd=${COMP_WORDS[i]}
+                                case $cmd in
+                                    available|-h|--help) state=end;;
+                                    install) state=install;;
+                                    uninstall) state=name;;
+                                    list|add|remove) state=wsname;;
+                                    show) state=quiet;
+                                esac
+                                ;;
+                            install)
+                                case ${COMP_WORDS[i]} in
+                                    -f) : ;;  # no state change
+                                    -n) state=name;;
+                                    *) state=file;;
+                                esac
+                                ;;
+                            name)
+                                case $cmd in
+                                    install) state=file;;
+                                    uninstall) state=end;;
+                                    add|remove) : ;;  # no state change
+                                esac
+                                ;;
+                            wsname)
+                                case $cmd in
+                                    list) state=end;;
+                                    *) state=name;;
+                                esac
+                                ;;
+                        esac
+                        if [ $state = end ]; then
+                            break
+                        fi
+                        let i++
+                    done
+                    case $state in
+                        cmd)
+                            COMPREPLY=( $(compgen -W "-h --help available install uninstall list add remove show" -- ${cur}) )
+                            ;;
+                        install)
+                            COMPREPLY=( $(compgen -f -W "-f -n" -- ${cur}) )
+                            ;;
+                        name)
+                            COMPREPLY=( $(compgen -W "$(_ws_cmd_plugin available)" - ${cur}) )
+                            ;;
+                        file)
+                            COMPREPLY=( $(compgen -f -- ${cur}) )
+                            ;;
+                        wsname)
+                            COMPREPLY=( $(compgen -W "- $names" -- ${cur}) )
+                            ;;
+                        quiet)
+                            COMPREPLY=( $(compgen -W "-q" -- ${cur}) )
+                            ;;
+                    esac
+                    ;;
+                convert)
+                    state=dir  # one of 'dir', 'name', 'plugins', 'cfg'
+                    while [ $i -lt $COMP_CWORD ]; do
+                        case $state in
+                            dir)
+                                case $cur in
+                                    -n|--name) state=name;;
+                                    -p|--plugins) state=plugins;;
+                                    *) state=cfg;;
+                                esac
+                                ;;
+                            name)
+                                state=dir
+                                ;;
+                            plugins)
+                                state=dir
+                                ;;
+                            cfg) : ;;  # no state change
+                        esac
+                        let i++
+                    done
+                    case $state in
+                        # no completion for state=name
+                        dir)
+                            COMPREPLY=( $(compgen -d -W "-h --help -n --name -p --plugins" -- ${cur}) )
+                            ;;
+                        plugins)
+                            COMPREPLY=( $(compgen -W "$(_ws_cmd_plugin available)" - ${cur}) )
+                            ;;
+                        cfg)
+                            local configvars pluginvars
+                            configvars=$(_ws_show_config_vars -b -q $(_ws_cmd_list -q))
+                            pluginvars=$(_ws_cmd_plugin show -q)
+                            COMPREPLY=( $(compgen -W "$configvars $pluginvars" -- ${cur}) )
+                            ;;
+                    esac
+                    ;;
+                *)
+                    if [ $COMP_CWORD -eq 2 ]; then
+                        COMPREPLY=( $(compgen -W "-h --help" -- ${cur}) )
+                    fi
                     ;;
             esac
         fi
+        return 0
     }
 
     # activate bash completion
