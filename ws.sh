@@ -1521,7 +1521,7 @@ ws () {
 if _ws_echo $- | _ws_grep -Fq i; then  # only for interactive
     _ws_complete () {
         # handle bash completion
-        local soptions commands names
+        local options commands names
         options="-h --help"
         commands="config convert create current debug destroy enter help hook"
         commands="$commands initialize leave list plugin relink reload stack"
@@ -1533,7 +1533,7 @@ if _ws_echo $- | _ws_grep -Fq i; then  # only for interactive
             COMPREPLY=( $(compgen -W "$commands $options $names" -- ${COMP_WORDS[COMP_CWORD]}) )
             return 0
         else
-            local i=2 state cur curop prev names
+            local i=2 cmd cur curop prev state
             cur="${COMP_WORDS[COMP_CWORD]}"
             curop="${COMP_WORDS[1]}"
             prev="${COMP_WORDS[COMP_CWORD-1]}"
@@ -1555,7 +1555,11 @@ if _ws_echo $- | _ws_grep -Fq i; then  # only for interactive
                     ;;
                 destroy|relink)
                     if [ $COMP_CWORD -eq 2 ]; then
-                        COMPREPLY=( $(compgen -W "-h --help $names -" -- $cur) )
+                        if [ -n "$_ws__current" ]; then
+                            COMPREPLY=( $(compgen -W "- -h --help $names" -- $cur) )
+                        else
+                            COMPREPLY=( $(compgen -W "-h --help $names" -- $cur) )
+                        fi
                     fi
                     ;;
                 debug)
@@ -1589,7 +1593,11 @@ if _ws_echo $- | _ws_grep -Fq i; then  # only for interactive
                     if [ $COMP_CWORD -eq 2 ]; then
                         COMPREPLY=( $(compgen -W "edit help -h --help" -- ${cur}) )
                     elif [ $COMP_CWORD -eq 3 -a "x${prev}" = xedit ]; then
-                        COMPREPLY=( $(compgen -W "$names - --global --skel" -- ${cur}) )
+                        if [ -n "$_ws__current" ]; then
+                            COMPREPLY=( $(compgen -W "$names - --global --skel" -- ${cur}) )
+                        else
+                            COMPREPLY=( $(compgen -W "$names --global --skel" -- ${cur}) )
+                        fi
                     fi
                     ;;
                 create)
@@ -1623,7 +1631,6 @@ if _ws_echo $- | _ws_grep -Fq i; then  # only for interactive
                     esac
                     ;;
                 config)
-                    local cmd
                     # one of 'cmd', 'name', 'var', 'val', 'verb', 'file', 're' or 'end'
                     state=cmd
                     while [ $i -lt $COMP_CWORD ]; do
@@ -1666,7 +1673,11 @@ if _ws_echo $- | _ws_grep -Fq i; then  # only for interactive
                             COMPREPLY=( $(compgen -W "-h --help del get help list load search set" -- ${cur}) )
                             ;;
                         name)
-                            COMPREPLY=( $(compgen -W "- --global ${names}" -- ${cur}) )
+                            if [ -n "$_ws__current" ]; then
+                                COMPREPLY=( $(compgen -W "- --global ${names}" -- ${cur}) )
+                            else
+                                COMPREPLY=( $(compgen -W "--global ${names}" -- ${cur}) )
+                            fi
                             ;;
                         file)
                             COMPREPLY=( $(compgen -f -- ${cur}) )
@@ -1680,7 +1691,6 @@ if _ws_echo $- | _ws_grep -Fq i; then  # only for interactive
                     esac
                     ;;
                 plugin)
-                    local cmd
                     state=cmd  # one of 'cmd', 'install', 'name', 'wsname', 'file', 'end', "quiet"
                     while [ $i -lt $COMP_CWORD ]; do
                         case $state in
@@ -1735,7 +1745,11 @@ if _ws_echo $- | _ws_grep -Fq i; then  # only for interactive
                             COMPREPLY=( $(compgen -f -- ${cur}) )
                             ;;
                         wsname)
-                            COMPREPLY=( $(compgen -W "- $names" -- ${cur}) )
+                            if [ -n "$_ws__current" ]; then
+                                COMPREPLY=( $(compgen -W "$names" -- ${cur}) )
+                            else
+                                COMPREPLY=( $(compgen -W "- $names" -- ${cur}) )
+                            fi
                             ;;
                         quiet)
                             COMPREPLY=( $(compgen -W "-q" -- ${cur}) )
