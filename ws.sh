@@ -821,7 +821,7 @@ _ws_run_hooks () {
     # assigned and unset at the end of the script
     # for backward compatibility, the .ws.sh script would be called if
     # .ws/hook.sh is not found
-    local hookfile sdir wsdir rc=0 op="${1:-enter}" context=$2
+    local hookfile sdir wsdir rc=0 op="${1:-enter}" context=$2 wshook__retdir=$3
     local var tmpfile="${TMPDIR:-/tmp}/ws.hook.cfg.$$.${RANDOM}.sh"
     local wshook__op wshook__workspace wshook__configdir wshook__variables
     wshook__op=${op}
@@ -1001,7 +1001,7 @@ _ws_cmd_leave () {
             _ws_cd "$2"  # return to old directory
         fi
         if [ -n "$_ws__current" ]; then
-            _ws_run_hooks enter $_ws__current
+            _ws_run_hooks enter $_ws__current "$2"
         fi
         _ws_debug 2 "left $oldws"
     fi

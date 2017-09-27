@@ -12,7 +12,7 @@ case ${wshook__op} in
         export CDPATH="${CDPATH}:$WORKSPACE"
         CDHOME="$WORKSPACE"
         cd () { [ $# -eq 0 ] && builtin cd ${CDHOME} || builtin cd "$@"; }
-        if [ -n "$cdpath_startdir" ]; then
+        if [ -z "${wshook__retdir}" -a -n "$cdpath_startdir" ]; then
             cd ${cdpath_startdir}
         fi
         ;;

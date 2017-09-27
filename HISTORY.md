@@ -8,6 +8,7 @@
       install+replace for moving ~/workspace/.
 * Change utilties to use internal functions which in turn use absolute paths.
     * Needs testing on MacOS.
-* Fix bug calling `_ws_link set`.
+* Fix bug calling `_ws_link set.
+* Fix bug where cdpath\_startdir will override cd from ws+leave
 * Test suite clears out $PATH to ensure less possible corruption of the
   environment.
