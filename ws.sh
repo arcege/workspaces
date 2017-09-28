@@ -1223,7 +1223,7 @@ _ws_cmd_initialize () {
         # change WS_DIR
         WS_DIR="$1"
     fi
-    if [ -d $WS_DIR ]; then
+    if [ -z "$WS_INITIALIZE" -a -d $WS_DIR ]; then
         _ws_echo "Already initialized, aborting..."
         return 1
     fi
