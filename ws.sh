@@ -94,28 +94,56 @@ fi
 
 # To help avoid overridden commands by functions, aliases or paths,
 # we'll create our own functions here to use throughout the app; 
-function _ws_awk { /usr/bin/awk "$@"; }
-function _ws_basename { /usr/bin/basename ${1:+"$@"}; }
-function _ws_cat { /bin/cat ${1:+"$@"}; }
-function _ws_cd { command cd ${1:+"$@"}; }
-function _ws_chmod { /bin/chmod "$@"; }
-function _ws_cp { /bin/cp "$@"; }
-function _ws_date { /bin/date ${1:+"$@"}; }
-function _ws_dirname { /usr/bin/dirname ${1:+"$@"}; }
-function _ws_echo { command echo "$@"; }
-function _ws_grep { /bin/grep "$@"; }
-function _ws_ln { /bin/ln "$@"; }
-function _ws_ls { /bin/ls ${1:+"$@"}; }
-function _ws_mkdir { /bin/mkdir "$@"; }
-function _ws_mktemp { /bin/mktemp ${1:+"$@"}; }
-function _ws_mv { /bin/mv "$@"; }
-function _ws_readlink { /bin/readlink "$@"; }
-function _ws_rm { /bin/rm "$@"; }
-function _ws_sed { /bin/sed "$@"; }
-function _ws_sort { /usr/bin/sort ${1:+"$@"}; }
-function _ws_tar { PATH=/bin:/usr/bin command /bin/tar "$@"; }
-function _ws_tr { /usr/bin/tr "$@"; }
-function _ws_tty { /usr/bin/tty; }
+case $(uname -s) in
+    Darwin)
+        function _ws_awk { /usr/bin/awk "$@"; }
+        function _ws_basename { /usr/bin/basename ${1:+"$@"}; }
+        function _ws_cat { /bin/cat ${1:+"$@"}; }
+        function _ws_cd { command cd ${1:+"$@"}; }
+        function _ws_chmod { /bin/chmod "$@"; }
+        function _ws_cp { /bin/cp "$@"; }
+        function _ws_date { /bin/date ${1:+"$@"}; }
+        function _ws_dirname { /usr/bin/dirname ${1:+"$@"}; }
+        function _ws_echo { command echo "$@"; }
+        function _ws_grep { /usr/bin/grep "$@"; }
+        function _ws_ln { /bin/ln "$@"; }
+        function _ws_ls { /bin/ls ${1:+"$@"}; }
+        function _ws_mkdir { /bin/mkdir "$@"; }
+        function _ws_mktemp { /usr/bin/mktemp ${1:+"$@"}; }
+        function _ws_mv { /bin/mv "$@"; }
+        function _ws_readlink { /bin/readlink "$@"; }
+        function _ws_rm { /bin/rm "$@"; }
+        function _ws_sed { /usr/bin/sed "$@"; }
+        function _ws_sort { /usr/bin/sort ${1:+"$@"}; }
+        function _ws_tar { PATH=/bin:/usr/bin command /bin/tar "$@"; }
+        function _ws_tr { /usr/bin/tr "$@"; }
+        function _ws_tty { /usr/bin/tty; }
+    ;;
+    Linux)
+        function _ws_awk { /usr/bin/awk "$@"; }
+        function _ws_basename { /usr/bin/basename ${1:+"$@"}; }
+        function _ws_cat { /bin/cat ${1:+"$@"}; }
+        function _ws_cd { command cd ${1:+"$@"}; }
+        function _ws_chmod { /bin/chmod "$@"; }
+        function _ws_cp { /bin/cp "$@"; }
+        function _ws_date { /bin/date ${1:+"$@"}; }
+        function _ws_dirname { /usr/bin/dirname ${1:+"$@"}; }
+        function _ws_echo { command echo "$@"; }
+        function _ws_grep { /bin/grep "$@"; }
+        function _ws_ln { /bin/ln "$@"; }
+        function _ws_ls { /bin/ls ${1:+"$@"}; }
+        function _ws_mkdir { /bin/mkdir "$@"; }
+        function _ws_mktemp { /bin/mktemp ${1:+"$@"}; }
+        function _ws_mv { /bin/mv "$@"; }
+        function _ws_readlink { /bin/readlink "$@"; }
+        function _ws_rm { /bin/rm "$@"; }
+        function _ws_sed { /bin/sed "$@"; }
+        function _ws_sort { /usr/bin/sort ${1:+"$@"}; }
+        function _ws_tar { PATH=/bin:/usr/bin command /bin/tar "$@"; }
+        function _ws_tr { /usr/bin/tr "$@"; }
+        function _ws_tty { /usr/bin/tty; }
+    ;;
+esac
 
 _ws_debug () {
     case $1 in
