@@ -14,7 +14,7 @@ case $(/bin/uname -s) in
     Linux) is_linux=true;;
 esac
 
-versionstr=0.2.8
+versionstr=0.2.8.1
 
 cdir=$PWD
 
@@ -81,6 +81,7 @@ command -v _ws_cmd_plugin >&4 || fail routine _ws_cmd_plugin
 command -v _ws_parse_configvars >&4 || fail routine _ws_parse_configvars
 command -v _ws_prompt_yesno >&4 || fail routine _ws_prompt_yesno
 command -v _ws_convert_ws >&4 || fail routine _ws_convert_ws
+command -v _ws_error >&4 || fail routine _ws_error
 
 # check the global variables
 test "$(declare -p WS_DIR)" = "declare -- WS_DIR=\"$HOME/workspaces\"" || fail declare WS_DIR

@@ -1,5 +1,9 @@
 = Workspaces
 
+== 0.2.8.1
+
+* Add \_ws\_error function to handle error messages better.
+
 == 0.2.8
 
 * Add 'convert' command and \_ws\_convert\_ws function to add a .ws structure

@@ -73,7 +73,7 @@ esac
 
 # global constants, per shell
 # unfortunately, bash 3 (macos) does not support declaring global vars
-WS_VERSION=0.2.8
+WS_VERSION=0.2.8.1
 
 : ${WS_DIR:=$HOME/workspaces}
 : ${_WS_DEBUGFILE:=$WS_DIR/.log}
@@ -117,6 +117,13 @@ function _ws_tar { PATH=/bin:/usr/bin command /bin/tar "$@"; }
 function _ws_tr { /usr/bin/tr "$@"; }
 function _ws_tty { /usr/bin/tty; }
 
+# send to stderr
+_ws_error () {
+    _ws_echo ${1:+"$@"} >&2
+}
+
+# write to the logfile based on the logging level
+# if first is 'config', then change output location or level
 _ws_debug () {
     case $1 in
         config)
@@ -151,7 +158,7 @@ _ws_debug () {
             fi
             ;;
         *)
-            _ws_echo "Error: unknown argument: $1" >&2
+            _ws_error "Error: unknown argument: $1"
             return 1
             ;;
     esac
@@ -210,7 +217,7 @@ _ws_stack () {
             _ws_echo "stack.size=$pos"
             _ws_echo "stack=${_ws__stack[*]}"
             ;;
-        *) _ws_echo "ws_stack: invalid op: $1" >&2; return 2;;
+        *) _ws_error "ws_stack: invalid op: $1"; return 2;;
     esac
 }
 
@@ -224,7 +231,7 @@ _ws_validate () {
     wsdir=$(_ws_getdir)
     if [ $? -eq 0 -a x${_ws__current:+X} = xX -a ! -d "$wsdir" ]; then
         _ws_debug 0 "leaving $_ws__current"
-        _ws_echo "Error: $_ws__current is not a valid workspace; leaving" >&2
+        _ws_error "Error: $_ws__current is not a valid workspace; leaving"
         _ws_leave
     fi
     # there are conditions where the items in the stack seem to become missing
@@ -252,7 +259,7 @@ _ws_validate () {
                 _ws_debug 1 "resetting workpace to $_ws__current"
                 ;;
             *)
-                _ws_echo "Error: cannot determine current workspace" >&2
+                _ws_error "Error: cannot determine current workspace"
                 _ws_debug 0 "cannot determine current workspace"
                 return 1
                 ;;
@@ -261,7 +268,7 @@ _ws_validate () {
     linkptr=$(_ws_link get)
     if [ $? -eq 0 -a ! -d "$linkptr" ]; then
         _ws_debug 0 "removing ~/workspace"
-        _ws_echo "Error: $HOME/workspace pointing nowhere; removing" >&2
+        _ws_error "Error: $HOME/workspace pointing nowhere; removing"
         _ws_link del
     fi
 }
@@ -308,15 +315,15 @@ _ws_link () {
             ;;
         set)
             if [ -e ${linkfile} -a ! -h ${linkfile} ]; then
-                _ws_echo "Error: ~/workspace is not a symlink" >&2
+                _ws_error "Error: ~/workspace is not a symlink"
                 _ws_debug 1 "~/workspace is not a symlink"
                 return 1
             elif [ $# -le 1 ]; then
-                _ws_echo "Error: expecting directory" >&2
+                _ws_error "Error: expecting directory"
                 _ws_debug 1 "No argument given."
                 return 1
             elif [ ! -e "$2" ]; then
-                _ws_echo "Error: no such workspace" >&2
+                _ws_error "Error: no such workspace"
                 _ws_debug 1 "No file given."
                 return 1
             fi
@@ -328,7 +335,7 @@ _ws_link () {
             if [ -h ${linkfile} ]; then
                 _ws_rm -f ${linkfile}
             elif [ -e ${linkfile} ]; then
-                _ws_echo "Error: ~/workspace is not a symlink" >&2
+                _ws_error "Error: ~/workspace is not a symlink"
                 _ws_debug 1 "~/workspace is not a symlink"
                 return 1
             fi
@@ -374,7 +381,7 @@ _ws_config_edit () {
             fi
             if [ $? -ne 0 ]; then
                 _ws_debug 1 "no $file"
-                _ws_echo "Error: cannot create config file: $file" >&2
+                _ws_error "Error: cannot create config file: $file"
                 return 1
             fi
             if _ws_grep -q "^${var}=" "$file"; then
@@ -411,16 +418,16 @@ _ws_cmd_config () {
             ;;
         del|get)
             if [ -z "$var" ]; then
-                _ws_echo 'config: expecting variable name' >&2
+                _ws_error 'config: expecting variable name'
                 return 1
             fi
             ;;
         set)
             if [ -z "$var" ]; then
-                _ws_echo 'config: expecting variable name' >&2
+                _ws_error 'config: expecting variable name'
                 return 1
             elif [ -z "$val" ]; then
-                _ws_echo 'config: expecting value' >&2
+                _ws_error 'config: expecting value'
                 return 1
             fi
             ;;
@@ -456,12 +463,12 @@ _ws_cmd_config () {
             return 0
             ;;
         "")
-            _ws_echo "config: expecting 'del', 'get', 'help', 'list' or 'set'" >&2
+            _ws_error "config: expecting 'del', 'get', 'help', 'list' or 'set'"
             return 1
             ;;
     esac
     if [ -z "$wsname" ]; then
-        _ws_echo 'config: expecting workspace name' >&2
+        _ws_error 'config: expecting workspace name'
         return 1
     elif [ "x${wsname}" = x--global ]; then
         wsdir=$WS_DIR
@@ -473,7 +480,7 @@ _ws_cmd_config () {
     else
         wsdir=$(_ws_getdir $wsname)
         if [ $? -ne 0 ]; then
-            _ws_echo "config: No existing workspace" >&2
+            _ws_error "config: No existing workspace"
             return 1
         fi
     fi
@@ -530,7 +537,7 @@ _ws_show_config_vars () {
             -w|--workspace) wantgl=false; wantws=true;;
             -q|--quiet) mode=quiet;;
             -v|--verbose) mode=verbose;;
-            -*|--*) _ws_echo "Error: invalid option" >&2; return 1;;
+            -*|--*) _ws_error "Error: invalid option"; return 1;;
             *) wsname=$1;;
         esac
         shift
@@ -605,25 +612,25 @@ _ws_cmd_plugin () {
                 shift
             done
             if [ $# -gt 0 ]; then
-                _ws_echo "Not expecting additional arguments" >&2
+                _ws_error "Not expecting additional arguments"
                 return 1
             elif [ -z "$file" ]; then
-                _ws_echo "Expecting filename" >&2
+                _ws_error "Expecting filename"
                 return 1
             fi
             if [ -z "$name" ]; then
                 name=${file##*/}
             fi
             if [ x$name = xALL ]; then
-                _ws_echo "Error: ALL is a reserved word for plugins" >&2
+                _ws_error "Error: ALL is a reserved word for plugins"
                 return 1
             fi
             _ws_mkdir -p "${plugindir}"
             if [ -x $plugindir/$name -a $force = false ]; then
-                _ws_echo "Plugin $name exists" >&2
+                _ws_error "Plugin $name exists"
                 return 1
             elif [ ! -r $file ]; then
-                _ws_echo "Plugin file ($file) not readable" >&2
+                _ws_error "Plugin file ($file) not readable"
                 return 1
             fi
             _ws_cp -p $file $plugindir/$name
@@ -642,7 +649,7 @@ _ws_cmd_plugin () {
                 _ws_rm "$plugindir/$name"
                 _ws_debug 2 "Uninstalled $plugindir/$name"
             else
-                _ws_echo "Plugin $name is not installed." >&2
+                _ws_error "Plugin $name is not installed."
                 return 1
             fi
             return 0
@@ -650,7 +657,7 @@ _ws_cmd_plugin () {
         list)
             local dir name wsdir wsname="$1"
             if [ -z "$wsname" ]; then
-                _ws_echo "Expecting workspace name" >&2
+                _ws_error "Expecting workspace name"
                 return 1
             elif [ "x${wsname}" = x- ]; then
                 wsname="${_ws__current:--}"
@@ -665,7 +672,7 @@ _ws_cmd_plugin () {
             else
                 wsdir=$(_ws_getdir "$wsname")
                 if [ $? -ne 0 ]; then
-                    _ws_echo "No workspace exists for $wsname" >&2
+                    _ws_error "No workspace exists for $wsname"
                     return 1
                 elif [ -d "${wsdir}/.ws/plugins" ]; then
                     for name in "${wsdir}/.ws/plugins"/*; do
@@ -682,14 +689,14 @@ _ws_cmd_plugin () {
             local wsdir wsname="$1" plugin
             shift  # rest of the arguments will be plugin names
             if [ -z "$wsname" ]; then
-                _ws_echo "Expecting workspace name" >&2
+                _ws_error "Expecting workspace name"
                 return 1
             elif [ "x${wsname}" = x- ]; then
                 wsname="${_ws__current:--}"
             fi
             wsdir=$(_ws_getdir $wsname)
             if [ $? -ne 0 ]; then
-                _ws_echo "No workspace exist for $wsname" >&2
+                _ws_error "No workspace exist for $wsname"
                 return 1
             fi
             _ws_mkdir -p "${wsdir}/.ws/plugins"
@@ -699,7 +706,7 @@ _ws_cmd_plugin () {
             fi
             for plugin in "$@"; do
                 if [ ! -x "${plugindir}/${plugin}" ]; then
-                    _ws_echo "Plugin $plugin not installed" >&2
+                    _ws_error "Plugin $plugin not installed"
                     rc=1
                 elif [ ! -h "${wsdir}/.ws/plugins/${plugin}" ]; then
                     _ws_ln -s "${plugindir}/${plugin}" "${wsdir}/.ws/plugins/${plugin}"
@@ -712,14 +719,14 @@ _ws_cmd_plugin () {
             local wsdir wsname="$1" plugin
             shift  # rest of the arguments will be plugin names
             if [ -z "$wsname" ]; then
-                _ws_echo "Expecting workspace name" >&2
+                _ws_error "Expecting workspace name"
                 return 1
             elif [ "x$wsname" = x- ]; then
                 wsname="${_ws__current:--}"
             fi
             wsdir=$(_ws_getdir "$wsname")
             if [ $? -ne 0 ]; then
-                _ws_echo "No workspace exist for $wsname" >&2
+                _ws_error "No workspace exist for $wsname"
                 return 1
             fi
             if [ "x$1" = xALL ]; then
@@ -896,12 +903,12 @@ _ws_cmd_hook () {
             elif [ "x$2" = x- -a -n "$_ws__current" ]; then
                 hookfile=$(_ws_getdir)/.ws/hook.sh
             elif [ "x$2" = x- ]; then
-                _ws_echo "No workspace" >&2
+                _ws_error "No workspace"
                 return 1
             elif [ -n "$2" ] && _ws_getdir "$2" >/dev/null 2>&1; then
                 hookfile="$(_ws_getdir "$2")/.ws/hook.sh"
             else
-                _ws_echo "No workspace exists for $2" >&2
+                _ws_error "No workspace exists for $2"
                 return 1
             fi
             "${editor}" "${hookfile}"
@@ -931,7 +938,7 @@ _ws_cmd_enter () {
             return 0
         fi
     elif [ ! -d "$wsdir" ]; then
-        _ws_echo "No workspace exists for $wsname" >&2
+        _ws_error "No workspace exists for $wsname"
         _ws_debug 1 "no workspace for $wsname"
         return 1
     else
@@ -1026,7 +1033,7 @@ _ws_cmd_create () {
     wsname="${1:-""}"
     wsdir="$(_ws_getdir "$wsname")"
     if [ -z "$wsname" ]; then
-        _ws_echo "No name given" >&2
+        _ws_error "No name given"
         _ws_debug 2 "no name"
         return 1
     else
@@ -1037,12 +1044,12 @@ _ws_cmd_create () {
             _ws_run_hooks create $wsname
             _ws_debug 1 "$wsdir created"
         elif [ -d "$wsdir" ]; then
-            _ws_echo "Workspace already exists" >&2
+            _ws_error "Workspace already exists"
             _ws_debug 2 "workspace exists"
             return 1
         else
             _ws_debug 0 "$wsdir exists, but not directory"
-            _ws_echo "$wsdir is exists but not a directory" >&2
+            _ws_error "$wsdir is exists but not a directory"
             return 1
         fi
     fi
@@ -1060,11 +1067,11 @@ _ws_cmd_destroy () {
     local linkptr wsdir wsname=${1:-""}
     wsdir="$(_ws_getdir "$wsname")"
     if [ -z "$wsname" ]; then
-        _ws_echo "No name given" >&2
+        _ws_error "No name given"
         return 1
     elif [ ! -d "$wsdir" ]; then
         _ws_debug 2 "workspace does not exit"
-        _ws_echo "No workspace exists" >&2
+        _ws_error "No workspace exists"
         return 1
     else
         if [ "$wsname" = "$_ws__current" ]; then
@@ -1091,7 +1098,7 @@ _ws_cmd_relink () {
     _ws_debug 7 args "$@"
     local wsdir wsname="${1:-$_ws__current}"
     if [ -z "$wsname" ]; then
-        _ws_echo "No name given" >&2
+        _ws_error "No name given"
         _ws_debug 2 "no workspace"
         return 1
     else
@@ -1099,7 +1106,7 @@ _ws_cmd_relink () {
         if [ $? -eq 0 ]; then
             _ws_link set "$wsdir"
         else
-            _ws_echo "No workspace exists" >&2
+            _ws_error "No workspace exists"
             _ws_debug 1 "no workspace exists"
             return 1
         fi
@@ -1126,7 +1133,7 @@ _ws_cmd_list () {
         sedscript="${sedscript};/^${_ws__current}@\{0,1\}\$/s/\$/*/"
     fi
     if [ ! -d $WS_DIR ]; then
-        _ws_echo "Fatal: no such directory: $WS_DIR" >&2
+        _ws_error "Fatal: no such directory: $WS_DIR"
         return 1
     fi
     _ws_ls -1 $WS_DIR | _ws_sed -e "$sedscript"
@@ -1169,11 +1176,11 @@ _ws_convert_ws () {
     # we don't use _ws_getdir here since it may give a false value
     wsdir="$WS_DIR/$wsname"
     if [ -z "$wsname" ]; then
-        _ws_echo "No name given" >&2
+        _ws_error "No name given"
         _ws_debug 2 "no name"
         return 1
     elif [ ! -d "$wsdir" ]; then
-        _ws_echo "No directory to convert: $wsdir" >&2
+        _ws_error "No directory to convert: $wsdir"
         _ws_debug 2 "no directory"
         return 1
     elif [ -d "$wsdir/.ws" ]; then
@@ -1200,14 +1207,14 @@ _ws_cmd_convert () {
     _ws_debug 7 args "$@"
     local moveto wsname="$1" srcdir="$2" plugins="$3" cfgfile="$4"
     if [ ! -d "$srcdir" ]; then
-        _ws_echo "No such directory: $srcdir" >&2
+        _ws_error "No such directory: $srcdir"
         _ws_debug 2 "src directory does not exist"
         return 1
     fi
     if [ "$srcdir" = "$WS_DIR/$wsname" ]; then
         moveto="$srcdir"
     elif [ -d "$WS_DIR/$wsname" ]; then
-        _ws_echo "Workspace already exists: $wsname" >&2
+        _ws_error "Workspace already exists: $wsname"
         _wsdebug 2 "workspace exists"
         return 1
     else
@@ -1262,7 +1269,7 @@ _ws_cmd_release () {
             *)
                 to_move="$(_ws_getdir $1)"
                 if [ $? -ne 0 ]; then
-                    _ws_echo "Not a valid workspace, aborting..." >&2
+                    _ws_error "Not a valid workspace, aborting..."
                     return 1
                 fi
                 ;;
@@ -1275,7 +1282,7 @@ _ws_cmd_release () {
         _ws_debug 3 "releasing ${WS_DIR}..."
         _ws_link del  # unlink ~/workspace@
         if [ -n "$to_move" -a ! -d "$to_move" ]; then
-            _ws_echo "Invalid workspace to restore, aborting..." >&2
+            _ws_error "Invalid workspace to restore, aborting..."
             return 1
         elif [ -n "$to_move" ]; then
             _ws_mv "$to_move" "$HOME/workspace"
@@ -1402,7 +1409,7 @@ ws () {
             while [ $# -gt 0 ]; do
                 case $1 in
                     -p|--plugins) plugins="$2"; shift;;
-                    -*) _ws_echo "Invalid option: $1" >&2; return 1;;
+                    -*) _ws_error "Invalid option: $1"; return 1;;
                     *) break;;  # don't shift
                 esac
                 shift
@@ -1465,14 +1472,14 @@ ws () {
                         ;;
                     -p|--plugins) plugins="$2"; shift;;
                     -n) wsname="$2"; shift;;
-                    -*) _ws_echo "Invalid option: $1" >&2; return 1;;
+                    -*) _ws_error "Invalid option: $1"; return 1;;
                     *) break;;  # don't shift
                 esac
                 shift
             done
             srcdir="$1"; shift
             if [ ! -d "$srcdir" ]; then
-                _ws_echo "Expecting directory" >&2
+                _ws_error "Expecting directory"
                 return 1
             elif [ -z "$wsname" ]; then
                 wsname=$(basename "$srcdir")
