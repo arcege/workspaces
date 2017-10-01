@@ -3,6 +3,7 @@
 == 0.2.8.1
 
 * Add \_ws\_error function to handle error messages better.
+* Compatibility for MacOS utilty pathname differences.
 
 == 0.2.8
 
