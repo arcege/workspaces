@@ -36,53 +36,39 @@ versionstr=0.2.8.1
 
 cdir=$PWD
 
-if $is_linux; then
-    function awk { /usr/bin/awk "$@"; }
-    function basename { /usr/bin/basename ${1:+"$@"}; }
-    function cat { /bin/cat ${1:+"$@"}; }
-    function cd { command cd ${1:+"$@"}; }
-    function chmod { /bin/chmod "$@"; }
-    function cp { /bin/cp "$@"; }
-    function date { /bin/date ${1:+"$@"}; }
-    function dirname { /usr/bin/dirname ${1:+"$@"}; }
-    function echo { command echo "$@"; }
-    function grep { /bin/grep "$@"; }
-    function ln { /bin/ln "$@"; }
-    function ls { /bin/ls ${1:+"$@"}; }
-    function mkdir { /bin/mkdir "$@"; }
-    function rmdir { /bin/rmdir "$@"; }
-    function mktemp { /bin/mktemp ${1:+"$@"}; }
-    function mv { /bin/mv "$@"; }
-    function readlink { /bin/readlink "$@"; }
-    function rm { /bin/rm "$@"; }
-    function sed { /bin/sed "$@"; }
-    function sort { /usr/bin/sort ${1:+"$@"}; }
-    function tar { PATH=/bin:/usr/bin command /bin/tar "$@"; }
-    function touch { /bin/touch "$@"; }
-    function tr { /usr/bin/tr "$@"; }
-    function tty { /usr/bin/tty; }
-else
-    function awk { /usr/bin/awk "$@"; }
-    function basename { /usr/bin/basename ${1:+"$@"}; }
-    function cat { /bin/cat ${1:+"$@"}; }
-    function cd { command cd ${1:+"$@"}; }
-    function chmod { /bin/chmod "$@"; }
-    function cp { /bin/cp "$@"; }
-    function date { /bin/date ${1:+"$@"}; }
-    function dirname { /usr/bin/dirname ${1:+"$@"}; }
-    function echo { command echo "$@"; }
+# we define the basic commands as function since we clear out $PATH
+# and use explicit paths
+function awk { /usr/bin/awk "$@"; }
+function basename { /usr/bin/basename ${1:+"$@"}; }
+function cat { /bin/cat ${1:+"$@"}; }
+function cd { command cd ${1:+"$@"}; }
+function chmod { /bin/chmod "$@"; }
+function cp { /bin/cp "$@"; }
+function date { /bin/date ${1:+"$@"}; }
+function dirname { /usr/bin/dirname ${1:+"$@"}; }
+function echo { command echo "$@"; }
+function grep { /bin/grep "$@"; }
+function ln { /bin/ln "$@"; }
+function ls { /bin/ls ${1:+"$@"}; }
+function mkdir { /bin/mkdir "$@"; }
+function mktemp { /bin/mktemp ${1:+"$@"}; }
+function mv { /bin/mv "$@"; }
+function readlink { /bin/readlink "$@"; }
+function rm { /bin/rm "$@"; }
+function rmdir { /bin/rmdir "$@"; }
+function sed { /bin/sed "$@"; }
+function sort { /usr/bin/sort ${1:+"$@"}; }
+function tar { PATH=/bin:/usr/bin command /bin/tar "$@"; }
+function touch { /bin/touch "$@"; }
+function tr { /usr/bin/tr "$@"; }
+function tty { /usr/bin/tty; }
+# these are not in the same directory as linux
+if ! $is_linux; then
     function grep { /usr/bin/grep "$@"; }
-    function ln { /bin/ln "$@"; }
-    function ls { /bin/ls ${1:+"$@"}; }
-    function mkdir { /bin/mkdir "$@"; }
-    function rmdir { /bin/rmdir "$@"; }
     function mktemp { /usr/bin/mktemp ${1:+"$@"}; }
-    function mv { /bin/mv "$@"; }
     function readlink { /usr/bin/readlink "$@"; }
-    function rm { /bin/rm "$@"; }
     function sed { /usr/bin/sed "$@"; }
-    function sort { /usr/bin/sort ${1:+"$@"}; }
-    function tar { PATH=/bin:/usr/bin command /usr/bin/tar "$@"; }
+    function tar { PATH=/bin:/usr/bin /usr/bin/tar "$@"; }
     function touch { /usr/bin/touch "$@"; }
     function tr { /usr/bin/tr "$@"; }
     function tty { /usr/bin/tty; }
