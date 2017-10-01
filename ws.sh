@@ -92,6 +92,29 @@ if [ x${_ws__current:+X} != xX ]; then
     _ws__stack=()
 fi
 
+case $OSTYPE in
+    darwin*) is_linux=false;;
+    linux*) is_linux=true;;
+    *)
+        if [ -x /bin/uname ]; then
+            _ws_uname=/bin/uname
+        elif [ -x /usr/bin/uname ]; then
+            _ws_uname=/usr/bin/uname
+        else
+            echo 'unable to find "uname" in /bin /or /usr/bin' >&2
+            exit 1
+        fi
+        case $($_ws_uname -s) in
+            Darwin) is_linux=false;;
+            Linux) is_linux=true;;
+            *)
+                echo "Unsupported system type"
+                exit 1
+                ;;
+        esac
+        ;;
+esac
+
 # To help avoid overridden commands by functions, aliases or paths,
 # we'll create our own functions here to use throughout the app; 
 function _ws_awk { /usr/bin/awk "$@"; }
@@ -113,9 +136,18 @@ function _ws_readlink { /bin/readlink "$@"; }
 function _ws_rm { /bin/rm "$@"; }
 function _ws_sed { /bin/sed "$@"; }
 function _ws_sort { /usr/bin/sort ${1:+"$@"}; }
-function _ws_tar { PATH=/bin:/usr/bin command /bin/tar "$@"; }
+function _ws_tar { PATH=/bin:/usr/bin /bin/tar "$@"; }
 function _ws_tr { /usr/bin/tr "$@"; }
 function _ws_tty { /usr/bin/tty; }
+# these are not in the same directory as linux
+if ! $is_linux; then
+    function _ws_grep { /usr/bin/grep "$@"; }
+    function _ws_mktemp { /usr/bin/mktemp ${1:+"$@"}; }
+    function _ws_readlink { /usr/bin/readlink "$@"; }
+    function _ws_sed { /usr/bin/sed "$@"; }
+    function _ws_tar { PATH=/bin:/usr/bin /usr/bin/tar "$@"; }
+    function _ws_tr { /usr/bin/tr "$@"; }
+fi
 
 # send to stderr
 _ws_error () {
