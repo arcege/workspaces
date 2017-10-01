@@ -73,7 +73,7 @@ esac
 
 # global constants, per shell
 # unfortunately, bash 3 (macos) does not support declaring global vars
-WS_VERSION=0.2.7.4
+WS_VERSION=0.2.8.1
 
 : ${WS_DIR:=$HOME/workspaces}
 : ${_WS_DEBUGFILE:=$WS_DIR/.log}
@@ -145,6 +145,13 @@ case $(uname -s) in
     ;;
 esac
 
+# send to stderr
+_ws_error () {
+    _ws_echo ${1:+"$@"} >&2
+}
+
+# write to the logfile based on the logging level
+# if first is 'config', then change output location or level
 _ws_debug () {
     case $1 in
         config)
@@ -179,7 +186,7 @@ _ws_debug () {
             fi
             ;;
         *)
-            _ws_echo "Error: unknown argument: $1" >&2
+            _ws_error "Error: unknown argument: $1"
             return 1
             ;;
     esac
@@ -238,7 +245,7 @@ _ws_stack () {
             _ws_echo "stack.size=$pos"
             _ws_echo "stack=${_ws__stack[*]}"
             ;;
-        *) _ws_echo "ws_stack: invalid op: $1" >&2; return 2;;
+        *) _ws_error "ws_stack: invalid op: $1"; return 2;;
     esac
 }
 
@@ -252,7 +259,7 @@ _ws_validate () {
     wsdir=$(_ws_getdir)
     if [ $? -eq 0 -a x${_ws__current:+X} = xX -a ! -d "$wsdir" ]; then
         _ws_debug 0 "leaving $_ws__current"
-        _ws_echo "Error: $_ws__current is not a valid workspace; leaving" >&2
+        _ws_error "Error: $_ws__current is not a valid workspace; leaving"
         _ws_leave
     fi
     # there are conditions where the items in the stack seem to become missing
@@ -280,7 +287,7 @@ _ws_validate () {
                 _ws_debug 1 "resetting workpace to $_ws__current"
                 ;;
             *)
-                _ws_echo "Error: cannot determine current workspace" >&2
+                _ws_error "Error: cannot determine current workspace"
                 _ws_debug 0 "cannot determine current workspace"
                 return 1
                 ;;
@@ -289,7 +296,7 @@ _ws_validate () {
     linkptr=$(_ws_link get)
     if [ $? -eq 0 -a ! -d "$linkptr" ]; then
         _ws_debug 0 "removing ~/workspace"
-        _ws_echo "Error: $HOME/workspace pointing nowhere; removing" >&2
+        _ws_error "Error: $HOME/workspace pointing nowhere; removing"
         _ws_link del
     fi
 }
@@ -336,15 +343,15 @@ _ws_link () {
             ;;
         set)
             if [ -e ${linkfile} -a ! -h ${linkfile} ]; then
-                _ws_echo "Error: ~/workspace is not a symlink" >&2
+                _ws_error "Error: ~/workspace is not a symlink"
                 _ws_debug 1 "~/workspace is not a symlink"
                 return 1
             elif [ $# -le 1 ]; then
-                _ws_echo "Error: expecting directory" >&2
+                _ws_error "Error: expecting directory"
                 _ws_debug 1 "No argument given."
                 return 1
             elif [ ! -e "$2" ]; then
-                _ws_echo "Error: no such workspace" >&2
+                _ws_error "Error: no such workspace"
                 _ws_debug 1 "No file given."
                 return 1
             fi
@@ -356,7 +363,7 @@ _ws_link () {
             if [ -h ${linkfile} ]; then
                 _ws_rm -f ${linkfile}
             elif [ -e ${linkfile} ]; then
-                _ws_echo "Error: ~/workspace is not a symlink" >&2
+                _ws_error "Error: ~/workspace is not a symlink"
                 _ws_debug 1 "~/workspace is not a symlink"
                 return 1
             fi
@@ -402,7 +409,7 @@ _ws_config_edit () {
             fi
             if [ $? -ne 0 ]; then
                 _ws_debug 1 "no $file"
-                _ws_echo "Error: cannot create config file: $file" >&2
+                _ws_error "Error: cannot create config file: $file"
                 return 1
             fi
             if _ws_grep -q "^${var}=" "$file"; then
@@ -439,16 +446,16 @@ _ws_cmd_config () {
             ;;
         del|get)
             if [ -z "$var" ]; then
-                _ws_echo 'config: expecting variable name' >&2
+                _ws_error 'config: expecting variable name'
                 return 1
             fi
             ;;
         set)
             if [ -z "$var" ]; then
-                _ws_echo 'config: expecting variable name' >&2
+                _ws_error 'config: expecting variable name'
                 return 1
             elif [ -z "$val" ]; then
-                _ws_echo 'config: expecting value' >&2
+                _ws_error 'config: expecting value'
                 return 1
             fi
             ;;
@@ -484,12 +491,12 @@ _ws_cmd_config () {
             return 0
             ;;
         "")
-            _ws_echo "config: expecting 'del', 'get', 'help', 'list' or 'set'" >&2
+            _ws_error "config: expecting 'del', 'get', 'help', 'list' or 'set'"
             return 1
             ;;
     esac
     if [ -z "$wsname" ]; then
-        _ws_echo 'config: expecting workspace name' >&2
+        _ws_error 'config: expecting workspace name'
         return 1
     elif [ "x${wsname}" = x--global ]; then
         wsdir=$WS_DIR
@@ -501,7 +508,7 @@ _ws_cmd_config () {
     else
         wsdir=$(_ws_getdir $wsname)
         if [ $? -ne 0 ]; then
-            _ws_echo "config: No existing workspace" >&2
+            _ws_error "config: No existing workspace"
             return 1
         fi
     fi
@@ -558,7 +565,7 @@ _ws_show_config_vars () {
             -w|--workspace) wantgl=false; wantws=true;;
             -q|--quiet) mode=quiet;;
             -v|--verbose) mode=verbose;;
-            -*|--*) _ws_echo "Error: invalid option" >&2; return 1;;
+            -*|--*) _ws_error "Error: invalid option"; return 1;;
             *) wsname=$1;;
         esac
         shift
@@ -633,25 +640,25 @@ _ws_cmd_plugin () {
                 shift
             done
             if [ $# -gt 0 ]; then
-                _ws_echo "Not expecting additional arguments" >&2
+                _ws_error "Not expecting additional arguments"
                 return 1
             elif [ -z "$file" ]; then
-                _ws_echo "Expecting filename" >&2
+                _ws_error "Expecting filename"
                 return 1
             fi
             if [ -z "$name" ]; then
                 name=${file##*/}
             fi
             if [ x$name = xALL ]; then
-                _ws_echo "Error: ALL is a reserved word for plugins" >&2
+                _ws_error "Error: ALL is a reserved word for plugins"
                 return 1
             fi
             _ws_mkdir -p "${plugindir}"
             if [ -x $plugindir/$name -a $force = false ]; then
-                _ws_echo "Plugin $name exists" >&2
+                _ws_error "Plugin $name exists"
                 return 1
             elif [ ! -r $file ]; then
-                _ws_echo "Plugin file ($file) not readable" >&2
+                _ws_error "Plugin file ($file) not readable"
                 return 1
             fi
             _ws_cp -p $file $plugindir/$name
@@ -670,7 +677,7 @@ _ws_cmd_plugin () {
                 _ws_rm "$plugindir/$name"
                 _ws_debug 2 "Uninstalled $plugindir/$name"
             else
-                _ws_echo "Plugin $name is not installed." >&2
+                _ws_error "Plugin $name is not installed."
                 return 1
             fi
             return 0
@@ -678,7 +685,7 @@ _ws_cmd_plugin () {
         list)
             local dir name wsdir wsname="$1"
             if [ -z "$wsname" ]; then
-                _ws_echo "Expecting workspace name" >&2
+                _ws_error "Expecting workspace name"
                 return 1
             elif [ "x${wsname}" = x- ]; then
                 wsname="${_ws__current:--}"
@@ -693,7 +700,7 @@ _ws_cmd_plugin () {
             else
                 wsdir=$(_ws_getdir "$wsname")
                 if [ $? -ne 0 ]; then
-                    _ws_echo "No workspace exists for $wsname" >&2
+                    _ws_error "No workspace exists for $wsname"
                     return 1
                 elif [ -d "${wsdir}/.ws/plugins" ]; then
                     for name in "${wsdir}/.ws/plugins"/*; do
@@ -710,14 +717,14 @@ _ws_cmd_plugin () {
             local wsdir wsname="$1" plugin
             shift  # rest of the arguments will be plugin names
             if [ -z "$wsname" ]; then
-                _ws_echo "Expecting workspace name" >&2
+                _ws_error "Expecting workspace name"
                 return 1
             elif [ "x${wsname}" = x- ]; then
                 wsname="${_ws__current:--}"
             fi
             wsdir=$(_ws_getdir $wsname)
             if [ $? -ne 0 ]; then
-                _ws_echo "No workspace exist for $wsname" >&2
+                _ws_error "No workspace exist for $wsname"
                 return 1
             fi
             _ws_mkdir -p "${wsdir}/.ws/plugins"
@@ -727,7 +734,7 @@ _ws_cmd_plugin () {
             fi
             for plugin in "$@"; do
                 if [ ! -x "${plugindir}/${plugin}" ]; then
-                    _ws_echo "Plugin $plugin not installed" >&2
+                    _ws_error "Plugin $plugin not installed"
                     rc=1
                 elif [ ! -h "${wsdir}/.ws/plugins/${plugin}" ]; then
                     _ws_ln -s "${plugindir}/${plugin}" "${wsdir}/.ws/plugins/${plugin}"
@@ -740,14 +747,14 @@ _ws_cmd_plugin () {
             local wsdir wsname="$1" plugin
             shift  # rest of the arguments will be plugin names
             if [ -z "$wsname" ]; then
-                _ws_echo "Expecting workspace name" >&2
+                _ws_error "Expecting workspace name"
                 return 1
             elif [ "x$wsname" = x- ]; then
                 wsname="${_ws__current:--}"
             fi
             wsdir=$(_ws_getdir "$wsname")
             if [ $? -ne 0 ]; then
-                _ws_echo "No workspace exist for $wsname" >&2
+                _ws_error "No workspace exist for $wsname"
                 return 1
             fi
             if [ "x$1" = xALL ]; then
@@ -849,7 +856,7 @@ _ws_run_hooks () {
     # assigned and unset at the end of the script
     # for backward compatibility, the .ws.sh script would be called if
     # .ws/hook.sh is not found
-    local hookfile sdir wsdir rc=0 op="${1:-enter}" context=$2
+    local hookfile sdir wsdir rc=0 op="${1:-enter}" context=$2 wshook__retdir=$3
     local var tmpfile="${TMPDIR:-/tmp}/ws.hook.cfg.$$.${RANDOM}.sh"
     local wshook__op wshook__workspace wshook__configdir wshook__variables
     wshook__op=${op}
@@ -924,12 +931,12 @@ _ws_cmd_hook () {
             elif [ "x$2" = x- -a -n "$_ws__current" ]; then
                 hookfile=$(_ws_getdir)/.ws/hook.sh
             elif [ "x$2" = x- ]; then
-                _ws_echo "No workspace" >&2
+                _ws_error "No workspace"
                 return 1
             elif [ -n "$2" ] && _ws_getdir "$2" >/dev/null 2>&1; then
                 hookfile="$(_ws_getdir "$2")/.ws/hook.sh"
             else
-                _ws_echo "No workspace exists for $2" >&2
+                _ws_error "No workspace exists for $2"
                 return 1
             fi
             "${editor}" "${hookfile}"
@@ -959,7 +966,7 @@ _ws_cmd_enter () {
             return 0
         fi
     elif [ ! -d "$wsdir" ]; then
-        _ws_echo "No workspace exists for $wsname" >&2
+        _ws_error "No workspace exists for $wsname"
         _ws_debug 1 "no workspace for $wsname"
         return 1
     else
@@ -1029,7 +1036,7 @@ _ws_cmd_leave () {
             _ws_cd "$2"  # return to old directory
         fi
         if [ -n "$_ws__current" ]; then
-            _ws_run_hooks enter $_ws__current
+            _ws_run_hooks enter $_ws__current "$2"
         fi
         _ws_debug 2 "left $oldws"
     fi
@@ -1054,33 +1061,23 @@ _ws_cmd_create () {
     wsname="${1:-""}"
     wsdir="$(_ws_getdir "$wsname")"
     if [ -z "$wsname" ]; then
-        _ws_echo "No name given" >&2
+        _ws_error "No name given"
         _ws_debug 2 "no name"
         return 1
     else
         local result
         result=$(_ws_mkdir "$wsdir" 2>&1)
         if [ $? -eq 0 ]; then
-            shift  # pop wsname from the arg list
-            _ws_mkdir -p "$wsdir/.ws"
-            _ws_copy_skel "$wsdir"
-            _ws_generate_config "$wsdir/.ws/config.sh"
-            # add assignments from cli
-            if [ -s "$cfgfile" ]; then
-                _ws_cmd_config load "$wsname" "$cfgfile"
-            fi
-            for plugin in $plugins; do
-                _ws_cmd_plugin add $wsname $plugin
-            done
+            _ws_convert_ws "$wsname" "$plugins" "$cfgfile"
             _ws_run_hooks create $wsname
             _ws_debug 1 "$wsdir created"
         elif [ -d "$wsdir" ]; then
-            _ws_echo "Workspace already exists" >&2
+            _ws_error "Workspace already exists"
             _ws_debug 2 "workspace exists"
             return 1
         else
             _ws_debug 0 "$wsdir exists, but not directory"
-            _ws_echo "$wsdir is exists but not a directory" >&2
+            _ws_error "$wsdir is exists but not a directory"
             return 1
         fi
     fi
@@ -1098,11 +1095,11 @@ _ws_cmd_destroy () {
     local linkptr wsdir wsname=${1:-""}
     wsdir="$(_ws_getdir "$wsname")"
     if [ -z "$wsname" ]; then
-        _ws_echo "No name given" >&2
+        _ws_error "No name given"
         return 1
     elif [ ! -d "$wsdir" ]; then
         _ws_debug 2 "workspace does not exit"
-        _ws_echo "No workspace exists" >&2
+        _ws_error "No workspace exists"
         return 1
     else
         if [ "$wsname" = "$_ws__current" ]; then
@@ -1129,7 +1126,7 @@ _ws_cmd_relink () {
     _ws_debug 7 args "$@"
     local wsdir wsname="${1:-$_ws__current}"
     if [ -z "$wsname" ]; then
-        _ws_echo "No name given" >&2
+        _ws_error "No name given"
         _ws_debug 2 "no workspace"
         return 1
     else
@@ -1137,7 +1134,7 @@ _ws_cmd_relink () {
         if [ $? -eq 0 ]; then
             _ws_link set "$wsdir"
         else
-            _ws_echo "No workspace exists" >&2
+            _ws_error "No workspace exists"
             _ws_debug 1 "no workspace exists"
             return 1
         fi
@@ -1164,7 +1161,7 @@ _ws_cmd_list () {
         sedscript="${sedscript};/^${_ws__current}@\{0,1\}\$/s/\$/*/"
     fi
     if [ ! -d $WS_DIR ]; then
-        _ws_echo "Fatal: no such directory: $WS_DIR" >&2
+        _ws_error "Fatal: no such directory: $WS_DIR"
         return 1
     fi
     _ws_ls -1 $WS_DIR | _ws_sed -e "$sedscript"
@@ -1195,13 +1192,73 @@ _ws_cmd_show_stack () {
     fi
 }
 
+# convert a directory to a workspace, do:
+# - create a .ws/ directory
+# - copy the skel.sh to hook.sh
+# - create a config.sh db
+# - update configs db from cli data
+# - add plugins
+_ws_convert_ws () {
+    _ws_debug 7 args "$@"
+    local plugin wsdir wsname="$1" plugins="$2" cfgfile="$3"
+    # we don't use _ws_getdir here since it may give a false value
+    wsdir="$WS_DIR/$wsname"
+    if [ -z "$wsname" ]; then
+        _ws_error "No name given"
+        _ws_debug 2 "no name"
+        return 1
+    elif [ ! -d "$wsdir" ]; then
+        _ws_error "No directory to convert: $wsdir"
+        _ws_debug 2 "no directory"
+        return 1
+    elif [ -d "$wsdir/.ws" ]; then
+        _ws_echo "Already a workspace"
+        _ws_debug 2 "Workspace exists"
+        return 1
+    fi
+    _ws_mkdir $wsdir/.ws
+    _ws_copy_skel "$wsdir"
+    _ws_generate_config "$wsdir/.ws/config.sh"
+    # add assignments from cli
+    if [ -s "$cfgfile" ]; then
+        _ws_cmd_config load "$wsname" "$cfgfile"
+    fi
+    for plugin in $plugins; do
+        _ws_cmd_plugin add $wsname $plugin
+    done
+    _ws_debug 1 "$wsdir converted"
+}
+
+# convert a directory to a workspaces structure
+# move it into $WS_DIR if it is not already
+_ws_cmd_convert () {
+    _ws_debug 7 args "$@"
+    local moveto wsname="$1" srcdir="$2" plugins="$3" cfgfile="$4"
+    if [ ! -d "$srcdir" ]; then
+        _ws_error "No such directory: $srcdir"
+        _ws_debug 2 "src directory does not exist"
+        return 1
+    fi
+    if [ "$srcdir" = "$WS_DIR/$wsname" ]; then
+        moveto="$srcdir"
+    elif [ -d "$WS_DIR/$wsname" ]; then
+        _ws_error "Workspace already exists: $wsname"
+        _wsdebug 2 "workspace exists"
+        return 1
+    else
+        moveto="$WS_DIR/$wsname"
+        _ws_mv "$srcdir" "$moveto"
+    fi
+    _ws_convert_ws $wsname "$plugins" "$cfgfile"
+}
+
 # generate the initial structure with an empty default workspace
 _ws_cmd_initialize () {
     if [ $# -gt 0 ]; then
         # change WS_DIR
         WS_DIR="$1"
     fi
-    if [ -d $WS_DIR ]; then
+    if [ -z "$WS_INITIALIZE" -a -d $WS_DIR ]; then
         _ws_echo "Already initialized, aborting..."
         return 1
     fi
@@ -1240,7 +1297,7 @@ _ws_cmd_release () {
             *)
                 to_move="$(_ws_getdir $1)"
                 if [ $? -ne 0 ]; then
-                    _ws_echo "Not a valid workspace, aborting..." >&2
+                    _ws_error "Not a valid workspace, aborting..."
                     return 1
                 fi
                 ;;
@@ -1253,7 +1310,7 @@ _ws_cmd_release () {
         _ws_debug 3 "releasing ${WS_DIR}..."
         _ws_link del  # unlink ~/workspace@
         if [ -n "$to_move" -a ! -d "$to_move" ]; then
-            _ws_echo "Invalid workspace to restore, aborting..." >&2
+            _ws_error "Invalid workspace to restore, aborting..."
             return 1
         elif [ -n "$to_move" ]; then
             _ws_mv "$to_move" "$HOME/workspace"
@@ -1335,6 +1392,8 @@ ws [<cmd> [<args>]]
   config+ <op> <wsname> ...  - modify config variables
   hook+ edit <wsname>        - edit hook scripts
   plugin+ <op> ...           - manage plugins (installable hooks)
+  convert [-p <plugins>] [-n <name>] <dir> <cfg*>]...
+                             - convert directory to workspace
   help|-h|--help             - this message
   version                    - display version number
   [<name>]                   - same as 'ws enter [<name>]'
@@ -1378,7 +1437,7 @@ ws () {
             while [ $# -gt 0 ]; do
                 case $1 in
                     -p|--plugins) plugins="$2"; shift;;
-                    -*) _ws_echo "Invalid option: $1" >&2; return 1;;
+                    -*) _ws_error "Invalid option: $1"; return 1;;
                     *) break;;  # don't shift
                 esac
                 shift
@@ -1429,6 +1488,36 @@ ws () {
         hook)
             _ws_cmd_hook "$@"
             ;;
+        convert)
+            # convert a non-workspace structure into a workspace
+            # and move it under $WS_DIR
+            local plugins="ALL" plugin configfile wsname srcdir
+            while [ $# -gt 0 ]; do
+                case $1 in
+                    -h|--help)
+                        _ws_echo "ws convert [-n name] [-p plugins] DIR cnf..."
+                        return
+                        ;;
+                    -p|--plugins) plugins="$2"; shift;;
+                    -n) wsname="$2"; shift;;
+                    -*) _ws_error "Invalid option: $1"; return 1;;
+                    *) break;;  # don't shift
+                esac
+                shift
+            done
+            srcdir="$1"; shift
+            if [ ! -d "$srcdir" ]; then
+                _ws_error "Expecting directory"
+                return 1
+            elif [ -z "$wsname" ]; then
+                wsname=$(basename "$srcdir")
+            fi
+            configfile="${TMPDIR:-/tmp}/ws.cfg.$$.${wsname}"
+            # process the config (files or assignments) passed on the command-line
+            _ws_parse_configvars "${configfile}" "$@"
+            _ws_cmd_convert "$wsname" "$srcdir" "$plugins" "$configfile"
+            _ws_rm -f ${configfile}
+            ;;
         state)
             _ws_echo "root=$WS_DIR" "ws='$_ws__current'"
             _ws_stack state
@@ -1467,145 +1556,286 @@ ws () {
 if _ws_echo $- | _ws_grep -Fq i; then  # only for interactive
     _ws_complete () {
         # handle bash completion
-        local cur curop prev options commands names
+        local options commands names
+        options="-h --help"
+        commands="config convert create current debug destroy enter help hook"
+        commands="$commands initialize leave list plugin relink reload stack"
+        commands="$commands release state validate version"
+        names=$(ws list -q | _ws_tr '\n' ' ')
         COMPREPLY=()
         compopt +o default
-        cur="${COMP_WORDS[COMP_CWORD]}"
-        if [ $COMP_CWORD -gt 1 ]; then
-            curop="${COMP_WORDS[1]}"
-        else
-            curop=""
-        fi
-        prev="${COMP_WORDS[COMP_CWORD-1]}"
-        options="-h --help"
-        commands="config create current debug destroy enter help hook initialize leave list plugin"
-        commands="$commands release relink reload stack state validate version"
-        names=$(ws list | _ws_tr -d '*@' | _ws_tr '\n' ' ')
         if [ $COMP_CWORD -eq 1 ]; then
-            COMPREPLY=( $(compgen -W "$commands $options $names" -- ${cur}) )
+            COMPREPLY=( $(compgen -W "$commands $options $names" -- ${COMP_WORDS[COMP_CWORD]}) )
             return 0
-        elif [ $COMP_CWORD -eq 2 ]; then
-            case $curop in
-                enter|destroy|relink)
-                    COMPREPLY=($(compgen -W "$names" -- $cur))
-                    return 0
-                    ;;
-                debug)
-                    COMPREPLY=( $(compgen -W "reset 0 1 2 3 4 5 6 7 8 9" -f -- ${cur}) )
-                    return 0
-                    ;;
-                config)
-                    COMPREPLY=( $(compgen -W "del get help list load search set" -- ${cur}) )
-                    return 0
-                    ;;
-                plugin)
-                    COMPREPLY=( $(compgen -W "add help install available list remove show uninstall" -- ${cur}) )
-                    return 0
-                    ;;
-                reload)
-                    COMPREPLY=( $(compgen -f -- ${cur}) )
-                    return 0
-                    ;;
-                create)
-                    COMPREPLY=( $(compgen -W "-p --plugins" -- ${cur}) )
-                    return 0
-                    ;;
-                hook)
-                    COMPREPLY=( $(compgen -W "edit help" -- ${cur}) )
-                    return 0
-                    ;;
-                release)
-                    COMPREPLY=( $(compgen -W "--full -h --help $names" -- ${cur}) )
-                    return 0
-                    ;;
-            esac
-        elif [ $COMP_CWORD -ge 3 -a ${curop} = create ]; then
-            COMPREPLY=( $(compgen -f -v -- ${cur}) )
-            return 0
-        elif [ $COMP_CWORD -eq 3 -a ${curop} = release -a x${prev} = x--full ]; then
-            COMPREPLY=( $(compgen -W "${names}" -- ${cur}) )
-            return 0
-        elif [ $COMP_CWORD -eq 3 -a ${curop} = config ]; then
-            # "-" is the same as the current workspace
-            case ${COMP_WORDS[2]} in
-                search)
-                    local configvars pluginvars
-                    configvars=$(_ws_show_config_vars -b -q $(_ws_cmd_list -q))
-                    pluginvars=$(_ws_cmd_plugin show -q)
-                    COMPREPLY=( $(compgen -W "${configvars} ${pluginvars}" -- ${cur}) )
-                    return 0
-                    ;;
-                *)
-                    COMPREPLY=( $(compgen -W "- --global $names" -- $cur) )
-                    return 0
-            esac
-        elif [ $COMP_CWORD -ge 4 -a ${curop} = config -a ${COMP_WORDS[2]} = load ]; then
-            compopt -o default
-            COMPREPLY=( $(compgen -f -v -- ${cur}) )
-            return 0
-        elif [ $COMP_CWORD -eq 4 -a ${curop} = config ]; then
-            case ${COMP_WORDS[2]} in
-                del|get|set)
-                    local configvars pluginvars
-                    configvars=$(_ws_show_config_vars -b -q $(_ws_cmd_list -q))
-                    pluginvars=$(_ws_cmd_plugin show -q)
-                    COMPREPLY=( $(compgen -W "${configvars} ${pluginvars}" -- ${cur}) )
-                    return 0
-                    ;;
-                list)
-                    COMPREPLY=( $(compgen -W "-v --verbose" -- ${cur}) )
-                    return 0
-                    ;;
-            esac
-        elif [ $COMP_CWORD -eq 3 -a ${curop} = hook ]; then
-            COMPREPLY=( $(compgen -W "$names - --global --skel" -- ${cur}) )
-            return 0
-        elif [ $COMP_CWORD -eq 3 -a ${curop} = plugin ]; then
-            case $prev in
-                available)
-                    COMPREPLY=( )
-                    return 0
-                    ;;
-                install)
-                    COMPREPLY=( $(compgen -f -W "-f --force -n --name" -- ${cur}) )
-                    return 0
-                    ;;
-                uninstall)
-                    COMPREPLY=( $(compgen -W "$(ws plugin available)" -- ${cur}) )
-                    return 0
-                    ;;
-                list)
-                    COMPREPLY=( $(compgen -W "- --all $names" -- ${cur}) )
-                    return 0
-                    ;;
-                add|remove)
-                    COMPREPLY=( $(compgen -W "- $names" -- ${cur}) )
-                    return 0
-                    ;;
-            esac
-        elif [ $COMP_CWORD -ge 4 -a ${curop} = plugin ]; then
-            case ${COMP_WORDS[2]} in
-                install)
-                    if [ "x${prev}" = x-f ]; then
-                        COMPREPLY=( $(compgen -f -W "-n" -- ${cur}) )
-                        return 0
-                    elif [ "x${prev}" = x-n ]; then
-                        :  # no completion
-                    else
-                        COMPREPLY=( $(compgen -f -- ${cur}) )
-                        return 0
+        else
+            local i=2 cmd cur curop prev state
+            cur="${COMP_WORDS[COMP_CWORD]}"
+            curop="${COMP_WORDS[1]}"
+            prev="${COMP_WORDS[COMP_CWORD-1]}"
+            case ${curop} in
+                help)
+                    if [ $COMP_CWORD -eq 2 ]; then
+                        COMPREPLY=( $(compgen -W "$commands" -- ${cur}) )
                     fi
                     ;;
-                add|remove)
-                    COMPREPLY=( $(compgen -W "ALL $(ws plugin available)" -- ${cur}) )
-                    return 0
+                leave|current|stack|state|version|validate)
+                    if [ $COMP_CWORD -eq 2 ]; then
+                        COMPREPLY=( $(compgen -W "-h --help" -- ${cur}) )
+                    fi
+                    ;;
+                enter)
+                    if [ $COMP_CWORD -eq 2 ]; then
+                        COMPREPLY=( $(compgen -W "-h --help $names" -- $cur) )
+                    fi
+                    ;;
+                destroy|relink)
+                    if [ $COMP_CWORD -eq 2 ]; then
+                        if [ -n "$_ws__current" ]; then
+                            COMPREPLY=( $(compgen -W "- -h --help $names" -- $cur) )
+                        else
+                            COMPREPLY=( $(compgen -W "-h --help $names" -- $cur) )
+                        fi
+                    fi
+                    ;;
+                debug)
+                    if [ $COMP_CWORD -eq 2 ]; then
+                        COMPREPLY=( $(compgen -W "-h --help reset 0 1 2 3 4 5 6 8 9" -f -- ${cur}) )
+                    fi
                     ;;
                 list)
-                    COMPREPLY=( $(compgen -W "-v --verbose" -- ${cur}) )
-                    return 0
+                    if [ $COMP_CWORD -eq 2 ]; then
+                        COMPREPLY=( $(compgen -W "-q --quiet" -- ${cur}) )
+                    fi
+                    ;;
+                reload)
+                    if [ $COMP_CWORD -eq 2 ]; then
+                        COMPREPLY=( $(compgen -f -W "-h --help" -- ${cur}) )
+                    fi
+                    ;;
+                initialize)
+                    if [ $COMP_CWORD -eq 2 ]; then
+                        COMPREPLY=( $(compgen -d -- ${cur}) )
+                    fi
+                    ;;
+                release)
+                    if [ $COMP_CWORD -eq 2 ]; then
+                        COMPREPLY=( $(compgen -W "--full -h --help $names" -- ${cur}) )
+                    elif [ $COMP_CWORD -eq 3 -a "x${prev}" = x--full]; then
+                        COMPREPLY=( $(compgen -W "${names}" -- ${cur}) )
+                    fi
+                    ;;
+                hook)
+                    if [ $COMP_CWORD -eq 2 ]; then
+                        COMPREPLY=( $(compgen -W "edit help -h --help" -- ${cur}) )
+                    elif [ $COMP_CWORD -eq 3 -a "x${prev}" = xedit ]; then
+                        if [ -n "$_ws__current" ]; then
+                            COMPREPLY=( $(compgen -W "$names - --global --skel" -- ${cur}) )
+                        else
+                            COMPREPLY=( $(compgen -W "$names --global --skel" -- ${cur}) )
+                        fi
+                    fi
+                    ;;
+                create)
+                    state=name  # one of 'plugins', 'name', 'cfg'
+                    while [ $i -lt $COMP_CWORD ]; do
+                        case $state in
+                            name)
+                                case ${COMP_WORDS[i]} in
+                                    -p|--plugins) state=plugins;;
+                                    *) state=cfg;;
+                                esac
+                                ;;
+                            plugins) state=name ;;
+                            cfg) : ;;  # no state change
+                        esac
+                        let i++
+                    done
+                    case $state in
+                        plugins)
+                            COMPREPLY=( $(compgen -W "ALL $(_ws_cmd_plugin available)" - ${cur}) )
+                            ;;
+                        name)
+                            COMPREPLY=( $(compgen -W "-h --help -p --plugins" -- ${cur}) )
+                            ;;
+                        cfg)
+                            local configvars pluginvars
+                            configvars=$(_ws_show_config_vars -b -q $(_ws_cmd_list -q))
+                            pluginvars=$(_ws_cmd_plugin show -q)
+                            COMPREPLY=( $(compgen -W "${configvars} ${pluginvars}" -- ${cur}) )
+                            ;;
+                    esac
+                    ;;
+                config)
+                    # one of 'cmd', 'name', 'var', 'val', 'verb', 'file', 're' or 'end'
+                    state=cmd
+                    while [ $i -lt $COMP_CWORD ]; do
+                        case $state in
+                            val) state=end;;
+                            var)
+                                case $cmd in
+                                    set) state=val;;
+                                    *) state=end;;
+                                esac
+                                ;;
+                            name)
+                                case $cmd in
+                                    -h|--help) state=end;;
+                                    list) state=verb;;
+                                    load) state=file;;
+                                    set|get|del) state=var;;
+                                    *) state=end
+                                esac
+                                ;;
+                            cmd)
+                                cmd=${COMP_WORDS[i]}
+                                case $cmd in
+                                    search) state=re;;
+                                    *) state=name;;
+                                esac
+                                ;;
+                            *) state=end;;
+                        esac
+                        if [ $state = end ]; then
+                            break
+                        fi
+                        let i++
+                    done
+                    case $state in
+                        verb)
+                            COMPREPLY=( $(compgen -W " -v --verbose" -- ${cur}) )
+                            ;;
+                        cmd)
+                            COMPREPLY=( $(compgen -W "-h --help del get help list load search set" -- ${cur}) )
+                            ;;
+                        name)
+                            if [ -n "$_ws__current" ]; then
+                                COMPREPLY=( $(compgen -W "- --global ${names}" -- ${cur}) )
+                            else
+                                COMPREPLY=( $(compgen -W "--global ${names}" -- ${cur}) )
+                            fi
+                            ;;
+                        file)
+                            COMPREPLY=( $(compgen -f -- ${cur}) )
+                            ;;
+                        var|re)
+                            local configvars pluginvars
+                            configvars=$(_ws_show_config_vars -b -q $(_ws_cmd_list -q))
+                            pluginvars=$(_ws_cmd_plugin show -q)
+                            COMPREPLY=( $(compgen -W "$configvars $pluginvars" -- ${cur}) )
+                            ;;
+                    esac
+                    ;;
+                plugin)
+                    state=cmd  # one of 'cmd', 'install', 'name', 'wsname', 'file', 'end', "quiet"
+                    while [ $i -lt $COMP_CWORD ]; do
+                        case $state in
+                            file|quiet) state=end;;
+                            cmd)
+                                cmd=${COMP_WORDS[i]}
+                                case $cmd in
+                                    available|-h|--help) state=end;;
+                                    install) state=install;;
+                                    uninstall) state=name;;
+                                    list|add|remove) state=wsname;;
+                                    show) state=quiet;
+                                esac
+                                ;;
+                            install)
+                                case ${COMP_WORDS[i]} in
+                                    -f) : ;;  # no state change
+                                    -n) state=name;;
+                                    *) state=file;;
+                                esac
+                                ;;
+                            name)
+                                case $cmd in
+                                    install) state=file;;
+                                    uninstall) state=end;;
+                                    add|remove) : ;;  # no state change
+                                esac
+                                ;;
+                            wsname)
+                                case $cmd in
+                                    list) state=end;;
+                                    *) state=name;;
+                                esac
+                                ;;
+                        esac
+                        if [ $state = end ]; then
+                            break
+                        fi
+                        let i++
+                    done
+                    case $state in
+                        cmd)
+                            COMPREPLY=( $(compgen -W "-h --help available install uninstall list add remove show" -- ${cur}) )
+                            ;;
+                        install)
+                            COMPREPLY=( $(compgen -f -W "-f -n" -- ${cur}) )
+                            ;;
+                        name)
+                            COMPREPLY=( $(compgen -W "$(_ws_cmd_plugin available)" - ${cur}) )
+                            ;;
+                        file)
+                            COMPREPLY=( $(compgen -f -- ${cur}) )
+                            ;;
+                        wsname)
+                            if [ -n "$_ws__current" ]; then
+                                COMPREPLY=( $(compgen -W "$names" -- ${cur}) )
+                            else
+                                COMPREPLY=( $(compgen -W "- $names" -- ${cur}) )
+                            fi
+                            ;;
+                        quiet)
+                            COMPREPLY=( $(compgen -W "-q" -- ${cur}) )
+                            ;;
+                    esac
+                    ;;
+                convert)
+                    state=dir  # one of 'dir', 'name', 'plugins', 'cfg'
+                    while [ $i -lt $COMP_CWORD ]; do
+                        case $state in
+                            dir)
+                                case $cur in
+                                    -n|--name) state=name;;
+                                    -p|--plugins) state=plugins;;
+                                    *) state=cfg;;
+                                esac
+                                ;;
+                            name)
+                                state=dir
+                                ;;
+                            plugins)
+                                state=dir
+                                ;;
+                            cfg) : ;;  # no state change
+                        esac
+                        let i++
+                    done
+                    case $state in
+                        # no completion for state=name
+                        dir)
+                            COMPREPLY=( $(compgen -d -W "-h --help -n --name -p --plugins" -- ${cur}) )
+                            ;;
+                        plugins)
+                            COMPREPLY=( $(compgen -W "$(_ws_cmd_plugin available)" - ${cur}) )
+                            ;;
+                        cfg)
+                            local configvars pluginvars
+                            configvars=$(_ws_show_config_vars -b -q $(_ws_cmd_list -q))
+                            pluginvars=$(_ws_cmd_plugin show -q)
+                            COMPREPLY=( $(compgen -W "$configvars $pluginvars" -- ${cur}) )
+                            ;;
+                    esac
+                    ;;
+                *)
+                    if [ $COMP_CWORD -eq 2 ]; then
+                        COMPREPLY=( $(compgen -W "-h --help" -- ${cur}) )
+                    fi
                     ;;
             esac
         fi
+        return 0
     }
 
     # activate bash completion

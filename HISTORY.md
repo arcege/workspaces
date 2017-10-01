@@ -1,7 +1,19 @@
+= Workspaces
 
-= 0.2.7.4
+== 0.2.8.1
 
-* Fix bug calling `_ws_link set`.
+* Add \_ws\_error function to handle error messages better.
+
+== 0.2.8
+
+* Add 'convert' command and \_ws\_convert\_ws function to add a .ws structure
+  with hooks, plugins and config db
+    * The convert command will move the directory under WS\_DIR, also used by
+      install+replace for moving ~/workspace/.
 * Change utilties to use internal functions which in turn use absolute paths.
     * Needs testing on MacOS.
-* Test suite clears out $PATH to ensure no corruption of the environment.
+* Fix bug calling `_ws_link set.
+* Fix bug where cdpath\_startdir will override cd from ws+leave
+* Add WS_INITIALIZE env var to allow initialization when $WS_DIR exists.
+* Test suite clears out $PATH to ensure less possible corruption of the
+  environment.
