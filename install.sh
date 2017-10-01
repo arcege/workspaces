@@ -23,7 +23,7 @@ installation () {
         BASHDIR=$HOME/.bash.d
     fi
     mkdir -p $BASHDIR
-    cp -p ./ws.sh $BASHDIR/ws.sh
+    cp -p $srcdir/ws.sh $BASHDIR/ws.sh
     # put the plugins into a tarball for ws+initialize to use
     tar cjf $HOME/.ws_plugins.tbz2 plugins
 }
