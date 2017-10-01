@@ -4,7 +4,7 @@
 # Environment variables are set to the desired workspace.
 
 # process arguments and options
-# operations
+# operations (see documentation for more)
 #   enter [name]                - set envvars and change to workspace directory, if no
 #                                 name given, then show current workspace
 #   leave                       - leave workspace, resetting envvars and directory
@@ -16,14 +16,13 @@
 #   list                        - show workspaces, '@' shows which is linked with
 #                                 with ~/workspace, '*' shows the current workspace
 #   stack                       - show workspaces on the stack, '*' shows current workspace
-#   initialize[{wsdir}]         - (re)create the environment
 #   config <op> <wsname> ...    - modify config variables
 #   plugin <op> ...             - manage plugins
 #   help|-h|--help              - display help information
 #   version                     - display version number
 #   [name]                      - same as enter command
 #
-# * cfg is either a filename containing variable assignments or variable assignments on the command-line
+# *cfg is either a filename containing variable assignments or variable assignments on the command-line
 #   these are added to the .ws/config.sh script read during hooks
 # 
 # for example:
@@ -31,11 +30,8 @@
 #    java_dir=/opt/jdk1.8.0_1
 #    $ ws create -p github myproduct github_repos="MyApi MyCore MyUi" def.cfg
 # getting:
-#    $ cat ~/workspaces/myproduct/.ws/config.sh
-#    : assignment used in .ws/hook.sh
-#    github_repos="MyApi MyCore MyUI"
-#    java_dir="/opt/jdk1.8.0_1"
-#    $ ls ~/workspaces/myproduct/.ws/plugins
+#    $ ws config list myproduct -v
+#    $ ws plugin list myproduct
 #    github
 #
 # if a workspace has a '.ws/hook.sh' script at the top, it will get source'd
@@ -123,6 +119,7 @@ function _ws_cat { /bin/cat ${1:+"$@"}; }
 function _ws_cd { command cd ${1:+"$@"}; }
 function _ws_chmod { /bin/chmod "$@"; }
 function _ws_cp { /bin/cp "$@"; }
+function _ws_curl { /usr/bin/curl ${1:+"$@"}; }
 function _ws_date { /bin/date ${1:+"$@"}; }
 function _ws_dirname { /usr/bin/dirname ${1:+"$@"}; }
 function _ws_echo { command echo "$@"; }
@@ -132,10 +129,12 @@ function _ws_ls { /bin/ls ${1:+"$@"}; }
 function _ws_mkdir { /bin/mkdir "$@"; }
 function _ws_mktemp { /bin/mktemp ${1:+"$@"}; }
 function _ws_mv { /bin/mv "$@"; }
+function _ws_python { /usr/bin/python ${1:+"$@"}; }
 function _ws_readlink { /bin/readlink "$@"; }
 function _ws_rm { /bin/rm "$@"; }
 function _ws_sed { /bin/sed "$@"; }
 function _ws_sort { /usr/bin/sort ${1:+"$@"}; }
+function _ws_tail { /usr/bin/tail ${1:+"$@"}; }
 function _ws_tar { PATH=/bin:/usr/bin /bin/tar "$@"; }
 function _ws_tr { /usr/bin/tr "$@"; }
 function _ws_tty { /usr/bin/tty; }
@@ -1279,6 +1278,67 @@ _ws_cmd_initialize () {
     _ws_link set $(_ws_getdir default)
 }
 
+# download the latest version and upgrade what is currently installed
+_ws_cmd_upgrade () {
+    local noop=false version rc=0
+    local baseurl="https://bitbucket.org/Arcege/workspaces/downloads"
+    local resturl="https://api.bitbucket.org/2.0/repositories/Arcege"
+    resturl="${resturl}/workspaces/downloads/"
+    while [ $# -gt 0 ]; do
+        case $1 in
+            -h|--help) _ws_echo "ws upgrade [-h] [--dry-run] [version]"; return 0;;
+            --dry-run) noop=true;;
+            *) version=$1;;
+        esac
+        shift
+    done
+    if [ -z "$version" ]; then
+        # get the latest version on the download server
+        # get list of tarballs on the archive server, pretty print
+        # json putput, get just the downloads file entries, extract
+        # the version number, sort numerically, delete the first
+        # through the current version, what are left are the version
+        # not yet installed locally, take the last one
+        # if nothing is returned, then we are up to date
+        version=$(_ws_curl -sX GET $resturl | _ws_python -m json.tool |
+          _ws_grep 'href.*/downloads/' | _ws_sed 's!.*/workspaces-\(.*\).tgz"!\1!' |
+          _ws_sort -t. -n | _ws_sed "1,/$WS_VERSION/d" | _ws_tail -1 )
+    elif [ "$version" = "$WS_VERSION" ]; then
+        version=""  # to show we are on that version
+    fi
+    url="$baseurl/workspaces-${version}.tgz"
+    tmpfile="$(_ws_mktemp).tgz"
+    if [ -z "$version" ]; then
+        _ws_echo "Up to date"
+        _ws_debug 2 "We are up to date"
+        return 0
+    elif curl -sLo $tmpfile "$url"; then
+        tmpdir="$(_ws_mktemp).d"
+        mkdir -p $tmpdir
+        if tar xzfC $tmpfile $tmpdir; then
+            if $noop; then
+                _ws_echo "Upgrading to $version (dry-run)"
+            elif PATH=/bin:/usr/bin $tmpdir/workspaces/install.sh upgrade; then
+                _ws_echo "Upgraded to $version"
+                _ws_echo "Please run 'ws reload' in each shell"
+            else
+                _ws_debug 0 "install.sh failed"
+                rc=3
+            fi
+        else
+            _ws_error "Error: could not extract downloaded package"
+            _ws_debug 0 "could not extract workspaces-$version.tgz"
+            rc=2
+        fi
+    else
+        _ws_error "Error: could not download version $version"
+        _ws_debug 0 "could not download $url"
+        rc=1
+    fi
+    rm -rf $tmpfile $tmpdir
+    return $rc
+}
+
 # remove the workspaces structure, and optionally the application
 _ws_cmd_release () {
     local to_move full=false force=false
@@ -1391,6 +1451,7 @@ ws [<cmd> [<args>]]
   list                       - show available workspaces
   stack                      - show workspaces on the stack
   initialize [{wsdir}]       - create the workspaces structure
+  upgrade {version}          - upgrade workspaces from the distribution
   release [--full] [--yes] [{wsname}]
                              - delete ~/workspaces, restoring workspace
   config+ <op> <wsname> ...  - modify config variables
@@ -1547,6 +1608,9 @@ ws () {
             ;;
         initialize)
             _ws_cmd_initialize "$@"
+            ;;
+        upgrade)
+            _ws_cmd_upgrade "$@"
             ;;
         release)
             _ws_cmd_release "$@"
