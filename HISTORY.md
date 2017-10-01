@@ -2,8 +2,11 @@
 
 == 0.2.8.1
 
+* Add 'upgrade' command to update the software to the current released
+  version, if necessary.
 * Add \_ws\_error function to handle error messages better.
 * Compatibility for MacOS utilty pathname differences.
+* Allow install.sh to be call from any directory.
 
 == 0.2.8
 
