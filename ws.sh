@@ -136,6 +136,7 @@ function _ws_sed { /bin/sed "$@"; }
 function _ws_sort { /usr/bin/sort ${1:+"$@"}; }
 function _ws_tail { /usr/bin/tail ${1:+"$@"}; }
 function _ws_tar { PATH=/bin:/usr/bin /bin/tar "$@"; }
+function _ws_touch { /usr/bin/touch "$@"; }
 function _ws_tr { /usr/bin/tr "$@"; }
 function _ws_tty { /usr/bin/tty; }
 # these are not in the same directory as linux
@@ -1278,12 +1279,33 @@ _ws_cmd_initialize () {
     _ws_link set $(_ws_getdir default)
 }
 
+_ws_get_versions () {
+    local cachefile=$HOME/.ws_versions.txt
+    local tmpfile=$(_ws_mktemp)
+    if [ -f $cachefile ]; then
+        _ws_touch -d '-1 day' $tmpfile
+        # if older than a day, invalidate the cache
+        if [ $cachefile -ot $tmpfile ]; then
+            _ws_rm -f $cachefile
+            _ws_debug 3 "invalidate version cache"
+        fi
+        _ws_rm -f $tmpfile
+    fi
+    if [ ! -f $cachefile ]; then
+        local resturl="https://api.bitbucket.org/2.0/repositories/Arcege"
+        resturl="${resturl}/workspaces/downloads/"
+        _ws_curl -sX GET $resturl | _ws_python -m json.tool |
+            _ws_sed '/href.*\/downloads\//!d;s!.*/workspaces-\(.*\).tgz.*!\1!' |
+            _ws_sort -t. -n > $cachefile
+        _ws_debug 3 "cached versions from $resturl"
+    fi
+    _ws_cat $cachefile
+}
+
 # download the latest version and upgrade what is currently installed
 _ws_cmd_upgrade () {
     local noop=false version rc=0
     local baseurl="https://bitbucket.org/Arcege/workspaces/downloads"
-    local resturl="https://api.bitbucket.org/2.0/repositories/Arcege"
-    resturl="${resturl}/workspaces/downloads/"
     while [ $# -gt 0 ]; do
         case $1 in
             -h|--help) _ws_echo "ws upgrade [-h] [--dry-run] [version]"; return 0;;
@@ -1300,9 +1322,7 @@ _ws_cmd_upgrade () {
         # through the current version, what are left are the version
         # not yet installed locally, take the last one
         # if nothing is returned, then we are up to date
-        version=$(_ws_curl -sX GET $resturl | _ws_python -m json.tool |
-          _ws_grep 'href.*/downloads/' | _ws_sed 's!.*/workspaces-\(.*\).tgz"!\1!' |
-          _ws_sort -t. -n | _ws_sed "1,/$WS_VERSION/d" | _ws_tail -1 )
+        version=$(_ws_get_versions | _ws_sed "1,/$WS_VERSION/d" | _ws_tail -1)
     elif [ "$version" = "$WS_VERSION" ]; then
         version=""  # to show we are on that version
     fi
@@ -1628,7 +1648,7 @@ if _ws_echo $- | _ws_grep -Fq i; then  # only for interactive
         options="-h --help"
         commands="config convert create current debug destroy enter help hook"
         commands="$commands initialize leave list plugin relink reload stack"
-        commands="$commands release state validate version"
+        commands="$commands release state upgrade validate version"
         names=$(ws list -q | _ws_tr '\n' ' ')
         COMPREPLY=()
         compopt +o default
@@ -1683,6 +1703,13 @@ if _ws_echo $- | _ws_grep -Fq i; then  # only for interactive
                 initialize)
                     if [ $COMP_CWORD -eq 2 ]; then
                         COMPREPLY=( $(compgen -d -- ${cur}) )
+                    fi
+                    ;;
+                upgrade)
+                    if [ $COMP_CWORD -eq 2 ]; then
+                        COMPREPLY=( $(compgen -W "-h --help --dry-run $(_ws_get_versions)" -- ${cur}) )
+                    elif [ $COMP_CWORD -gt 2 ]; then
+                        COMPREPLY=( $(compgen -W "$(_ws_get_versions)" -- ${cur}) )
                     fi
                     ;;
                 release)
