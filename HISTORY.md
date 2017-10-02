@@ -2,6 +2,7 @@
 
 == 0.2.8.1
 
+* Issue #2 - remove sed clause that truncates based on whitespace.
 * Add 'upgrade' command to update the software to the current released
   version, if necessary.
 * Add \_ws\_error function to handle error messages better.
