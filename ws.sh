@@ -1305,6 +1305,7 @@ _ws_get_versions () {
 _ws_cmd_upgrade () {
     local noop=false version rc=0
     local baseurl="https://bitbucket.org/Arcege/workspaces/downloads"
+    local SWvers=$(_ws_sed -ne 's/^WS_VERSION=//p' $_WS_SOURCE)
     while [ $# -gt 0 ]; do
         case $1 in
             -h|--help) _ws_echo "ws upgrade [-h] [--dry-run] [version]"; return 0;;
@@ -1321,8 +1322,8 @@ _ws_cmd_upgrade () {
         # through the current version, what are left are the version
         # not yet installed locally, take the last one
         # if nothing is returned, then we are up to date
-        version=$(_ws_get_versions | _ws_sed "1,/$WS_VERSION/d" | _ws_tail -1)
-    elif [ "$version" = "$WS_VERSION" ]; then
+        version=$(_ws_get_versions | _ws_sed "1,/$WSvers/d" | _ws_tail -1)
+    elif [ "$version" = "$WSvers" ]; then
         version=""  # to show we are on that version
     fi
     url="$baseurl/workspaces-${version}.tgz"
@@ -1331,15 +1332,20 @@ _ws_cmd_upgrade () {
         _ws_echo "Up to date"
         _ws_debug 2 "We are up to date"
         return 0
-    elif curl -sLo $tmpfile "$url"; then
+    elif curl -sLo $tmpfile --fail --connect-timeout 30 "$url"; then
         tmpdir="$(_ws_mktemp).d"
         mkdir -p $tmpdir
         if tar xzfC $tmpfile $tmpdir; then
+            local order=$(_ws_echo -e $"$WSvers\n$version" | _ws_sort -t. -n)
+            if [ "$order" = $"$WSvers\n$version" ]; then
+                local verb_pres="Upgrading" verb_past="Upgraded"
+            else
+                local verb_pres="Downgrading" verb_past="Downgraded"
+            fi
             if $noop; then
-                _ws_echo "Upgrading to $version (dry-run)"
+                _ws_echo "${verb_pres} to $version (dry-run)"
             elif PATH=/bin:/usr/bin $tmpdir/workspaces/install.sh upgrade; then
-                _ws_echo "Upgraded to $version"
-                _ws_echo "Please run 'ws reload' in each shell"
+                _ws_echo "${verb_past} to $version"
             else
                 _ws_debug 0 "install.sh failed"
                 rc=3
