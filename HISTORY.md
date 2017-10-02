@@ -1,13 +1,16 @@
 = Workspaces
 
-== 0.2.8.1
+== 0.2.8.2
 
 * Issue #2 - remove sed clause that truncates based on whitespace.
 * Add 'upgrade' command to update the software to the current released
   version, if necessary.
+* Allow install.sh to be call from any directory.
+
+== 0.2.8.1
+
 * Add \_ws\_error function to handle error messages better.
 * Compatibility for MacOS utilty pathname differences.
-* Allow install.sh to be call from any directory.
 
 == 0.2.8
 
