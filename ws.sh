@@ -1942,3 +1942,13 @@ if _ws_echo $- | _ws_grep -Fq i; then  # only for interactive
     complete -F _ws_complete ws
 fi
 
+if [ x${_WS_SHELL_WORKSPACE:+X} = xX ]; then
+    _ws_echo "Switching to ${_WS_SHELL_WORKSPACE}"
+    ws enter "${_WS_SHELL_WORKSPACE}"
+    if [ $? -ne 0 ]; then
+        _ws_error "Cannot change to ${_WS_SHELL_WORKSPACE}"
+        exit 225
+    fi
+    unset _WS_SHELL_WORKSPACE
+fi
+
