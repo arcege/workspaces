@@ -1,0 +1,27 @@
+:
+# Copyright @ 2017 Michael P. Reilly. All rights reserved.
+
+# Manage the Vagrant VM, most importantly, destroy the VM when
+# the workspace is destroyed.  Also bring a system up when
+# entering a workspace, and halting when leaving.
+
+# uses vagrant_halt_on_leave - on 'leave' hook, stop the VM
+# uses vagrant_up_on_enter - on 'enter' hook, start the VM
+
+case ${wshook__op} in
+    destroy)
+        if [ -e $WORKSPACE/Vagrantfile -d $WORKSPACE/.vagrant -a -e $WORKSPACE/Vagrantfile ]; then
+            vagrant destroy -f
+        fi
+        ;;
+    enter)
+        if [ -e $WORKSPACE/Vagrantfile -a -n "${vagrant_up_on_enter}" ]; then
+            vagrant up
+        fi
+        ;;
+    leave)
+        if [ -n "${vagrant_halt_on_leave}" -a -d $WORKSPACE/.vagrant -a -e $WORKSPACE/Vagrantfile ]; then
+            vagrant halt
+        fi
+        ;;
+esac
