@@ -608,6 +608,7 @@ _ws_cmd_plugin () {
     _ws_debug 7 args "$@"
     local wsdir op="$1" wsname="$2"
     local plugin plugindir=$WS_DIR/.ws/plugins
+    local reldir=../../../.ws/plugins
     shift
     case $op in
         help)
@@ -740,7 +741,8 @@ _ws_cmd_plugin () {
                     _ws_error "Plugin $plugin not installed"
                     rc=1
                 elif [ ! -h "${wsdir}/.ws/plugins/${plugin}" ]; then
-                    _ws_ln -s "${plugindir}/${plugin}" "${wsdir}/.ws/plugins/${plugin}"
+                    # use a hard link here for fs mounts
+                    _ws_ln "${plugindir}/${plugin}" "${wsdir}/.ws/plugins/${plugin}"
                     _ws_debug 2 "Added $plugin to $wsname"
                 fi
             done
@@ -764,7 +766,7 @@ _ws_cmd_plugin () {
                 set -- $(ws plugin list $wsname)
             fi
             for plugin in "$@"; do
-                if [ -h "${wsdir}/.ws/plugins/${plugin}" ]; then
+                if [ -f "${wsdir}/.ws/plugins/${plugin}" ]; then
                     _ws_rm -f "${wsdir}/.ws/plugins/${plugin}"
                     _ws_debug 2 "Removed $plugin from $wsname"
                 fi
