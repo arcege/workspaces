@@ -398,6 +398,7 @@ cdpath
 github
 java
 nvm
+vagrant
 virtualenv
 virtualenvwrapper"
 ws plugin available >$cmdout 2>$cmderr
