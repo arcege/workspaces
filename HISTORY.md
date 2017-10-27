@@ -5,7 +5,10 @@
 * Issue #2 - remove sed clause that truncates based on whitespace.
 * Add 'upgrade' command to update the software to the current released
   version, if necessary.
+* Add 'vagrant' plugin to destroy and possible bring up/down VM(s).
 * Allow install.sh to be call from any directory.
+* Workspace plugins now hardlinks instead of formerly symlinks, helps with NFS.
+* Handle downgrading.
 
 == 0.2.8.1
 
