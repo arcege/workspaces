@@ -8,20 +8,24 @@
 # uses vagrant_halt_on_leave - on 'leave' hook, stop the VM
 # uses vagrant_up_on_enter - on 'enter' hook, start the VM
 
+wshook_check_vagrant () {
+    [ -e $wshook__workspace/Vagrantfile -a -d $wshook__workspace/.vagrant ]
+}
 case ${wshook__op} in
     destroy)
-        if [ -e $WORKSPACE/Vagrantfile -d $WORKSPACE/.vagrant -a -e $WORKSPACE/Vagrantfile ]; then
+        if wshook_check_vagrant; then
             vagrant destroy -f
         fi
         ;;
     enter)
-        if [ -e $WORKSPACE/Vagrantfile -a -n "${vagrant_up_on_enter}" ]; then
+        if wshook_check_vagrant && [ -n "${vagrant_up_on_enter}" ]; then
             vagrant up
         fi
         ;;
     leave)
-        if [ -n "${vagrant_halt_on_leave}" -a -d $WORKSPACE/.vagrant -a -e $WORKSPACE/Vagrantfile ]; then
+        if wshook_check_vagrant && [ -n "${vagrant_halt_on_leave}" ]; then
             vagrant halt
         fi
         ;;
 esac
+unset wshook_check_vagrant
