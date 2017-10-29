@@ -46,6 +46,42 @@ case $(uname) in
         ;;
 esac
 
+replace_plugin_hardlink () {
+    local plugin="$1" wsdir="$2"
+    local instfile="$WS_DIR/.ws/plugins/$plugin"
+    local wsfile="$wsdir/.ws/plugins/$plugin"
+    if [ -h "$wsfile" -a -f "$instfile" ]; then
+        _ws_rm "$wsfile"
+        _ws_ln "$instfile" "$wsfile"
+    fi
+}
+
+update_workspace_plugin_hardlinks () {
+    local wsname="$1" wsdir
+    wsdir=$(_ws_getdir $wsname)
+    if [ $? -eq 0 ]; then
+        _ws_cmd_plugin list $wsname -q | while read plugin; do
+            replace_plugin_hardlink "$plugin" "$wsdir"
+        done
+    fi
+}
+
+update_plugins_hardlinks () {
+    local wsname
+    _ws_cmd_list -q | while read wsname; do
+        update_workspace_plugin_hardlinks "$wsname"
+    done
+}
+
+add_vagrant_plugin () {
+    local wsname
+    if _ws_cmd_plugin available | fgrep -ws vagrant; then
+        _ws_cmd_list -q | while read wsname; do
+            _ws_cmd_plugin add "$wsname" vagrant
+        done
+    fi
+}
+
 update_hook () {
     local oldchk chksum state=none tmphook=$1 wsdir=$2 oldname=$3 newname=$4
     local oldfile=$wsdir/$oldname newfile=$wsdir/.ws/$newname
@@ -203,6 +239,7 @@ pre_initialization () {
                 echo "Source $BASHDIR/ws.sh to get update."
             fi
             update_hook_scripts
+            update_plugins_hardlinks
             ;;
     esac
 }
@@ -226,6 +263,9 @@ post_initialization () {
                 rm -rf $HOME/workspaces/default
                 _ws_cmd_convert default $HOME/workspace.$$ ALL /dev/null
             fi
+            ;;
+        upgrade)
+            add_vagrant_plugin
             ;;
     esac
 }
