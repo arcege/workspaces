@@ -69,7 +69,7 @@ esac
 
 # global constants, per shell
 # unfortunately, bash 3 (macos) does not support declaring global vars
-WS_VERSION=0.2.8.2
+WS_VERSION=0.2.8.3
 
 : ${WS_DIR:=$HOME/workspaces}
 : ${_WS_DEBUGFILE:=$WS_DIR/.log}
