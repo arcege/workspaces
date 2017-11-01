@@ -1,5 +1,10 @@
 = Workspaces
 
+== 0.2.8.3
+* Fixes for vagrant plugin
+* The install.py script will convert workspace plugins from symlinks to hard
+  links.
+
 == 0.2.8.2
 
 * Issue #2 - remove sed clause that truncates based on whitespace.
