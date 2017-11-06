@@ -1,5 +1,8 @@
 = Workspaces
 
+== 0.2.8.4
+* Fix completion issue on Darwin (macos)
+
 == 0.2.8.3
 * Fixes for vagrant plugin
 * The install.py script will convert workspace plugins from symlinks to hard
