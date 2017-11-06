@@ -1658,7 +1658,7 @@ if _ws_echo $- | _ws_grep -Fq i; then  # only for interactive
         commands="$commands release state upgrade validate version"
         names=$(ws list -q | _ws_tr '\n' ' ')
         COMPREPLY=()
-        compopt +o default
+        #compopt +o default  # not available on Darwin version of bash
         if [ $COMP_CWORD -eq 1 ]; then
             COMPREPLY=( $(compgen -W "$commands $options $names" -- ${COMP_WORDS[COMP_CWORD]}) )
             return 0
