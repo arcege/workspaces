@@ -16,7 +16,7 @@ if [ -n "$JAVA" ]; then
         leave)
             if [ -d $JAVA ]; then
                 unset JAVA_HOME
-                PATH=:$PATH:  # surround for no special cases
+                PATH=:$PATH:  # surround for special cases
                 PATH=${PATH/:$JAVA\/bin:/:}
                 PATH=${PATH%:}; PATH=${PATH#:}  # remove surrounding delimitors
             fi

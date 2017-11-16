@@ -32,7 +32,7 @@ case $OSTYPE in
         ;;
 esac
 
-versionstr=0.2.8.4
+versionstr=0.2.8.5
 
 cdir=$PWD
 
@@ -398,6 +398,7 @@ cdpath
 github
 java
 nvm
+pythonpath
 vagrant
 virtualenv
 virtualenvwrapper"

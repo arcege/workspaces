@@ -73,15 +73,6 @@ update_plugins_hardlinks () {
     done
 }
 
-add_vagrant_plugin () {
-    local wsname
-    if _ws_cmd_plugin available | fgrep -ws vagrant; then
-        _ws_cmd_list -q | while read wsname; do
-            _ws_cmd_plugin add "$wsname" vagrant
-        done
-    fi
-}
-
 update_hook () {
     local oldchk chksum state=none tmphook=$1 wsdir=$2 oldname=$3 newname=$4
     local oldfile=$wsdir/$oldname newfile=$wsdir/.ws/$newname
@@ -198,6 +189,13 @@ update_hook_scripts () {
     rm -f $tmphook
 }
 
+add_plugin_to_all_workspaces () {
+    local wsname plugin=$1
+    _ws_cmd_list -q | while read wsname; do
+        _ws_cmd_plugin add $wsname $plugin
+    done
+}
+
 update_plugins () {
     local file destdir=$WS_DIR/.ws/plugins
     for file in plugins/*; do
@@ -205,8 +203,10 @@ update_plugins () {
             break
         elif [ ! -e "$destdir/${file##*/}" ]; then
             ws plugin install $file
+            add_plugin_all_workspaces ${file##*/}
         elif [ $file -nt "$destdir/${file##*/}" ]; then
             ws plugin install -f $file
+            add_plugin_all_workspaces ${file##*/}
         fi
     done
 }

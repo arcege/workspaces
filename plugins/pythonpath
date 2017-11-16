@@ -1,0 +1,21 @@
+:
+# Copyright @ 2017 Michael P. Reilly. All rights reserved.
+
+# users PYPATH - location of Python code
+
+if [ -n "$PYPATH" ]; then
+    wshook__path=$wshook__workspace/$PYPATH
+    case ${wshook__op} in
+        enter)
+            export PYTHONPATH="$wshook__path:$PYTHONPATH"
+            ;;
+        leave)
+            PYTHONPATH=":$PYTHONPATH:"  # surround for special cases
+            PYTHONPATH=${PYTHONPATH/:$wshook__path:/:}
+            PYTHONPATH=${PYTHONPATH%:}; PYTHONPATH=${PYTHONPATH#:}  # remove surrounding delimitors
+            if [ "$PYTHONPATH" = ":" ]; then
+                unset PYTHONPATH
+            fi
+            ;;
+    esac
+fi

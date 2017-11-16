@@ -1,5 +1,8 @@
 = Workspaces
 
+== 0.2.8.5
+* Add pythonpath plugin (request from collegue); using PYPATH config variable
+
 == 0.2.8.4
 * Fix completion issue on Darwin (macos)
 
