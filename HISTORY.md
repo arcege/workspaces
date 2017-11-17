@@ -1,5 +1,8 @@
 = Workspaces
 
+== 0.2.9
+* Fix ws+upgrade
+
 == 0.2.8.5
 * Add pythonpath plugin (request from collegue); using PYPATH config variable
 

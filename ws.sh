@@ -69,7 +69,7 @@ esac
 
 # global constants, per shell
 # unfortunately, bash 3 (macos) does not support declaring global vars
-WS_VERSION=0.2.8.5
+WS_VERSION=0.2.9
 
 : ${WS_DIR:=$HOME/workspaces}
 : ${_WS_DEBUGFILE:=$WS_DIR/.log}
@@ -1324,8 +1324,8 @@ _ws_cmd_upgrade () {
         # through the current version, what are left are the version
         # not yet installed locally, take the last one
         # if nothing is returned, then we are up to date
-        version=$(_ws_get_versions | _ws_sed "1,/$WSvers/d" | _ws_tail -1)
-    elif [ "$version" = "$WSvers" ]; then
+        version=$(_ws_get_versions | _ws_sed "1,/$SWvers/d" | _ws_tail -1)
+    elif [ "$version" = "$SWvers" ]; then
         version=""  # to show we are on that version
     fi
     url="$baseurl/workspaces-${version}.tgz"
@@ -1338,7 +1338,7 @@ _ws_cmd_upgrade () {
         tmpdir="$(_ws_mktemp).d"
         mkdir -p $tmpdir
         if tar xzfC $tmpfile $tmpdir; then
-            local order=$(_ws_echo -e $"$WSvers\n$version" | _ws_sort -t. -n)
+            local order=$(_ws_echo -e $"$SWvers\n$version" | _ws_sort -t. -n)
             if [ "$order" = $"$WSvers\n$version" ]; then
                 local verb_pres="Upgrading" verb_past="Upgraded"
             else
