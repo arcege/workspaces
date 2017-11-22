@@ -946,8 +946,13 @@ _ws_cmd_hook () {
             fi
             "${editor}" "${hookfile}"
             ;;
+        run)
+            _ws_run_hooks leave $_ws__current $PWD
+            _ws_run_hooks enter $_ws__current $PWD
+            ;;
         help)
             _ws_echo "ws hook edit -|--global|--skel|wsname"
+            _ws_echo "ws hook run"
             ;;
     esac
 }
@@ -1483,6 +1488,7 @@ ws [<cmd> [<args>]]
                              - delete ~/workspaces, restoring workspace
   config+ <op> <wsname> ...  - modify config variables
   hook+ edit <wsname>        - edit hook scripts
+  hook run                   - run leave/enter hooks
   plugin+ <op> ...           - manage plugins (installable hooks)
   convert [-p <plugins>] [-n <name>] <dir> <cfg*>]...
                              - convert directory to workspace
@@ -1728,7 +1734,7 @@ if _ws_echo $- | _ws_grep -Fq i; then  # only for interactive
                     ;;
                 hook)
                     if [ $COMP_CWORD -eq 2 ]; then
-                        COMPREPLY=( $(compgen -W "edit help -h --help" -- ${cur}) )
+                        COMPREPLY=( $(compgen -W "edit help run -h --help" -- ${cur}) )
                     elif [ $COMP_CWORD -eq 3 -a "x${prev}" = xedit ]; then
                         if [ -n "$_ws__current" ]; then
                             COMPREPLY=( $(compgen -W "$names - --global --skel" -- ${cur}) )

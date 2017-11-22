@@ -1,6 +1,7 @@
 = Workspaces
 
 == 0.2.9
+* Add ws+hook+run command to call leave hooks followed by enter hooks
 * Fix ws+upgrade
 
 == 0.2.8.5
