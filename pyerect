@@ -28,7 +28,7 @@ Testonly.tasks = (
     SpawnTask('./test.sh'),
 )
 InitDirs.files = ( 'build/workspaces', 'dist' )
-Clean.files = ( 'build', 'dist' )
+Clean.files = ( 'build', 'dist', 'test.err', 'test.log' )
 
 class Bitbucket_Pipelines_Upload(Task):
     baseurl = 'https://api.bitbucket.org/2.0/repositories/%(user)s/%(slug)s/downloads'

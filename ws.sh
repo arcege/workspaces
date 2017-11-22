@@ -69,7 +69,7 @@ esac
 
 # global constants, per shell
 # unfortunately, bash 3 (macos) does not support declaring global vars
-WS_VERSION=0.2.8.2
+WS_VERSION=0.2.9
 
 : ${WS_DIR:=$HOME/workspaces}
 : ${_WS_DEBUGFILE:=$WS_DIR/.log}
@@ -608,6 +608,7 @@ _ws_cmd_plugin () {
     _ws_debug 7 args "$@"
     local wsdir op="$1" wsname="$2"
     local plugin plugindir=$WS_DIR/.ws/plugins
+    local reldir=../../../.ws/plugins
     shift
     case $op in
         help)
@@ -740,7 +741,8 @@ _ws_cmd_plugin () {
                     _ws_error "Plugin $plugin not installed"
                     rc=1
                 elif [ ! -h "${wsdir}/.ws/plugins/${plugin}" ]; then
-                    _ws_ln -s "${plugindir}/${plugin}" "${wsdir}/.ws/plugins/${plugin}"
+                    # use a hard link here for fs mounts
+                    _ws_ln "${plugindir}/${plugin}" "${wsdir}/.ws/plugins/${plugin}"
                     _ws_debug 2 "Added $plugin to $wsname"
                 fi
             done
@@ -764,7 +766,7 @@ _ws_cmd_plugin () {
                 set -- $(ws plugin list $wsname)
             fi
             for plugin in "$@"; do
-                if [ -h "${wsdir}/.ws/plugins/${plugin}" ]; then
+                if [ -f "${wsdir}/.ws/plugins/${plugin}" ]; then
                     _ws_rm -f "${wsdir}/.ws/plugins/${plugin}"
                     _ws_debug 2 "Removed $plugin from $wsname"
                 fi
@@ -944,8 +946,13 @@ _ws_cmd_hook () {
             fi
             "${editor}" "${hookfile}"
             ;;
+        run)
+            _ws_run_hooks leave $_ws__current $PWD
+            _ws_run_hooks enter $_ws__current $PWD
+            ;;
         help)
             _ws_echo "ws hook edit -|--global|--skel|wsname"
+            _ws_echo "ws hook run"
             ;;
     esac
 }
@@ -1322,8 +1329,8 @@ _ws_cmd_upgrade () {
         # through the current version, what are left are the version
         # not yet installed locally, take the last one
         # if nothing is returned, then we are up to date
-        version=$(_ws_get_versions | _ws_sed "1,/$WSvers/d" | _ws_tail -1)
-    elif [ "$version" = "$WSvers" ]; then
+        version=$(_ws_get_versions | _ws_sed "1,/$SWvers/d" | _ws_tail -1)
+    elif [ "$version" = "$SWvers" ]; then
         version=""  # to show we are on that version
     fi
     url="$baseurl/workspaces-${version}.tgz"
@@ -1336,7 +1343,7 @@ _ws_cmd_upgrade () {
         tmpdir="$(_ws_mktemp).d"
         mkdir -p $tmpdir
         if tar xzfC $tmpfile $tmpdir; then
-            local order=$(_ws_echo -e $"$WSvers\n$version" | _ws_sort -t. -n)
+            local order=$(_ws_echo -e $"$SWvers\n$version" | _ws_sort -t. -n)
             if [ "$order" = $"$WSvers\n$version" ]; then
                 local verb_pres="Upgrading" verb_past="Upgraded"
             else
@@ -1481,6 +1488,7 @@ ws [<cmd> [<args>]]
                              - delete ~/workspaces, restoring workspace
   config+ <op> <wsname> ...  - modify config variables
   hook+ edit <wsname>        - edit hook scripts
+  hook run                   - run leave/enter hooks
   plugin+ <op> ...           - manage plugins (installable hooks)
   convert [-p <plugins>] [-n <name>] <dir> <cfg*>]...
                              - convert directory to workspace
@@ -1656,7 +1664,7 @@ if _ws_echo $- | _ws_grep -Fq i; then  # only for interactive
         commands="$commands release state upgrade validate version"
         names=$(ws list -q | _ws_tr '\n' ' ')
         COMPREPLY=()
-        compopt +o default
+        #compopt +o default  # not available on Darwin version of bash
         if [ $COMP_CWORD -eq 1 ]; then
             COMPREPLY=( $(compgen -W "$commands $options $names" -- ${COMP_WORDS[COMP_CWORD]}) )
             return 0
@@ -1726,7 +1734,7 @@ if _ws_echo $- | _ws_grep -Fq i; then  # only for interactive
                     ;;
                 hook)
                     if [ $COMP_CWORD -eq 2 ]; then
-                        COMPREPLY=( $(compgen -W "edit help -h --help" -- ${cur}) )
+                        COMPREPLY=( $(compgen -W "edit help run -h --help" -- ${cur}) )
                     elif [ $COMP_CWORD -eq 3 -a "x${prev}" = xedit ]; then
                         if [ -n "$_ws__current" ]; then
                             COMPREPLY=( $(compgen -W "$names - --global --skel" -- ${cur}) )

@@ -46,6 +46,33 @@ case $(uname) in
         ;;
 esac
 
+replace_plugin_hardlink () {
+    local plugin="$1" wsdir="$2"
+    local instfile="$WS_DIR/.ws/plugins/$plugin"
+    local wsfile="$wsdir/.ws/plugins/$plugin"
+    if [ -h "$wsfile" -a -f "$instfile" ]; then
+        _ws_rm "$wsfile"
+        _ws_ln "$instfile" "$wsfile"
+    fi
+}
+
+update_workspace_plugin_hardlinks () {
+    local wsname="$1" wsdir
+    wsdir=$(_ws_getdir $wsname)
+    if [ $? -eq 0 ]; then
+        _ws_cmd_plugin list $wsname -q | while read plugin; do
+            replace_plugin_hardlink "$plugin" "$wsdir"
+        done
+    fi
+}
+
+update_plugins_hardlinks () {
+    local wsname
+    _ws_cmd_list -q | while read wsname; do
+        update_workspace_plugin_hardlinks "$wsname"
+    done
+}
+
 update_hook () {
     local oldchk chksum state=none tmphook=$1 wsdir=$2 oldname=$3 newname=$4
     local oldfile=$wsdir/$oldname newfile=$wsdir/.ws/$newname
@@ -162,6 +189,13 @@ update_hook_scripts () {
     rm -f $tmphook
 }
 
+add_plugin_to_all_workspaces () {
+    local wsname plugin=$1
+    _ws_cmd_list -q | while read wsname; do
+        _ws_cmd_plugin add $wsname $plugin
+    done
+}
+
 update_plugins () {
     local file destdir=$WS_DIR/.ws/plugins
     for file in plugins/*; do
@@ -169,8 +203,10 @@ update_plugins () {
             break
         elif [ ! -e "$destdir/${file##*/}" ]; then
             ws plugin install $file
+            add_plugin_all_workspaces ${file##*/}
         elif [ $file -nt "$destdir/${file##*/}" ]; then
             ws plugin install -f $file
+            add_plugin_all_workspaces ${file##*/}
         fi
     done
 }
@@ -203,6 +239,7 @@ pre_initialization () {
                 echo "Source $BASHDIR/ws.sh to get update."
             fi
             update_hook_scripts
+            update_plugins_hardlinks
             ;;
     esac
 }
@@ -226,6 +263,9 @@ post_initialization () {
                 rm -rf $HOME/workspaces/default
                 _ws_cmd_convert default $HOME/workspace.$$ ALL /dev/null
             fi
+            ;;
+        upgrade)
+            add_vagrant_plugin
             ;;
     esac
 }

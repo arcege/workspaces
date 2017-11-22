@@ -32,7 +32,7 @@ case $OSTYPE in
         ;;
 esac
 
-versionstr=0.2.8.2
+versionstr=0.2.9
 
 cdir=$PWD
 
@@ -241,7 +241,7 @@ test -s "$WS_DIR/foobar/.ws/config.sh" || fail create file WS_DIR/foobar/.ws/con
 test "$_ws__current" = "foobar" || fail str _ws__current
 test -d "$WS_DIR/foobar/.ws/plugins" || fail create dir WS_DIR/foobar/.ws/plugins
 for plugin in $(ls -1 $WS_DIR/.ws/plugins); do
-    test -h $WS_DIR/foobar/.ws/plugins/$plugin || fail create plugin+add $plugin
+    test -f $WS_DIR/foobar/.ws/plugins/$plugin || fail create plugin+add $plugin
 done
 
 # more intensive testing of the hooks
@@ -398,6 +398,8 @@ cdpath
 github
 java
 nvm
+pythonpath
+vagrant
 virtualenv
 virtualenvwrapper"
 ws plugin available >$cmdout 2>$cmderr
@@ -409,7 +411,7 @@ new_plugins=$(echo "${packaged_plugins}
 plugin" | sort)
 test $? -eq 0 -a "$(cat $cmdout)" = "${new_plugins}" || fail ws+plugin available non-empty
 ws create --plugins plugin testplugin1 >$cmdout 2>$cmderr
-test $? -eq 0 -a -h $WS_DIR/testplugin1/.ws/plugins/plugin || fail ws+create plugin
+test $? -eq 0 -a -f $WS_DIR/testplugin1/.ws/plugins/plugin || fail ws+create plugin
 test "$(cat $cmdout)" = $'creating\nentering' || fail ws+create plugin running
 test "x${plugin_ext_value}" = xplugin-run || fail ws+plugin add var carried
 var=$(ws plugin list testplugin1)
@@ -417,7 +419,7 @@ test $? -eq 0 -a "x$var" = xplugin || fail ws+plugin list non-empty
 ws plugin remove testplugin1 plugin >$cmdout 2>$cmderr
 test $? -eq 0 -a ! -e $WS_DIR/testplugin1/.ws/plugins/plugin || fail ws+plugin remove
 ws plugin add testplugin1 plugin
-test $? -eq 0 -a -h $WS_DIR/testplugin1/.ws/plugins/plugin || fail ws+plugin add
+test $? -eq 0 -a -f $WS_DIR/testplugin1/.ws/plugins/plugin || fail ws+plugin add
 
 ws plugin install $TMPDIR/plugin >$cmdout 2>$cmderr
 test $? -eq 1 -a "$(cat $cmderr)" = "Plugin plugin exists" || fail ws+plugin reinstall
@@ -428,7 +430,7 @@ ws plugin install -n other $TMPDIR/plugin
 test $? -eq 0 -a -x $WS_DIR/.ws/plugins/other || fail ws+plugin install-name
 ws create --plugins "other" testplugin2 >$cmdout 2>$cmderr
 test $? -eq 0 -a "$(ws plugin list testplugin2)" = "other" || fail ws+plugin create+other
-test ! -e $WS_DIR/testplugin2/.ws/plugins/plugin -a -h $WS_DIR/testplugin2/.ws/plugins/other ||
+test ! -e $WS_DIR/testplugin2/.ws/plugins/plugin -a -f $WS_DIR/testplugin2/.ws/plugins/other ||
     fail assert testplugin2 plugins
 ws leave >$cmdout 2>$cmderr
 ws plugin uninstall other >$cmdout 2>$cmderr
