@@ -203,10 +203,10 @@ update_plugins () {
             break
         elif [ ! -e "$destdir/${file##*/}" ]; then
             ws plugin install $file
-            add_plugin_all_workspaces ${file##*/}
+            add_plugin_to_all_workspaces ${file##*/}
         elif [ $file -nt "$destdir/${file##*/}" ]; then
             ws plugin install -f $file
-            add_plugin_all_workspaces ${file##*/}
+            add_plugin_to_all_workspaces ${file##*/}
         fi
     done
 }
