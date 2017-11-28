@@ -926,7 +926,7 @@ _ws_run_hooks () {
 }
 
 _ws_cmd_hook () {
-    local hookfile="" editor=${VISUAL:-${EDITOR:-vi}}
+    local hookfile="" copyto="" editor=${VISUAL:-${EDITOR:-vi}}
     case $1 in
         edit)
             if [ "x$2" = x--global ]; then
@@ -946,11 +946,55 @@ _ws_cmd_hook () {
             fi
             "${editor}" "${hookfile}"
             ;;
+        copy)
+            if [ "x$2" = x--global ]; then
+                hookfile="$WS_DIR/.ws/hook.sh"
+            elif [ "x$2" = x--skel ]; then
+                hookfile="$WS_DIR/.ws.skel.sh"
+            elif [ "x$2" = x- -a -n "$_ws__current" ]; then
+                hookfile="$(_ws_getdir)/.ws/hook.sh"
+            elif [ "x$2" = x- ]; then
+                _ws_error "No workspace"
+                return 1
+            elif [ -n "$2" ]; then
+                hookfile="$(_ws_getdir "$2")/.ws/hook.sh"
+                if [ $? -eq 1 ]; then
+                    _ws_error "No workspace exists for $2"
+                    return 1
+                fi
+            else
+                _ws_error "Workspace expected"
+                return 1
+            fi
+            if [ "x$3" = x--global -o "x$3" = --skel ]; then
+                _ws_error "Cannot copy over global hooks."
+                return 1
+            elif [ "$3" = x- -a -n "$_ws__current" ]; then
+                copyto="$(_ws_getdir)/.ws/hook.sh"
+            elif [ -n "$3" ]; then
+                copyto="$(_ws_getdir "$3")/.ws/hook.sh"
+                if [ $? -ne 0 ]; then
+                    _ws_error "No workspace exists for $3"
+                    return 1
+                fi
+            elif [ -n "$_ws__current" ]; then
+                copyto="$(_ws_getdir)/.ws/hook.sh"
+            else
+                _ws_error "Workspace expected"
+                return 1
+            fi
+            if [ "$hookfile" = "$copyto" -o ! -e "$hookfile" ]; then
+                _ws_error "Cannot copy $hookfile"
+                return 1
+            fi
+            cp -p "$hookfile" "$copyto"
+            ;;
         run)
             _ws_run_hooks leave $_ws__current $PWD
             _ws_run_hooks enter $_ws__current $PWD
             ;;
         help)
+            _ws_echo "ws hook copy -|--global|--skel|wsname [-|wsname]"
             _ws_echo "ws hook edit -|--global|--skel|wsname"
             _ws_echo "ws hook run"
             ;;
@@ -1734,12 +1778,24 @@ if _ws_echo $- | _ws_grep -Fq i; then  # only for interactive
                     ;;
                 hook)
                     if [ $COMP_CWORD -eq 2 ]; then
-                        COMPREPLY=( $(compgen -W "edit help run -h --help" -- ${cur}) )
+                        COMPREPLY=( $(compgen -W "copy edit help run -h --help" -- ${cur}) )
                     elif [ $COMP_CWORD -eq 3 -a "x${prev}" = xedit ]; then
                         if [ -n "$_ws__current" ]; then
                             COMPREPLY=( $(compgen -W "$names - --global --skel" -- ${cur}) )
                         else
                             COMPREPLY=( $(compgen -W "$names --global --skel" -- ${cur}) )
+                        fi
+                    elif [ $COMP_CWORD -eq 3 -a "x${prev}" = xcopy ]; then
+                        if [ -n "$_ws__current" ]; then
+                            COMPREPLY=( $(compgen -W "$names - --global --skel" -- ${cur}) )
+                        else
+                            COMPREPLY=( $(compgen -W "$names --global --skel" -- ${cur}) )
+                        fi
+                    elif [ $COMP_CWORD -eq 4 -a "x${COMP_WORDS[2]}" = xcopy ]; then
+                        if [ -n "$_ws__current" ]; then
+                            COMPREPLY=( $(compgen -W "$names -" -- ${cur}) )
+                        else
+                            COMPREPLY=( $(compgen -W "$names" -- ${cur}) )
                         fi
                     fi
                     ;;
