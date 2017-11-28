@@ -43,6 +43,7 @@ function basename { /usr/bin/basename ${1:+"$@"}; }
 function cat { /bin/cat ${1:+"$@"}; }
 function cd { command cd ${1:+"$@"}; }
 function chmod { /bin/chmod "$@"; }
+function cmp { /usr/bin/cmp "$@"; }
 function cp { /bin/cp "$@"; }
 function date { /bin/date ${1:+"$@"}; }
 function dirname { /usr/bin/dirname ${1:+"$@"}; }
@@ -296,6 +297,13 @@ test x$HasLeft = xElvis || fail hook+var HasLeft
 _ws_run_hooks create foobar
 test x$Which = x$WS_DIR/foobar || fail hook+config passthru
 test x${InConfig:+X} = x || fail hook+config unset
+
+unset wsstate IsDestroyed HasEntered HasLeft
+_ws_cmd_hook copy foobar default
+cmp $(_ws_getdir foobar)/.ws/hook.sh $(_ws_getdir default)/.ws/hook.sh || fail hook+copy
+_ws_cmd_hook run
+test x$wsstate = xenter || fail hook+run
+unset wsstate IsDestroyed HasEntered HasLeft
 
 ws enter default
 test -d "$WS_DIR/default" || fail enter2 dir WS_DIR/default
