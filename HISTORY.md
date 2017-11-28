@@ -1,7 +1,8 @@
 = Workspaces
 
 == 0.2.9
-* Add ws+hook+run command to call leave hooks followed by enter hooks
+* Add ws+hook+run command to call leave hooks followed by enter hooks.
+* Add ws+hook+copy command to copy hook from one workspace to another.
 * Fix ws+upgrade
 * Clean test files
 
