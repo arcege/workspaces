@@ -54,7 +54,9 @@ fi
 _ws_cmd_enter $wsname
 
 if [ $# -gt 0 ]; then
-    exec env _WS_SHELL_WORKSPACE="$wsname" $SHELL -i "$@"
+    "$@"
 else
-    exec env _WS_SHELL_WORKSPACE="$wsname" $SHELL -i
+    _WS_SHELL_WORKSPACE="$wsname" $SHELL -i
 fi
+
+_ws_cmd_leave $wsname
