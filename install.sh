@@ -26,6 +26,18 @@ installation () {
     cp -p $srcdir/ws.sh $BASHDIR/ws.sh
     # put the plugins into a tarball for ws+initialize to use
     tar cjf $HOME/.ws_plugins.tbz2 plugins
+    install_wsh
+}
+
+install_wsh () {
+    if [ ! -e $HOME/bin ]; then
+        mkdir -p $HOME/bin
+    elif [ ! -d $HOME/bin ]; then
+        echo "Moving $HOME/bin aside, making $HOME/bin a directory."
+        rm -rf $HOME/bin.old
+        mv $HOME/bin $BINE/bin.old
+    fi
+    cp -p $srcdir/wsh.sh $HOME/bin/wsh
 }
 
 oldmd5s_hook_sh="\
@@ -265,7 +277,6 @@ post_initialization () {
             fi
             ;;
         upgrade)
-            add_vagrant_plugin
             ;;
     esac
 }
