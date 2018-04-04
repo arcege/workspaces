@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright @ 2017 Michael P. Reilly. All rights reserved.
+# Copyright @ 2017-2018 Michael P. Reilly. All rights reserved.
 # A small functional test suite
 
 # handle internal redirection
@@ -32,7 +32,7 @@ case $OSTYPE in
         ;;
 esac
 
-versionstr=0.3
+versionstr=0.4
 
 cdir=$PWD
 
@@ -93,10 +93,10 @@ _WS_DEBUGFILE=$PWD/test.log
 WS_DEBUG=4
 rm -f $_WS_DEBUGFILE
 
-mkdir -p $HOME  # relative to TMPDIR
+mkdir -p $HOME/.ws  # relative to TMPDIR
 
 # generate the plugins tarball that the install.sh script would
-PATH=/bin:/usr/bin tar cjfC $HOME/.ws_plugins.tbz2 $cdir plugins
+PATH=/bin:/usr/bin tar cjfC $HOME/.ws/plugins.tbz2 $cdir plugins
 
 cp -p $cdir/ws.sh $HOME/ws.sh
 source $HOME/ws.sh  # deleted during the ws+release testing
@@ -468,6 +468,6 @@ ws release -y <&4 >$cmdout 2>$cmderr
 test $? -eq 0 -a ! -d $HOME/alternate -a ! -d $HOME/workspace || fail release clean
 
 ws release -y --full <&4 >$cmdout 2>$cmderr
-test $? -eq 0 -a ! -f $HOME/.bash.d/ws.sh -a ! -f $HOME/.ws_plugins.tbz2 || fail release full
+test $? -eq 0 -a ! -d $HOME/.ws -a ! -f $HOME/bin/wsh -a ! -e $HOME/.bash.d/ws.sh || fail release full
 
 echo "tests complete."

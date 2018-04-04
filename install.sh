@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright @ 2017 Michael P. Reilly. All rights reserved.
+# Copyright @ 2017-2018 Michael P. Reilly. All rights reserved.
 
 if [ ${DEBUG:-0} = 1 ]; then
     cp () { echo "cp $*"; }
@@ -16,17 +16,37 @@ fi
 
 srcdir=$(dirname "${BASH_SOURCE[0]}")
 
-installation () {
-    if [ -d $HOME/.bash ]; then
-        BASHDIR=$HOME/.bash
-    else
-        BASHDIR=$HOME/.bash.d
-    fi
+if [ -d $HOME/.bash.d ]; then
+    BASHDIR=$HOME/.bash.d
+elif [ -d $HOME/.bash ]; then
+    BASHDIR=$HOME/.bash
+else
+    BASHDIR=$HOME/.bash.d
     mkdir -p $BASHDIR
-    cp -p $srcdir/ws.sh $BASHDIR/ws.sh
+fi
+
+installation () {
+    mkdir -p $HOME/.ws
+    cp -p $srcdir/ws.sh $HOME/.ws/ws.sh
     # put the plugins into a tarball for ws+initialize to use
-    tar cjf $HOME/.ws_plugins.tbz2 plugins
+    tar cjfC $HOME/.ws/plugins.tbz2 ${srcdir} plugins
     install_wsh
+}
+
+pre_installation () {
+    # clean up old installation locations
+    if [ -x $BASHDIR/ws.sh ]; then
+        rm -f $BASHDIR/ws.sh
+    fi
+    rm -f $HOME/.ws_plugins.tbz2
+    rm -f $HOME/.ws_versions.txt
+}
+
+post_installation () {
+    # "register" the configuration script for bash
+    if [ ! -r $BASHDIR/ws.sh ]; then
+        ln -s ../.ws/ws.sh $BASHDIR/ws.sh
+    fi
 }
 
 install_wsh () {
@@ -327,10 +347,15 @@ EOF
     esac
 }
 
+is_installed () {
+    local wsdir=${WS_DIR:-$HOME/workspaces}
+    test \( -f $HOME/.ws/ws.sh -o -f $HOME/.bash.d/ws.sh -o -f $HOME/.bash/ws.sh \) -a -d $wsdir
+}
+
 parse_args () {
     # if already installed, then we should want to upgrade more than
     # install
-    if [ \( -f $HOME/.bash.d/ws.sh -o -f $HOME/.bash/ws.sh \) -a -d $HOME/workspaces ]; then
+    if is_installed; then
         operation=upgrade
     else
         operation=ignore
@@ -363,7 +388,11 @@ main () {
 
     unset _WS_SOURCE WS_DIR  # in case of leak from calling shell
 
+    pre_installation
+
     installation
+
+    post_installation
 
     source $srcdir/ws.sh
 

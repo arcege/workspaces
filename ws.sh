@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright @ 2017 Michael P. Reilly. All rights reserved.
+# Copyright @ 2017-2018 Michael P. Reilly. All rights reserved.
 # A shell program to handle workspaces in parallel with virtualenv.
 # Environment variables are set to the desired workspace.
 
@@ -69,7 +69,7 @@ esac
 
 # global constants, per shell
 # unfortunately, bash 3 (macos) does not support declaring global vars
-WS_VERSION=0.3
+WS_VERSION=0.4
 
 : ${WS_DIR:=$HOME/workspaces}
 : ${_WS_DEBUGFILE:=$WS_DIR/.log}
@@ -851,7 +851,7 @@ EOF
 
 _ws_run_hooks () {
     _ws_debug 7 args "$@"
-    # run $WS_DIR/.ws/hook.sh and $WS_DIR/wsname/.ws.hook.sh scripts,
+    # run $WS_DIR/.ws/hook.sh and $WS_DIR/$wsname/.ws/hook.sh scripts,
     # passing "create", "destroy", "enter" or "leave"
     # run $WORKSPACE/.ws/hook.sh script, passing the same
     # calls to hook.sh are NOT sandboxed as they should affect the environment
@@ -1318,7 +1318,10 @@ _ws_cmd_initialize () {
     fi
     _ws_mkdir -p $WS_DIR/.ws/plugins
     # extract the plugins
-    if [ -f $HOME/.ws_plugins.tbz2 ]; then
+    if [ -f $HOME/.ws/plugins.tbz2 ]; then
+        _ws_tar xjfC $HOME/.ws/plugins.tbz2 $WS_DIR/.ws plugins
+        _ws_chmod +x $WS_DIR/.ws/plugins/*
+    elif [ -f $HOME/.ws_plugins.tbz2 ]; then
         _ws_tar xjfC $HOME/.ws_plugins.tbz2 $WS_DIR/.ws plugins
         _ws_chmod +x $WS_DIR/.ws/plugins/*
     fi
@@ -1330,7 +1333,7 @@ _ws_cmd_initialize () {
 }
 
 _ws_get_versions () {
-    local cachefile=$HOME/.ws_versions.txt
+    local cachefile=$HOME/.ws/versions.txt
     local tmpfile=$(_ws_mktemp)
     if [ -f $cachefile ]; then
         _ws_touch -d '-1 day' $tmpfile
@@ -1462,8 +1465,12 @@ _ws_cmd_release () {
         if $full; then
             local name variables
             _ws_debug 3 "removing code."
-            _ws_rm -f $_WS_SOURCE  # remove the application file
-            _ws_rm -f $HOME/.ws_plugins.tbz2
+            _ws_rm -rf $HOME/.ws  # remove installation directory
+            _ws_rm -f $bASHDIR/ws.sh  # remove the bash link
+            _ws_rm -f $HOME/bin/wsh  # remove the standalone tool
+            _ws_rm -f $_WS_SOURCE  # remove the application file (if left over)
+            _ws_rm -f $HOME/.ws_plugins.tbz2   # (if left over)
+            _ws_rm -f $HOME/.ws_versions.txt   # (if left over)
             variables=$(set | _ws_sed -ne '/^_ws_[a-zA-Z0-9_]*/s/ ()//p')
             for name in $variables; do
                 unset $name
@@ -1669,10 +1676,17 @@ ws () {
             local wsfile
             if [ -n "$1" -a -f "$1" ]; then
                 wsfile="$1"
+            elif [ x${_WS_SOURCE:+X} = xX -a -x "${_WS_SOURCE}" ]; then
+                wsfile=${_WS_SOURCE}
+            elif [ -d $HOME/.ws ]; then
+                wsfile=${HOME}/.ws/ws.sh
             elif [ -d $HOME/.bash.d ]; then
-                wsfile=${_WS_SOURCE:-${HOME}/.bash.d/ws.sh}
+                wsfile=${HOME}/.bash.d/ws.sh
+            elif [ -d $HOME/.bash ]; then
+                wsfile=${HOME}/.bash/ws.sh
             else
-                wsfile=${_WS_SOURCE:-${HOME}/.bash/ws.sh}
+                _ws_error "Error: unable to find source to reload from"
+                return 1
             fi
             _ws_debug 1 "loading $wsfile"
             source "$wsfile"

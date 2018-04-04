@@ -1,5 +1,8 @@
 = Workspaces
 
+== 0.4
+* Create installation directory, ~/.ws/ and move files into it (prep work for zsh support).
+
 == 0.3
 * Add a wsh script that can start a new shell or a process within a workspace.
 
