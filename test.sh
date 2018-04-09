@@ -32,7 +32,7 @@ case $OSTYPE in
         ;;
 esac
 
-versionstr=0.4
+versionstr=0.4.1
 
 cdir=$PWD
 
@@ -299,8 +299,25 @@ test x$Which = x$WS_DIR/foobar || fail hook+config passthru
 test x${InConfig:+X} = x || fail hook+config unset
 
 unset wsstate IsDestroyed HasEntered HasLeft
+> $cmdout; > $cmderr
 _ws_cmd_hook copy foobar default
-cmp $(_ws_getdir foobar)/.ws/hook.sh $(_ws_getdir default)/.ws/hook.sh || fail hook+copy
+if [ $? -ne 0 ] || ! cmp $(_ws_getdir foobar)/.ws/hook.sh $(_ws_getdir default)/.ws/hook.sh > $cmdout 2> $cmderr; then
+    ( echo "== stdout =="; cat $cmdout; echo
+      echo "== stderr =="; cat $cmderr; echo
+    ) >&2
+    fail hook+copy
+fi
+
+_ws_cmd_hook save foobar $TMPDIR/hook-save.sh || fail hook+save
+sed -i -e '/HasEntered/s/=yep/=yes/' "$TMPDIR/hook-save.sh"
+_ws_cmd_hook load foobar "$TMPDIR/hook-save.sh"
+if [ $? -ne 0 ] || ! cmp $(_ws_getdir foobar)/.ws/hook.sh "$TMPDIR/hook-save.sh" > $cmdout 2> $cmderr; then
+    ( echo "== stdout =="; cat $cmdout; echo
+      echo "== stderr =="; cat $cmderr; echo
+    ) >&2
+    fail hook+copy
+fi
+
 _ws_cmd_hook run
 test x$wsstate = xenter || fail hook+run
 unset wsstate IsDestroyed HasEntered HasLeft
