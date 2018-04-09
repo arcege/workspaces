@@ -56,16 +56,24 @@
 # the config.sh is called on every operation, commands should not be executed
 # variables should be assigned
 
-_ws_dir="$(command cd $(/usr/bin/dirname ${BASH_SOURCE[0]}); command pwd)"
-_WS_SOURCE="$_ws_dir/${BASH_SOURCE[0]##*/}"  # used by ws+reload later
-unset _ws_dir
+if [ "x${ZSH_VERSION:+X}" = xX ]; then
+    _ws_shell=zsh
+elif [ "x${BASH_VERSION:+X}" = xX ]; then
+    _ws_shell=bash
+else
+    echo "This requires running in a bash or zsh shell.  Exiting." >&2
+    return 1
+fi
 
-case $BASH_VERSION in
-    "")
-        echo "This requires running in a bash shell. Exiting." >&2
-        return 1
-        ;;
-esac
+if [ $_ws_shell = bash ]; then
+    _ws_prog="${BASH_SOURCE[0]}"
+elif [ $_ws_shell = zsh ]; then
+    _ws_prog="${(%):-%x}"
+fi
+_ws_dir="$(cd $(dirname ${_ws_prog}); pwd)"
+_WS_SOURCE="$_ws_dir/${_ws_prog##*/}"
+unset _ws_prog
+unset _ws_dir
 
 # global constants, per shell
 # unfortunately, bash 3 (macos) does not support declaring global vars
@@ -116,7 +124,11 @@ esac
 function _ws_awk { /usr/bin/awk "$@"; }
 function _ws_basename { /usr/bin/basename ${1:+"$@"}; }
 function _ws_cat { /bin/cat ${1:+"$@"}; }
-function _ws_cd { command cd ${1:+"$@"}; }
+if [ $_ws_shell = bash ]; then
+    function _ws_cd { command cd ${1:+"$@"}; }
+else
+    function _ws_cd { \cd ${1:+"$@"}; }
+fi
 function _ws_chmod { /bin/chmod "$@"; }
 function _ws_cp { /bin/cp "$@"; }
 function _ws_curl { /usr/bin/curl ${1:+"$@"}; }
@@ -176,7 +188,7 @@ _ws_debug () {
             esac
             ;;
         [0-9]*)
-            if [ "$1" -le "$WS_DEBUG" ]; then
+            if [ "$1" -le "${WS_DEBUG:-4}" ]; then
                 local proc func when lvl=$1
                 shift
                 proc="($$:$(_ws_tty))"
@@ -217,11 +229,17 @@ EOF
 # * state - print the top index and what is on the stack
 _ws_stack () {
     _ws_debug 7 args "$@"
-    local last pos=${#_ws__stack[*]}
-    let last=pos-1
+    local last pos size
+    # bash arrays are zero based, but zsh is one based
+    size=${#_ws__stack[*]}
+    if [ $_ws_shell = bash ]; then
+        let last=size-1
+    elif [ $_ws_shell = zsh ]; then
+        let last=size
+    fi
     case $1 in
         last)
-            if [ $pos -gt 0 ]; then
+            if [ $size -gt 0 ]; then
                 _ws_echo "${_ws__stack[$last]}"
             else
                 _ws_debug 3 "empty stack"
@@ -230,23 +248,28 @@ _ws_stack () {
             ;;
         push)
             _ws_debug 4 "push \"$2\" to stack"
-            _ws__stack[$pos]="$2"
+            _ws__stack[$last+1]="$2"
             ;;
         pop)
             # should run __ws_stack last before running pop as we don't return it
-            if [ $pos -gt 0 ]; then
+            if [ $size -gt 0 ]; then
                 _ws_debug 4 "pop #$last from stack"
-                unset _ws__stack[$last]
+                # bash and zsh handle removing elements from an array differently
+                if [ $_ws_shell = bash ]; then
+                    unset _ws__stack[$last]
+                elif [ $_ws_shell = zsh ]; then
+                    _ws__stack[$last]=()
+                fi
             else
                 _ws_debug 3 "empty stack"
                 return 1
             fi
             ;;
         size):
-            _ws_echo $pos
+            _ws_echo $size
             ;;
         state)
-            _ws_echo "stack.size=$pos"
+            _ws_echo "stack.size=$size"
             _ws_echo "stack=${_ws__stack[*]}"
             ;;
         *) _ws_error "ws_stack: invalid op: $1"; return 2;;
@@ -707,12 +730,7 @@ _ws_cmd_plugin () {
                     _ws_error "No workspace exists for $wsname"
                     return 1
                 elif [ -d "${wsdir}/.ws/plugins" ]; then
-                    for name in "${wsdir}/.ws/plugins"/*; do
-                        if [ "$name" = "${wsdir}/.ws/plugins/*" ]; then
-                            break
-                        fi
-                        _ws_echo "${name##*/}"
-                    done
+                    _ws_ls -1 ${wsdir}/.ws/plugins
                 fi
             fi
             return 0
@@ -876,7 +894,6 @@ _ws_run_hooks () {
         return 1
     fi
     wshook__workspace="${wsdir}"
-    > $tmpfile
     # gather the variables from $WS_DIR/.ws/config.sh and $wsdir/.ws/config.sh
     for sdir in $WS_DIR/.ws $wsdir/.ws; do
         if [ ! -d $sdir ]; then
@@ -885,9 +902,9 @@ _ws_run_hooks () {
         fi
         # get just the variable assignments
         if [ -r $sdir/config.sh ]; then
-            _ws_grep '^[^=]*=' $sdir/config.sh >> $tmpfile
+            _ws_grep '^[^=]*=' $sdir/config.sh
         fi
-    done
+    done > $tmpfile
     # register the variables for later unset
     wshook__variables=$(_ws_sed -n '/=.*/s///p' $tmpfile | _ws_tr '\n' ' ')
     # load the gathered variables
@@ -906,20 +923,33 @@ _ws_run_hooks () {
         fi
         _ws_debug 2 "called $hookfile $op $wsdir; rc=$rc"
     done
-    for plugin in "$wsdir/.ws/plugins"/*; do
-        if [ "$plugin" = "$wsdir/.ws/plugins/*" ]; then
-            break
+    if [ -d "$wsdir/.ws/plugins" ]; then
+        local has_null_glob=0
+        if [ $_ws_shell = zsh ]; then
+            setopt | fgrep -qs nullglob
+            has_null_glob=$?
+            setopt -o null_glob
         fi
-        source $plugin
-        local irc=$?
-        if [ $irc -ne 0 ]; then
-            rc=$irc
+        for plugin in "$wsdir/.ws/plugins"/*; do
+            if [ "$plugin" = "$wsdir/.ws/plugins/*" ]; then
+                break
+            fi
+            source $plugin
+            local irc=$?
+            if [ $irc -ne 0 ]; then
+                rc=$irc
+            fi
+            _ws_debug 2 "called $plugin $op $wsdir; rc=$rc"
+        done
+        if [ $_ws_shell = zsh -a $has_null_glob = 1 ]; then
+            setopt +o null_glob
         fi
-        _ws_debug 2 "called $plugin $op $wsdir; rc=$rc"
-    done
+    fi
     _ws_rm -f $tmpfile
     _ws_debug 4 "will unset ${wshook__variables:-<none>}"
-    for var in ${wshook__variables}; do
+    while [ -n "$wshook__variables" ]; do
+        var=${wshook__variables%% *}
+        wshook__variables=${wshook__variables#* }
         unset -v $var
     done
     return $rc
@@ -1045,7 +1075,7 @@ _ws_cmd_enter () {
 # result code: 0
 _ws_cmd_leave () {
     _ws_debug 7 args "$@"
-    local oldws=${_ws__current} context oldIFS wsname wsdir
+    local oldws=${_ws__current} context oldws wsname wsdir
     if [ "x${_ws__current:+X}" = xX ]; then
         _ws_run_hooks leave $_ws__current
         local notvalid=true
@@ -1056,15 +1086,13 @@ _ws_cmd_leave () {
                 break
             else
                 _ws_debug 4 "context=X${context}X"
-                oldIFS="$IFS"
-                IFS=":"
-                set -- $context
-                IFS="$oldIFS"
-                case $1 in
-                    ""|/*) wsname=""; wsdir="$1";;
-                    *) wsname="$1"; wsdir="$(_ws_getdir "$wsname")";;
+                wsname="${context%%:*}"
+                oldwd="${context#*:}"
+                case $wsname in
+                    ""|/*) wsname=""; wsdir="$wsname";;
+                    *) wsdir="$(_ws_getdir "$wsname")";;
                 esac
-                if [ -z "$1" -a -z "$2" ]; then
+                if [ -z "$wsname" -a -z "$oldws " ]; then
                     wsname=""; wsdir=""
                     _ws_stack pop
                     break
@@ -1078,16 +1106,16 @@ _ws_cmd_leave () {
             fi
         done
         if [ $notvalid = false ]; then
+            _ws_debug 2 "WORKSPACE=$wsdir _ws__current='$wsname'"
             _ws__current="$wsname"
             export WORKSPACE="$wsdir"
-            _ws_debug 2 "WORKSPACE=$wsdir _ws__current="$wsname""
         else
             _ws_debug 2 "WORKSPACE= _ws__current="
-            unset WORKSPACE
             _ws__current=""
+            unset WORKSPACE
         fi
-        if [ -n "$2" -a -d "$2" ]; then
-            _ws_cd "$2"  # return to old directory
+        if [ -n "$oldwd" -a -d "$oldwd" ]; then
+            _ws_cd "$oldwd"  # return to old directory
         fi
         if [ -n "$_ws__current" ]; then
             _ws_run_hooks enter $_ws__current "$2"
@@ -1228,17 +1256,21 @@ _ws_cmd_list () {
 _ws_cmd_show_stack () {
     _ws_debug 7 args "$@"
     if [ x${_ws__current:+X} = xX ]; then
-        local context oldIFS i=$(_ws_stack size)
+        local context n=0 i=$(_ws_stack size)
+        local lhs rhs
+        if [ $_ws_shell = zsh ]; then
+            let i++
+            n=1
+        fi
         _ws_echo "${_ws__current}*"
-        while [ $i -gt 0 ]; do
+        while [ $i -gt $n ]; do
             let i--
             context=${_ws__stack[$i]}
-            oldIFS="$IFS"; IFS=":"
-            set -- ${context}
-            IFS="$oldIFS"
-            case $1 in
-                ""|/*) _ws_echo "($2)";;
-                *) _ws_echo $1;;
+            lhs="${context%%:*}"
+            rhs="${context#*:}"
+            case $lhs in
+                ""|/*) _ws_echo "($rhs)";;
+                *)     _ws_echo "$lhs";;
             esac
         done
     else
@@ -1324,11 +1356,13 @@ _ws_cmd_initialize () {
     elif [ -f $HOME/.ws_plugins.tbz2 ]; then
         _ws_tar xjfC $HOME/.ws_plugins.tbz2 $WS_DIR/.ws plugins
         _ws_chmod +x $WS_DIR/.ws/plugins/*
+    else
+        _ws_debug 1 "Plugins distribution (plugins.tbz2) file not found"
     fi
     _ws_generate_hook "${WS_DIR}/.ws/hook.sh"
     _ws_generate_hook "${WS_DIR}/.ws/skel.sh"
     _ws_generate_config "${WS_DIR}/.ws/config.sh"
-    _ws_cmd_create default ALL
+    _ws_cmd_create default "$(_ws_cmd_plugin available)"
     _ws_link set $(_ws_getdir default)
 }
 
@@ -1465,20 +1499,26 @@ _ws_cmd_release () {
         if $full; then
             local name variables
             _ws_debug 3 "removing code."
-            _ws_rm -rf $HOME/.ws  # remove installation directory
+            _ws_rm -rf $HOME/.ws      # remove installation directory
             _ws_rm -f $bASHDIR/ws.sh  # remove the bash link
-            _ws_rm -f $HOME/bin/wsh  # remove the standalone tool
-            _ws_rm -f $_WS_SOURCE  # remove the application file (if left over)
+            _ws_rm -f $HOME/bin/wsh   # remove the standalone tool
+            _ws_rm -f $_WS_SOURCE     # remove the application file (if left over)
             _ws_rm -f $HOME/.ws_plugins.tbz2   # (if left over)
             _ws_rm -f $HOME/.ws_versions.txt   # (if left over)
             variables=$(set | _ws_sed -ne '/^_ws_[a-zA-Z0-9_]*/s/ ()//p')
             for name in $variables; do
                 unset $name
             done
-            unset ws
+            if [ $_ws_shell = bash ]; then
+                unset ws
+                unset _ws__seen_upgrade_warning
+            elif [ $_ws_shell = zsh ]; then
+                unset -f ws
+                unset -f _ws__seen_upgrade_warning
+            fi
             unset W_DIR _ws__stack unset _ws__current
             unset WS_DEBUG _WS_DEBUGFILE _WS_SOURCE
-            unset _ws__seen_upgrade_warning
+            unset _ws_shell
             return 0
         else
             WS_DIR=$HOME/workspaces
@@ -1565,6 +1605,9 @@ ws () {
     # of each execution
     _ws_debug 6 "$(declare -p _ws__current)"
     _ws_debug 6 "$(declare -p _ws__stack)"
+    if [ $# -eq 0 ]; then
+        set -- current
+    fi
     shift
     case $cmd in
         help)
@@ -1712,7 +1755,7 @@ ws () {
     esac
 }
 
-if _ws_echo $- | _ws_grep -Fq i; then  # only for interactive
+if [ $_ws_shell = bash ] && _ws_echo $- | _ws_grep -Fq i; then  # only for interactive
     _ws_complete () {
         # handle bash completion
         local options commands names

@@ -14,15 +14,32 @@ if [ ${DEBUG:-0} = 1 ]; then
     tar () { echo "tar $*"; }
 fi
 
+case $SHELL in
+    */bash) _ws_envshell=bash;;
+    */zsh)  _ws_envshell=zsh;;
+    *)
+        echo "Unsupported shell"
+        exit 2
+        ;;
+esac
+
 srcdir=$(dirname "${BASH_SOURCE[0]}")
 
-if [ -d $HOME/.bash.d ]; then
-    BASHDIR=$HOME/.bash.d
-elif [ -d $HOME/.bash ]; then
-    BASHDIR=$HOME/.bash
+if [ -d $srcdir -a -f $srcdir/ws.sh -a -d $srcdir/plugins ]; then
+    : # we have what we need, it appears
 else
-    BASHDIR=$HOME/.bash.d
-    mkdir -p $BASHDIR
+    echo "Unable to determine distribution directory."
+    exit 2
+fi
+
+# find the ~/.bash.d or ~/.bash, if there is one
+_BASHDIR=
+if [ $_ws_envshell = bash ]; then
+    if [ -d $HOME/.bash.d; then
+        _BASHDIR=$HOME/.bash.d
+    elif [ -d $HOME/.bash ]; then
+        _BASHDIR=$HOME/.bash
+    fi
 fi
 
 installation () {
@@ -35,8 +52,8 @@ installation () {
 
 pre_installation () {
     # clean up old installation locations
-    if [ -x $BASHDIR/ws.sh ]; then
-        rm -f $BASHDIR/ws.sh
+    if [ -z "${_BASHDIR}" -a -x $_BASHDIR/ws.sh ]; then
+        rm -f $_BASHDIR/ws.sh
     fi
     rm -f $HOME/.ws_plugins.tbz2
     rm -f $HOME/.ws_versions.txt
@@ -44,8 +61,9 @@ pre_installation () {
 
 post_installation () {
     # "register" the configuration script for bash
-    if [ ! -r $BASHDIR/ws.sh ]; then
-        ln -s ../.ws/ws.sh $BASHDIR/ws.sh
+    if [ $_ws_envshell = bash -a ! -r $_BASHDIR/ws.sh ]; then
+        mkdir -p $_BASHDIR
+        ln -s ../.ws/ws.sh $_BASHDIR/ws.sh
     fi
 }
 
@@ -265,11 +283,7 @@ pre_initialization () {
             ;;
         upgrade)
             echo "Software updated"
-            if type ws 2>/dev/null | fgrep -qw reload >/dev/null; then
-                echo "Run 'ws reload' to get update."
-            else
-                echo "Source $BASHDIR/ws.sh to get update."
-            fi
+            echo "Run 'ws reload' to get update."
             update_hook_scripts
             update_plugins_hardlinks
             ;;
@@ -312,7 +326,7 @@ bash_processing () {
             for file in $HOME/.profile $HOME/.bash_profile $HOME/.bashrc; do
                 if [ -f $file ]; then
                     last=$file
-                    if fgrep -w ${BASHDIR##*/} $file >/dev/null 2>&1; then
+                    if fgrep -w ${_BASHDIR##*/} $file >/dev/null 2>&1; then
                         found=true
                         break
                     fi
@@ -327,12 +341,12 @@ bash_processing () {
                 ed - "$last" <<EOF
 \$a
 
-if test -d \${HOME}/${BASHDIR##*/}
+if test -d \${HOME}/${_BASHDIR##*/}
 then
-    for file in \${HOME}/${BASHDIR##*/}/*.sh
+    for file in \${HOME}/${_BASHDIR##*/}/*.sh
     do
         case \$file in
-            "\${HOME}/${BASHDIR##*/}/*.sh") :;;  # not found
+            "\${HOME}/${_BASHDIR##*/}/*.sh") :;;  # not found
             *) . \${file} ;;
         esac
     done
@@ -345,6 +359,17 @@ EOF
             fi
             ;;
     esac
+}
+
+zsh_processing () {
+    if ! fgrep -sq .ws/ws.sh $HOME/.zshrc; then
+        { echo
+          echo "if [ -x $HOME/.ws/ws.sh ]; then"
+          echo "    source $HOME/.ws/ws.sh"
+          echo "fi"
+          echo
+        } >> $HOME/.zshrc
+    fi
 }
 
 is_installed () {
@@ -406,7 +431,11 @@ main () {
 
     post_initialization $operation
 
-    bash_processing $operation
+    if [ $_ws_envshell = bash ]; then
+        bash_processing $operation
+    elif [ $_ws_envshell = zsh ]; then
+        zsh_processing $operation
+    fi
 }
 
 main "$@"

@@ -38,16 +38,24 @@ cdir=$PWD
 
 # we define the basic commands as function since we clear out $PATH
 # and use explicit paths
+case $SHELL in
+    */bash)
+        function cd { command cd ${1:+"$@"}; }
+        function echo { command echo "$@"; }
+        ;;
+    */zsh)
+        function cd { builtin cd "$@"; }
+        function echo { builtin echo "$@"; }
+        ;;
+esac
 function awk { /usr/bin/awk "$@"; }
 function basename { /usr/bin/basename ${1:+"$@"}; }
 function cat { /bin/cat ${1:+"$@"}; }
-function cd { command cd ${1:+"$@"}; }
 function chmod { /bin/chmod "$@"; }
 function cmp { /usr/bin/cmp "$@"; }
 function cp { /bin/cp "$@"; }
 function date { /bin/date ${1:+"$@"}; }
 function dirname { /usr/bin/dirname ${1:+"$@"}; }
-function echo { command echo "$@"; }
 function grep { /bin/grep "$@"; }
 function ln { /bin/ln "$@"; }
 function ls { /bin/ls ${1:+"$@"}; }
@@ -110,7 +118,7 @@ fi
 md5_config_sh='fcf0781bba73612cdc4ed6e26fcea8fc'
 md5_hook_sh='ce3e735d54ea9e54d26360b03f2fe57f'
 
-fail () { rc=$?; echo "failure: $*"; exit $rc; }
+fail () { rc=$?; \echo "failure: $*"; command exit $rc; }
 
 # check the existence of the main routine ('ws') and subroutines
 command -v ws >&4 || fail cmd ws
