@@ -69,7 +69,7 @@ esac
 
 # global constants, per shell
 # unfortunately, bash 3 (macos) does not support declaring global vars
-WS_VERSION=0.4
+WS_VERSION=0.4.1
 
 : ${WS_DIR:=$HOME/workspaces}
 : ${_WS_DEBUGFILE:=$WS_DIR/.log}
@@ -926,77 +926,85 @@ _ws_run_hooks () {
 }
 
 _ws_cmd_hook () {
+    _ws_debug 7 args "$@"
     local hookfile="" copyto="" editor=${VISUAL:-${EDITOR:-vi}}
+    find_hookfile () {
+        if [ "x$1" = x--global ]; then
+            _ws_echo $WS_DIR/.ws/hook.sh
+        elif [ "x$1" = x--skel ]; then
+            _ws_echo $WS_DIR/.ws/skel.sh
+        elif [ "x$1" = x- -a -n "$_ws__current" ]; then
+            _ws_echo "$(_ws_getdir)/.ws/hook.sh"
+        elif [ "x$1" = x- ]; then
+            _ws_error "No workspace"
+            return 1
+        elif [ -n "$1" ] && _ws_getdir "$1" >/dev/null 2>&1; then
+            _ws_echo "$(_ws_getdir "$1")/.ws/hook.sh"
+            return $?
+        else
+            _ws_error "No workspace exists for $1"
+            return 1
+        fi
+    }
     case $1 in
         edit)
-            if [ "x$2" = x--global ]; then
-                hookfile=$WS_DIR/.ws/hook.sh
-            elif [ "x$2" = x--skel ]; then
-                hookfile=$WS_DIR/.ws/skel.sh
-            elif [ "x$2" = x- -a -n "$_ws__current" ]; then
-                hookfile=$(_ws_getdir)/.ws/hook.sh
-            elif [ "x$2" = x- ]; then
-                _ws_error "No workspace"
-                return 1
-            elif [ -n "$2" ] && _ws_getdir "$2" >/dev/null 2>&1; then
-                hookfile="$(_ws_getdir "$2")/.ws/hook.sh"
-            else
-                _ws_error "No workspace exists for $2"
+            hookfile=$(find_hookfile "$2")
+            if [ $? -ne 0 ]; then
                 return 1
             fi
             "${editor}" "${hookfile}"
             ;;
         copy)
-            if [ "x$2" = x--global ]; then
-                hookfile="$WS_DIR/.ws/hook.sh"
-            elif [ "x$2" = x--skel ]; then
-                hookfile="$WS_DIR/.ws.skel.sh"
-            elif [ "x$2" = x- -a -n "$_ws__current" ]; then
-                hookfile="$(_ws_getdir)/.ws/hook.sh"
-            elif [ "x$2" = x- ]; then
-                _ws_error "No workspace"
+            hookfile=$(find_hookfile "$2")
+            if [ $? -ne 0 ]; then
                 return 1
-            elif [ -n "$2" ]; then
-                hookfile="$(_ws_getdir "$2")/.ws/hook.sh"
-                if [ $? -eq 1 ]; then
-                    _ws_error "No workspace exists for $2"
-                    return 1
-                fi
-            else
+            elif [ "x$3" = x--global -o "x$3" = --skel ]; then
+                _ws_error "Cannot copy over global hooks."
+                return 1
+            elif [ -z "x$3" ]; then
                 _ws_error "Workspace expected"
                 return 1
             fi
-            if [ "x$3" = x--global -o "x$3" = --skel ]; then
-                _ws_error "Cannot copy over global hooks."
-                return 1
-            elif [ "$3" = x- -a -n "$_ws__current" ]; then
-                copyto="$(_ws_getdir)/.ws/hook.sh"
-            elif [ -n "$3" ]; then
-                copyto="$(_ws_getdir "$3")/.ws/hook.sh"
-                if [ $? -ne 0 ]; then
-                    _ws_error "No workspace exists for $3"
-                    return 1
-                fi
-            elif [ -n "$_ws__current" ]; then
-                copyto="$(_ws_getdir)/.ws/hook.sh"
-            else
-                _ws_error "Workspace expected"
+            copyto=$(find_hookfile "$3")
+            if [ $? -ne 0 ]; then
                 return 1
             fi
             if [ "$hookfile" = "$copyto" -o ! -e "$hookfile" ]; then
                 _ws_error "Cannot copy $hookfile"
                 return 1
             fi
-            cp -p "$hookfile" "$copyto"
+            _ws_debug 3 "copy $hookfile $copyto"
+            _ws_cp -p "$hookfile" "$copyto"
+            _ws_chmod +x "$copyto"
+            ;;
+        load)
+            hookfile=$(find_hookfile "$2")
+            if [ $? -ne 0 ]; then
+                return 1
+            elif [ -z "$3" -o ! -r "$3" ]; then
+                _ws_error "Expecting filename"
+                return 1
+            fi
+            _ws_cp -p "$3" "$hookfile"
             ;;
         run)
             _ws_run_hooks leave $_ws__current $PWD
             _ws_run_hooks enter $_ws__current $PWD
             ;;
+        save)
+            hookfile=$(find_hookfile "$2")
+            if [ $? -ne 0 ]; then
+                return 1
+            fi
+            _ws_cp -p "$hookfile" "$3"
+            _ws_chmod +x "$3"
+            ;;
         help)
             _ws_echo "ws hook copy -|--global|--skel|wsname [-|wsname]"
             _ws_echo "ws hook edit -|--global|--skel|wsname"
+            _ws_echo "ws hook load -|--global|--skel|wsname filename"
             _ws_echo "ws hook run"
+            _ws_echo "ws hook save -|--global|--skel|wsname filename"
             ;;
     esac
 }
@@ -1792,14 +1800,10 @@ if _ws_echo $- | _ws_grep -Fq i; then  # only for interactive
                     ;;
                 hook)
                     if [ $COMP_CWORD -eq 2 ]; then
-                        COMPREPLY=( $(compgen -W "copy edit help run -h --help" -- ${cur}) )
-                    elif [ $COMP_CWORD -eq 3 -a "x${prev}" = xedit ]; then
-                        if [ -n "$_ws__current" ]; then
-                            COMPREPLY=( $(compgen -W "$names - --global --skel" -- ${cur}) )
-                        else
-                            COMPREPLY=( $(compgen -W "$names --global --skel" -- ${cur}) )
-                        fi
-                    elif [ $COMP_CWORD -eq 3 -a "x${prev}" = xcopy ]; then
+                        COMPREPLY=( $(compgen -W "copy edit help load run save -h --help" -- ${cur}) )
+                    elif [ $COMP_CWORD -eq 3 -a \
+                           \( "x${prev}" = xedit -o "x${prev}" = xcopy -o \
+                              "x${prev}" = xload -o "x${prev}" = xsave \) ]; then
                         if [ -n "$_ws__current" ]; then
                             COMPREPLY=( $(compgen -W "$names - --global --skel" -- ${cur}) )
                         else
@@ -1811,6 +1815,8 @@ if _ws_echo $- | _ws_grep -Fq i; then  # only for interactive
                         else
                             COMPREPLY=( $(compgen -W "$names" -- ${cur}) )
                         fi
+                    elif [ $COMP_CWORD -eq 4 -a "x${COMP_WORDS[2]}" = xload ]; then
+                        COMPREPLY=( $(compgen -f -- ${cur}) )
                     fi
                     ;;
                 create)

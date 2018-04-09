@@ -1,5 +1,9 @@
 = Workspaces
 
+== 0.4.1
+* Add ws+hook+load and ws+hook+save commands to import and export a hook script without entering
+  the editor.
+
 == 0.4
 * Create installation directory, ~/.ws/ and move files into it (prep work for zsh support).
 
