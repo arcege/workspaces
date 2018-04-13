@@ -127,14 +127,15 @@ function _ws_cat { /bin/cat ${1:+"$@"}; }
 if [ $_ws_shell = bash ]; then
     function _ws_cd { command cd ${1:+"$@"}; }
 else
-    function _ws_cd { \cd ${1:+"$@"}; }
+    function _ws_cd { builtin cd ${1:+"$@"}; }
 fi
 function _ws_chmod { /bin/chmod "$@"; }
 function _ws_cp { /bin/cp "$@"; }
 function _ws_curl { /usr/bin/curl ${1:+"$@"}; }
 function _ws_date { /bin/date ${1:+"$@"}; }
 function _ws_dirname { /usr/bin/dirname ${1:+"$@"}; }
-function _ws_echo { command echo "$@"; }
+function _ws_echo { builtin echo "$@"; }
+function _ws_fgrep { _ws_grep -F "$@"; }
 function _ws_grep { /bin/grep "$@"; }
 function _ws_ln { /bin/ln "$@"; }
 function _ws_ls { /bin/ls ${1:+"$@"}; }
@@ -447,7 +448,7 @@ _ws_config_edit () {
             ;;
         list)
             if [ "x$var" = x-v -o "x$var" = x--verbose ]; then
-                fgrep '=' "$file" | fgrep -v _wshook_
+                _ws_fgrep '=' "$file" | _ws_fgrep -v _wshook_
             else
                 _ws_sed -ne '/_wshook_/d;/=.*/s///p' "$file"
             fi
@@ -492,7 +493,7 @@ _ws_cmd_config () {
             return 0
             ;;
         load)
-            local cfgfile="$3" oldIFS="$IFS" IFS=$'='
+            local cfgfile="$3"
             _ws_debug 1 "Applying vars from $cfgfile"
             while read var val; do
                 _ws_cmd_config set ${wsname} "$var" "$val"
@@ -926,7 +927,7 @@ _ws_run_hooks () {
     if [ -d "$wsdir/.ws/plugins" ]; then
         local has_null_glob=0
         if [ $_ws_shell = zsh ]; then
-            setopt | fgrep -qs nullglob
+            setopt | _ws_fgrep -qs nullglob
             has_null_glob=$?
             setopt -o null_glob
         fi
@@ -1075,7 +1076,7 @@ _ws_cmd_enter () {
 # result code: 0
 _ws_cmd_leave () {
     _ws_debug 7 args "$@"
-    local oldws=${_ws__current} context oldws wsname wsdir
+    local oldws=${_ws__current} context wsname wsdir
     if [ "x${_ws__current:+X}" = xX ]; then
         _ws_run_hooks leave $_ws__current
         local notvalid=true

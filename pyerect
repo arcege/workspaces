@@ -5,7 +5,9 @@ from pyerector import *
 from pyerector.api import Subcommand, Task
 
 ReleaseFiles = (
-    'install.sh', 'LICENSE.txt', 'README.md', 'test.sh', 'ws.sh'
+    'install.sh', 'LICENSE.txt', 'README.md',
+    'test-bash.sh', 'test-common.sh', 'test-zsh.sh',
+    'ws.sh', 'wsh.sh'
 ) + tuple(Path('plugins'))
 
 WsDir = Path('build', 'workspaces')
@@ -25,7 +27,10 @@ Compile.tasks = (
 )
 
 Testonly.tasks = (
-    SpawnTask('./test.sh'),
+    Parallel(
+        SpawnTask('./test-bash.sh'),
+        SpawnTask('./test-zsh.sh'),
+    ),
 )
 InitDirs.files = ( 'build/workspaces', 'dist' )
 Clean.files = ( 'build', 'dist', 'test.err', 'test.log' )

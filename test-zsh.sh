@@ -2,7 +2,7 @@
 # Copyright @ 2017-2018 Michael P. Reilly. All rights reserved.
 # Start the functional tests using the zsh shell
 
-export SHELL=/usr/bin/zsh
+export SHELL=$(type -p zsh | awk '{print $NF}')
 
 prog=${(%):-%x}
 progdir=$(cd $(dirname $prog); pwd)

@@ -1,4 +1,4 @@
-#!/bin/bash
+:
 # Copyright @ 2017-2018 Michael P. Reilly. All rights reserved.
 # A small functional test suite
 
@@ -40,14 +40,20 @@ cdir=$PWD
 # and use explicit paths
 case $SHELL in
     */bash)
+        : bash
+        _ws_prog="${BASH_SOURCE[0]}"
         function cd { command cd ${1:+"$@"}; }
         function echo { command echo "$@"; }
         ;;
     */zsh)
+        : zsh
+        _ws_prog="${(%):-%x}"
         function cd { builtin cd "$@"; }
-        function echo { builtin echo "$@"; }
+        #function echo { builtin echo "$*"; }
         ;;
 esac
+progdir="$(cd $(/usr/bin/dirname ${_ws_prog}); pwd)"
+
 function awk { /usr/bin/awk "$@"; }
 function basename { /usr/bin/basename ${1:+"$@"}; }
 function cat { /bin/cat ${1:+"$@"}; }
@@ -104,9 +110,9 @@ rm -f $_WS_DEBUGFILE
 mkdir -p $HOME/.ws  # relative to TMPDIR
 
 # generate the plugins tarball that the install.sh script would
-PATH=/bin:/usr/bin tar cjfC $HOME/.ws/plugins.tbz2 $cdir plugins
+PATH=/bin:/usr/bin tar cjfC $HOME/.ws/plugins.tbz2 $progdir plugins
 
-cp -p $cdir/ws.sh $HOME/ws.sh
+cp -p $progdir/ws.sh $HOME/ws.sh
 source $HOME/ws.sh  # deleted during the ws+release testing
 
 if $is_linux; then
@@ -118,7 +124,7 @@ fi
 md5_config_sh='fcf0781bba73612cdc4ed6e26fcea8fc'
 md5_hook_sh='ce3e735d54ea9e54d26360b03f2fe57f'
 
-fail () { rc=$?; \echo "failure: $*"; command exit $rc; }
+fail () { rc=$?; echo "failure: $*"; builtin exit $rc; }
 
 # check the existence of the main routine ('ws') and subroutines
 command -v ws >&4 || fail cmd ws
@@ -150,10 +156,17 @@ command -v _ws_convert_ws >&4 || fail routine _ws_convert_ws
 command -v _ws_error >&4 || fail routine _ws_error
 
 # check the global variables
-test "$(declare -p WS_DIR)" = "declare -- WS_DIR=\"$HOME/workspaces\"" || fail declare WS_DIR
-test "$(declare -p WS_VERSION)" = "declare -- WS_VERSION=\"${versionstr}\"" || fail declare WS_VERSION
-test "$(declare -p _ws__current)" = 'declare -- _ws__current=""' || fail declare _ws__current
-test "$(declare -p _ws__stack)" = "declare -a _ws__stack='()'" || fail declare _ws__stack
+if [ $_ws_shell = bash ]; then
+    test "$(declare -p WS_DIR)" = "declare -- WS_DIR=\"$HOME/workspaces\"" || fail declare WS_DIR
+    test "$(declare -p WS_VERSION)" = "declare -- WS_VERSION=\"${versionstr}\"" || fail declare WS_VERSION
+    test "$(declare -p _ws__current)" = 'declare -- _ws__current=""' || fail declare _ws__current
+    test "$(declare -p _ws__stack)" = "declare -a _ws__stack='()'" || fail declare _ws__stack
+elif [ $_ws_shell = zsh ]; then
+    test "$(declare -p WS_DIR)" = "typeset WS_DIR=$HOME/workspaces" || fail declare WS_DIR
+    test "$(declare -p WS_VERSION)" = "typeset WS_VERSION=${versionstr}" || fail declare WS_VERSION
+    test "$(declare -p _ws__current)" = "typeset _ws__current=''" || fail declare _ws__current
+    test "$(declare -p _ws__stack)" = $'typeset -a _ws__stack\n_ws__stack=(  )' || fail declare _ws__stack
+fi
 
 # a few unit tests
 result=$(_ws_getdir)
@@ -192,7 +205,7 @@ test "$(/bin/readlink $HOME/workspace)" = "$WS_DIR/default" || fail init link
 test "$(_ws_getdir default)" = "$WS_DIR/default" || fail routine getdir
 
 test "$(ws list)" = "default@" || fail init cmd ws+list
-test "$(ws stack)" = "($PWD)" || fail init cmd ws+stack
+test "$(ws stack)" = "($cdir)" || fail init cmd ws+stack
 
 # test plugins extracted properly
 test -d $WS_DIR/.ws/plugins || fail init dir plugins
@@ -225,22 +238,7 @@ test "$(ws stack | tr '\n' ' ')" = "default* (${cdir}) " || fail enter1 cmd ws+s
 ws leave
 test "${_ws__current}" = "" || fail leave _ws__current
 test "${_ws__stack[*]}" = "" || fail leave stack
-test "$(ws stack)" = "($PWD)" || fail leave ws+stack
-
-mkdir -p $WS_DIR/foobar1
-cat > $TMPDIR/config_vars <<EOF
-doset=false
-dontset=true
-EOF
-_ws_convert_ws foobar1 'cdpath java' $TMPDIR/config_vars
-test -d $WS_DIR/foobar1/.ws || fail convert_ws dir .ws
-test -s "$WS_DIR/foobar1/.ws/hook.sh" -a -x "$WS_DIR/foobar1/.ws/hook.sh" ||
-    fail convert_ws hook.sh
-test -s "$WS_DIR/foobar1/.ws/config.sh" || fail convert_ws config.sh
-result=$(ws config get foobar1 doset)
-test $? -eq 0 -a "$result" = "false" || fail convert_ws config value \"doset\"
-result=$(ws config get foobar1 dontset) || fail convert_ws config value \"dontset\"
-rm -rf $WS_DIR/foobar1
+test "$(ws stack)" = "($cdir)" || fail leave ws+stack
 
 ws create foobar
 test -d "$WS_DIR/foobar" || fail create dir WS_DIR/foobar
@@ -359,6 +357,7 @@ EOF
 
 ws create xyzzy $configfile hook_3=hola
 configsh=$WS_DIR/xyzzy/.ws/config.sh
+_ws_cat $configsh
 test "$(md5sum < $configsh)" != "$md5_config_sh  -" || fail create+config md5 config.sh
 grep -q '^hook_1=' $configsh; rc1=$?
 grep -q '^hook_2=' $configsh; rc2=$?
@@ -393,6 +392,21 @@ test $? -eq 1 -a "$var" = "" || tail ws+config get novar
 var=$(_ws_cmd_config search .)
 result=$'--global: TEST_VALUE_1=\n--global: TEST_VALUE_2=\n  xyzzy: hook_1=hello\n  xyzzy: hook_2=goodbye\n  xyzzy: hook_3=hola'
 test $? -eq 0 -a "$var" = "$result" || fail ws+config search
+
+mkdir -p $WS_DIR/foobar1
+cat > $TMPDIR/config_vars <<EOF
+doset=false
+dontset=true
+EOF
+_ws_convert_ws foobar1 'cdpath java' $TMPDIR/config_vars
+test -d $WS_DIR/foobar1/.ws || fail convert_ws dir .ws
+test -s "$WS_DIR/foobar1/.ws/hook.sh" -a -x "$WS_DIR/foobar1/.ws/hook.sh" ||
+    fail convert_ws hook.sh
+test -s "$WS_DIR/foobar1/.ws/config.sh" || fail convert_ws config.sh
+result=$(ws config get foobar1 doset)
+test $? -eq 0 -a "$result" = "false" || fail convert_ws config value \"doset\"
+result=$(ws config get foobar1 dontset) || fail convert_ws config value \"dontset\"
+rm -rf $WS_DIR/foobar1
 
 # testing for plugin
 pluginfile=$TMPDIR/plugin
