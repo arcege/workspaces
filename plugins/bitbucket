@@ -10,13 +10,28 @@ if [ -n "$bitbucket_repos" -a -n "$bitbucket_org" ]; then
     case ${wshook__op} in
         create)
             for reponame in $bitbucket_repos; do
-                /usr/bin/hg clone ssh://@bitbucket.org/${bitbucket_org}/${reponame} $wshook__workspace/${reponame}
+                case $reponame in
+                    *:*)  # has a branch
+                          ref=${reponame#*:}
+                          reponame=${reponame%%:*}
+                          /usr/bin/hg clone --rev ${ref} ssh://hg@bitbucket.org/${bitbucket_org}/${reponame} \
+                              $wshook__workspace/${reponame}
+                          ;;
+                    *)
+                          /usr/bin/hg clone ssh://hg@bitbucket.org/${bitbucket_org}/${reponame} \
+                              $wshook__workspace/${reponame}
+                          ;;
+                esac
             done
             unset reponame
             ;;
         enter)
             if [ -n "$bitbucket_pull_on_enter" ]; then
                 for reponame in $bitbucket_repos; do
+                    case $reponame in
+                        *:*)  # has a branch
+                              reponame=${reponame%%:*}
+                    esac
                     /usr/bin/hg -R $wshook__workspace/${reponame} pull
                 done
                 unset reponame
@@ -25,6 +40,10 @@ if [ -n "$bitbucket_repos" -a -n "$bitbucket_org" ]; then
         leave)
             if [ -n "$bitbucket_push_on_leave" ]; then
                 for reponame in $bitbuck_repos; do
+                    case $reponame in
+                        *:*)  # has a branch
+                              reponame=${reponame%%:*}
+                    esac
                     /usr/bin/hg -R $wshook__workspace/${reponame} push
                 done
                 unset reponame
