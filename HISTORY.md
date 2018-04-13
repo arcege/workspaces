@@ -1,5 +1,8 @@
 = Workspaces
 
+== 0.4.2
+* Issue#4 Update bitbucket and github plugins to use reference on clone.
+
 == 0.4.1
 * Add ws+hook+load and ws+hook+save commands to import and export a hook script without entering
   the editor.
