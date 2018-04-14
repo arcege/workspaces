@@ -32,7 +32,7 @@ case $OSTYPE in
         ;;
 esac
 
-versionstr=0.4.1
+versionstr=0.4.2
 
 cdir=$PWD
 
@@ -122,7 +122,7 @@ command -v _ws_cmd_destroy >&4 || fail routine _ws_cmd_destroy
 command -v _ws_cmd_relink >&4 || fail routine _ws_cmd_relink
 command -v _ws_cmd_list >&4 || fail routine _ws_cmd_list
 command -v _ws_validate >&4 || fail routine _ws_validate
-command -v _ws_cmd_show_stack >&4 || fail routine _ws_cmd_show_stack
+command -v _ws_cmd_stack >&4 || fail routine _ws_cmd_stack
 command -v _ws_stack >&4 || fail routine _ws_stack
 command -v _ws_getdir >&4 || fail routine _ws_getdir
 command -v _ws_link >&4 || fail routine _ws_link
@@ -358,6 +358,20 @@ ws destroy foo1
 test ! -d $WS_DIR/foo1 -a $(ws current) = foo2 || fail destroy foo1
 ws destroy foo2
 test "$(ws current)" = "" -a "${_ws__stack[*]}" = "" || fail destroy foo2-none
+
+# Testing removing workspace from middle of the stack
+while [ $(_ws_stack size) -gt 0 ]; do
+    _ws_cmd_leave
+done
+ws create stack1
+ws create stack2
+ws create stack3
+test "$(ws stack | tr '\n' ' ')" = "stack3* stack2 stack1 (${cdir}) " || fail assert ws+stack
+ws stack del stack2
+test "$(ws stack | tr '\n' ' ')" = "stack3* stack1 (${cdir}) " || fail ws+stack+del middle
+ws stack del stack3
+test "$(ws stack | tr '\n' ' ')" = "stack1* (${cdir}) " -a "${_ws__current}" = "stack1" || fail ws+stack+del top
+_ws_leave # stack1
 
 # for testing passing config variables to ws+create
 configfile=$TMPDIR/config.test

@@ -69,7 +69,7 @@ esac
 
 # global constants, per shell
 # unfortunately, bash 3 (macos) does not support declaring global vars
-WS_VERSION=0.4.1
+WS_VERSION=0.4.2
 
 : ${WS_DIR:=$HOME/workspaces}
 : ${_WS_DEBUGFILE:=$WS_DIR/.log}
@@ -210,9 +210,11 @@ EOF
 }
 
 # implement a stack
+# * get - retrieve item at position in the stack
 # * last - print the top item on the stack
 # * push - add an item to the stack
 # * pop - remove the top item off the stack
+# * remove - remove an item from the middle of the stack
 # * size - return how many items on the stack
 # * state - print the top index and what is on the stack
 _ws_stack () {
@@ -220,6 +222,14 @@ _ws_stack () {
     local last pos=${#_ws__stack[*]}
     let last=pos-1
     case $1 in
+        get)
+            if [ $2 -ge 0 -a $2 -lt $pos ]; then
+                _ws_echo "${_ws__stack[$2]}"
+            else
+                _ws_debug 2 "out of bounds $2"
+                return 1
+            fi
+            ;;
         last)
             if [ $pos -gt 0 ]; then
                 _ws_echo "${_ws__stack[$last]}"
@@ -240,6 +250,21 @@ _ws_stack () {
             else
                 _ws_debug 3 "empty stack"
                 return 1
+            fi
+            ;;
+        remove)
+            if [ $pos -gt 0 ]; then
+                _ws_debug 4 "remove #$2 from stack"
+                local _newarray i
+                _newarrary=()
+                i=0
+                while [ $i -lt $pos ]; do
+                    if [ $i -ne $2 ]; then
+                        _newarray+=( ${_ws__stack[$i]} )
+                    fi
+                    let i++
+                done
+                _ws__stack=( "${_newarray[@]}" )
             fi
             ;;
         size):
@@ -1233,25 +1258,57 @@ _ws_cmd_list () {
 # including the current workspace
 # arguments: none
 # result code: none
-_ws_cmd_show_stack () {
+_ws_cmd_stack () {
     _ws_debug 7 args "$@"
-    if [ x${_ws__current:+X} = xX ]; then
-        local context oldIFS i=$(_ws_stack size)
-        _ws_echo "${_ws__current}*"
-        while [ $i -gt 0 ]; do
-            let i--
-            context=${_ws__stack[$i]}
-            oldIFS="$IFS"; IFS=":"
-            set -- ${context}
-            IFS="$oldIFS"
-            case $1 in
-                ""|/*) _ws_echo "($2)";;
-                *) _ws_echo $1;;
-            esac
-        done
-    else
-        _ws_echo "($PWD)"
-    fi
+    case $1 in
+        help)
+            _ws_echo "ws stack"
+            _ws_echo "ws stack del ws ..."
+            return 0
+            ;;
+        ''|show)
+            if [ x${_ws__current:+X} = xX ]; then
+                local context oldIFS i=$(_ws_stack size)
+                _ws_echo "${_ws__current}*"
+                while [ $i -gt 0 ]; do
+                    let i--
+                    context=$(_ws_stack get $i)
+                    oldIFS="$IFS"; IFS=":"
+                    set -- ${context}
+                    IFS="$oldIFS"
+                    case $1 in
+                        ""|/*) _ws_echo "($2)";;
+                        *) _ws_echo $1;;
+                    esac
+                done
+            else
+                _ws_echo "($PWD)"
+            fi
+            ;;
+        del)
+            shift
+            local wsname
+            for wsname in "$@"; do
+                if [ x$wsname = x$_ws__current ]; then
+                    _ws_cmd_leave
+                else
+                    local found=false i=0 n=$(_ws_stack size)
+                    while [ $i -lt $n ]; do
+                        case $(_ws_stack get $i) in
+                            ${wsname}:*)
+                                _ws_stack remove $i
+                                found=true
+                                ;;
+                        esac
+                        let i++
+                    done
+                    if ! $found; then
+                        _ws_echo "$wsname not on the stack"
+                    fi
+                fi
+            done
+            ;;
+    esac
 }
 
 # convert a directory to a workspace, do:
@@ -1631,7 +1688,7 @@ ws () {
             _ws_cmd_list "$@"
             ;;
         stack)
-            _ws_cmd_show_stack
+            _ws_cmd_stack "$@"
             ;;
         version)
             _ws_echo "$WS_VERSION"
@@ -1745,7 +1802,7 @@ if _ws_echo $- | _ws_grep -Fq i; then  # only for interactive
                         COMPREPLY=( $(compgen -W "$commands" -- ${cur}) )
                     fi
                     ;;
-                leave|current|stack|state|version|validate)
+                leave|current|state|version|validate)
                     if [ $COMP_CWORD -eq 2 ]; then
                         COMPREPLY=( $(compgen -W "-h --help" -- ${cur}) )
                     fi
@@ -1796,6 +1853,13 @@ if _ws_echo $- | _ws_grep -Fq i; then  # only for interactive
                         COMPREPLY=( $(compgen -W "--full -h --help $names" -- ${cur}) )
                     elif [ $COMP_CWORD -eq 3 -a "x${prev}" = x--full]; then
                         COMPREPLY=( $(compgen -W "${names}" -- ${cur}) )
+                    fi
+                    ;;
+                stack)
+                    if [ $COMP_CWORD -eq 2 ]; then
+                        COMPREPLY=( $(compgen -W "help del" -- ${cur}) )
+                    elif [ $COMP_CWORD -gt 2 -a x${prev} = xdel ]; then
+                        COMPREPLY=( $(compgen -W  "$names" -- ${cur}) )
                     fi
                     ;;
                 hook)
