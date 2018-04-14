@@ -2,6 +2,8 @@
 
 == 0.4.2
 * Issue#4 Update bitbucket and github plugins to use reference on clone.
+* Issue#3 Add subcommand ws+stack+del to remove workspaces from the stack; if the top, then run the
+  leave operation.
 
 == 0.4.1
 * Add ws+hook+load and ws+hook+save commands to import and export a hook script without entering
