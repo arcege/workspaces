@@ -10,9 +10,15 @@ ReleaseFiles = (
 
 WsDir = Path('build', 'workspaces')
 
+class CleanTest(Clean):
+    files = (WsDir + 'test.err', WsDir + 'test.log')
+
 Packaging.tasks = (
     Tar('build/workspaces',
         root='build', name='dist/workspaces.tgz'),
+)
+Packaging.dependencies = (
+    CleanTest,
 )
 
 class SpawnTask(Task):
@@ -23,6 +29,7 @@ class SpawnTask(Task):
 Compile.tasks = (
     Copy(*ReleaseFiles, dest='build/workspaces'),
 )
+
 
 Testonly.tasks = (
     SpawnTask('./test.sh'),
