@@ -32,7 +32,7 @@ case $OSTYPE in
         ;;
 esac
 
-versionstr=0.4.2
+versionstr=0.4.3
 
 cdir=$PWD
 
