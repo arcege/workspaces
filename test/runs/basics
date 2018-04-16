@@ -1,0 +1,52 @@
+:
+
+# check the existence of the main routine ('ws') and subroutines
+command -v ws >&4 || fail cmd ws
+command -v _ws_cmd_help >&4 || fail routine _ws_cmd_help
+command -v _ws_cmd_enter >&4 || fail routine _ws_cmd_enter
+command -v _ws_cmd_leave >&4 || fail routine _ws_cmd_leave
+command -v _ws_cmd_create >&4 || fail routine _ws_cmd_create
+command -v _ws_cmd_destroy >&4 || fail routine _ws_cmd_destroy
+command -v _ws_cmd_relink >&4 || fail routine _ws_cmd_relink
+command -v _ws_cmd_list >&4 || fail routine _ws_cmd_list
+command -v _ws_validate >&4 || fail routine _ws_validate
+command -v _ws_cmd_stack >&4 || fail routine _ws_cmd_stack
+command -v _ws_stack >&4 || fail routine _ws_stack
+command -v _ws_getdir >&4 || fail routine _ws_getdir
+command -v _ws_link >&4 || fail routine _ws_link
+command -v _ws_cmd_initialize >&4 || fail routine _ws_cmd_initialize
+command -v _ws_cmd_upgrade >&4 || fail routine _ws_cmd_upgrade
+command -v _ws_copy_skel >&4 || fail routine _ws_copy_skel
+command -v _ws_generate_hook >&4 || fail routine _ws_generate_hook
+command -v _ws_generate_config >&4 || fail routine _ws_generate_config
+command -v _ws_cmd_hook >&4 || fail routine _ws_cmd_hook
+command -v _ws_run_hooks >&4 || fail routine _ws_run_hooks
+command -v _ws_cmd_config >&4 || fail routine _ws_cmd_config
+command -v _ws_config_edit >&4 || fail routine _ws_config_edit
+command -v _ws_cmd_plugin >&4 || fail routine _ws_cmd_plugin
+command -v _ws_parse_configvars >&4 || fail routine _ws_parse_configvars
+command -v _ws_prompt_yesno >&4 || fail routine _ws_prompt_yesno
+command -v _ws_convert_ws >&4 || fail routine _ws_convert_ws
+command -v _ws_error >&4 || fail routine _ws_error
+
+# check the global variables
+test "$(declare -p WS_DIR)" = "declare -- WS_DIR=\"$HOME/workspaces\"" || fail declare WS_DIR
+test "$(declare -p WS_VERSION)" = "declare -- WS_VERSION=\"${versionstr}\"" || fail declare WS_VERSION
+test "$(declare -p _ws__current)" = 'declare -- _ws__current=""' || fail declare _ws__current
+test "$(declare -p _ws__stack)" = "declare -a _ws__stack='()'" || fail declare _ws__stack
+
+# a few unit tests
+result=$(_ws_getdir)
+rc=$?
+test $rc -eq 1 -a "$result" = "" || fail unit "_ws_getdir" nows+nocur
+result=$(_ws_link get)
+rc=$?
+test $rc -eq 1 -a "$result" = "" || fail unit "_ws_link+get" none
+result=$(_ws_link set 2>&1)
+rc=$?
+test $rc -eq 1 -a "$result" = "Error: expecting directory" || fail unit "_ws_link+set" none
+mkdir $HOME/workspace
+result=$(_ws_link set /usr 2>&1)
+rc=$?
+test $rc -eq 1 -a "$result" = "Error: ~/workspace is not a symlink" || fail unit "_ws_link+set" dir
+rmdir $HOME/workspace

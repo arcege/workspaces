@@ -6,7 +6,7 @@ from pyerector.api import Subcommand, Task
 
 ReleaseFiles = (
     'install.sh', 'LICENSE.txt', 'README.md', 'test.sh', 'ws.sh', 'wsh.sh'
-) + tuple(Path('plugins'))
+) + tuple(Path('plugins')) + tuple(Path('test', 'lib')) + tuple(Path('test', 'runs'))
 
 WsDir = Path('build', 'workspaces')
 
