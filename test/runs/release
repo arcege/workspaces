@@ -1,0 +1,19 @@
+:
+
+# Testing releasing the structure and uninstallation
+
+touch "$HOME/alternate/default/foo.c"
+ws release default <&4 >$cmdout 2>$cmderr
+test $? -eq 1 -a -d $HOME/alternate || fail release no
+ws release --yes default <&4 >$cmdout 2>$cmderr
+test $? -eq 0 -a ! -d $HOME/alternate || fail release yes
+test -d $HOME/workspace -a -f $HOME/workspace/foo.c -a ! -d $HOME/workspace/.ws || fail release keep
+
+rm -rf $HOME/workspace
+ws initialize $HOME/alternate >$cmdout 2>$cmderr
+
+ws release -y <&4 >$cmdout 2>$cmderr
+test $? -eq 0 -a ! -d $HOME/alternate -a ! -d $HOME/workspace || fail release clean
+
+ws release -y --full <&4 >$cmdout 2>$cmderr
+test $? -eq 0 -a ! -d $HOME/.ws -a ! -f $HOME/bin/wsh -a ! -e $HOME/.bash.d/ws.sh || fail release full
