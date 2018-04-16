@@ -1,5 +1,10 @@
 = Workspaces
 
+== 0.4.3
+* Remove test output files before packaging, test.log and test.err.
+* Add the 'wsh.sh' file to the distribution.
+* Refactor the test script, moving functionality to scripts under test/.
+
 == 0.4.2
 * Issue#4 Update bitbucket and github plugins to use reference on clone.
 * Issue#3 Add subcommand ws+stack+del to remove workspaces from the stack; if the top, then run the
