@@ -5,14 +5,20 @@ from pyerector import *
 from pyerector.api import Subcommand, Task
 
 ReleaseFiles = (
-    'install.sh', 'LICENSE.txt', 'README.md', 'test.sh', 'ws.sh'
-) + tuple(Path('plugins'))
+    'install.sh', 'LICENSE.txt', 'README.md', 'test.sh', 'ws.sh', 'wsh.sh'
+) + tuple(Path('plugins')) + tuple(Path('test', 'lib')) + tuple(Path('test', 'runs'))
 
 WsDir = Path('build', 'workspaces')
+
+class CleanTest(Clean):
+    files = (WsDir + 'test.err', WsDir + 'test.log')
 
 Packaging.tasks = (
     Tar('build/workspaces',
         root='build', name='dist/workspaces.tgz'),
+)
+Packaging.dependencies = (
+    CleanTest,
 )
 
 class SpawnTask(Task):
@@ -23,6 +29,7 @@ class SpawnTask(Task):
 Compile.tasks = (
     Copy(*ReleaseFiles, dest='build/workspaces'),
 )
+
 
 Testonly.tasks = (
     SpawnTask('./test.sh'),
