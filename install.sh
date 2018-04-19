@@ -35,7 +35,7 @@ installation () {
 
 pre_installation () {
     # clean up old installation locations
-    if [ -x $BASHDIR/ws.sh ]; then
+    if [ -f $BASHDIR/ws.sh ]; then
         rm -f $BASHDIR/ws.sh
     fi
     rm -f $HOME/.ws_plugins.tbz2
