@@ -1470,8 +1470,9 @@ _ws_cmd_upgrade () {
         tmpdir="$(_ws_mktemp).d"
         mkdir -p $tmpdir
         if tar xzfC $tmpfile $tmpdir; then
-            local order=$(_ws_echo -e $"$SWvers\n$version" | _ws_sort -t. -n)
-            if [ "$order" = $"$WSvers\n$version" ]; then
+            local order=$(_ws_echo -e $"${SWvers}\n${version}")
+            local sorted=$(_ws_echo "${order}" | _ws_sort -t. -n)
+            if [ "${order}" = "${sorted}" ]; then
                 local verb_pres="Upgrading" verb_past="Upgraded"
             else
                 local verb_pres="Downgrading" verb_past="Downgraded"
