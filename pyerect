@@ -6,18 +6,21 @@ from pyerector.api import Subcommand, Task
 
 VersionFile = Path('version')
 
+BuildDir = Path('build')
+DistDir = Path('dist')
+WsDir = BuildDir + 'workspaces'
+TarFile = DistDir + 'workspaces.tgz'
+
 ReleaseFiles = (
     'install.sh', 'LICENSE.txt', 'README.md', 'test.sh', 'ws.sh', 'wsh.sh', VersionFile
 ) + tuple(Path('plugins')) + tuple(Path('test', 'lib')) + tuple(Path('test', 'runs'))
-
-WsDir = Path('build', 'workspaces')
 
 class CleanTest(Clean):
     files = (WsDir + 'test.err', WsDir + 'test.log')
 
 Packaging.tasks = (
-    Tar('build/workspaces',
-        root='build', name='dist/workspaces.tgz'),
+    Tar(WsDir,
+        root=BuildDir, name=TarFile.value),
 )
 Packaging.dependencies = (
     CleanTest,
@@ -26,10 +29,10 @@ Packaging.dependencies = (
 class SpawnTask(Task):
     def run(self):
         prog = self.args[0]
-        Subcommand( (prog,), wdir='build/workspaces' )
+        Subcommand( (prog,), wdir=WsDir )
 
 Compile.tasks = (
-    Copy(*ReleaseFiles, dest='build/workspaces'),
+    Copy(*ReleaseFiles, dest=WsDir),
     Tokenize('ws.sh', 'test.sh', dest=WsDir,
         tokenmap=VariableSet(
             FileVariable('SNAPSHOT', 'version'),
@@ -41,15 +44,14 @@ Compile.tasks = (
 Testonly.tasks = (
     SpawnTask('./test.sh'),
 )
-InitDirs.files = ( 'build/workspaces', 'dist' )
-Clean.files = ( 'build', 'dist', 'test.err', 'test.log' )
+InitDirs.files = ( WsDir, DistDir )
+Clean.files = ( BuildDir, DistDir, 'test.err', 'test.log' )
 
 class Bitbucket_Pipelines_Upload(Task):
     baseurl = 'https://api.bitbucket.org/2.0/repositories/%(user)s/%(slug)s/downloads'
     bb_creds = 'Arcege:eCV6DVbS8ZXa4D86ky6z'
     def run(self):
         import os, urllib2
-        distfile = Path('dist', 'workspaces.tgz')
         basename = os.environ.get('BITBUCKET_REPO_SLUG', 'workspaces')
         if 'BITBUCKET_BOOKMARK' in os.environ:
             vers = os.environ['BITBUCKET_BOOKMARK'].replace('release-', '')
@@ -62,8 +64,8 @@ class Bitbucket_Pipelines_Upload(Task):
                 'user': 'Arcege',
                 'slug': 'workspaces'
         }
-        newname = Path(distfile.dirname, name)
-        distfile.copy(newname)
+        newname = Path(TarFile.dirname, name)
+        TarFile.copy(newname)
         cmd = (
             'curl', '-X', 'POST', '--user', self.bb_creds,
             url, '--form', 'files=@%s' % newname
