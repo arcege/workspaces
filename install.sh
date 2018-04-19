@@ -84,7 +84,7 @@ replace_plugin_hardlink () {
     local wsfile="$wsdir/.ws/plugins/$plugin"
     if [ -h "$wsfile" -a -f "$instfile" ]; then
         _ws_rm "$wsfile"
-        _ws_ln "$instfile" "$wsfile"
+        _ws_ln -f "$instfile" "$wsfile"
     fi
 }
 
