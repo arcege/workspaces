@@ -69,7 +69,7 @@ esac
 
 # global constants, per shell
 # unfortunately, bash 3 (macos) does not support declaring global vars
-WS_VERSION=0.4.4
+WS_VERSION=SNAPSHOT
 
 : ${WS_DIR:=$HOME/workspaces}
 : ${_WS_DEBUGFILE:=$WS_DIR/.log}
@@ -1427,7 +1427,7 @@ _ws_get_versions () {
         resturl="${resturl}/workspaces/downloads/"
         _ws_curl -sX GET $resturl | _ws_python -m json.tool |
             _ws_sed '/href.*\/downloads\//!d;s!.*/workspaces-\(.*\).tgz.*!\1!' |
-            _ws_grep -Fv SNAPSHOT |       # ignore dev version
+            _ws_grep -Fv '[S]NAPSHOT' |   # ignore dev version
             _ws_grep -v 'b[1-9][0-9]*' |  # ignore beta release
             _ws_sort -t. -n > $cachefile
         _ws_debug 3 "cached versions from $resturl"
