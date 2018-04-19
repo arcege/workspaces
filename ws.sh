@@ -69,7 +69,7 @@ esac
 
 # global constants, per shell
 # unfortunately, bash 3 (macos) does not support declaring global vars
-WS_VERSION=0.4.3
+WS_VERSION=0.4.4
 
 : ${WS_DIR:=$HOME/workspaces}
 : ${_WS_DEBUGFILE:=$WS_DIR/.log}
@@ -449,7 +449,7 @@ _ws_config_edit () {
             ;;
         list)
             if [ "x$var" = x-v -o "x$var" = x--verbose ]; then
-                fgrep '=' "$file" | fgrep -v _wshook_
+                _ws_grep -F '=' "$file" | _ws_grep -Fv _wshook_
             else
                 _ws_sed -ne '/_wshook_/d;/=.*/s///p' "$file"
             fi
@@ -1397,11 +1397,24 @@ _ws_cmd_initialize () {
     _ws_link set $(_ws_getdir default)
 }
 
+_ws_get_yesterday() {
+    if $is_linux; then
+        _ws_date --date=yesterday +%Y%m%d%H%M
+    else
+        _ws_date -v -1d +%Y%m%d%H%M
+    fi
+}
+
 _ws_get_versions () {
     local cachefile=$HOME/.ws/versions.txt
+    # backward compatibility
+    if [ ! -d $HOME/.ws -a -f $HOME/.ws_version.txt ]; then
+        cachefile=$HOME/.ws_version.txt
+    fi
     local tmpfile=$(_ws_mktemp)
     if [ -f $cachefile ]; then
-        _ws_touch -d '-1 day' $tmpfile
+        local when=$(_ws_get_yesterday)
+        _ws_touch -mt "${when}" $tmpfile
         # if older than a day, invalidate the cache
         if [ $cachefile -ot $tmpfile ]; then
             _ws_rm -f $cachefile
@@ -1414,6 +1427,8 @@ _ws_get_versions () {
         resturl="${resturl}/workspaces/downloads/"
         _ws_curl -sX GET $resturl | _ws_python -m json.tool |
             _ws_sed '/href.*\/downloads\//!d;s!.*/workspaces-\(.*\).tgz.*!\1!' |
+            _ws_grep -Fv SNAPSHOT |       # ignore dev version
+            _ws_grep -v 'b[1-9][0-9]*' |  # ignore beta release
             _ws_sort -t. -n > $cachefile
         _ws_debug 3 "cached versions from $resturl"
     fi
