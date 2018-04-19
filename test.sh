@@ -2,7 +2,7 @@
 # Copyright @ 2017-2018 Michael P. Reilly. All rights reserved.
 # A small functional test suite
 
-versionstr=0.4.3
+versionstr=0.4.4
 
 cdir=$PWD
 

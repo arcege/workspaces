@@ -1,5 +1,11 @@
 = Workspaces
 
+== 0.4.4
+* Fix where scripts are not executable (which is still valid).
+* Fix \_ws\_get\_versions.
+* Better compatibility between macos and linux.
+* Fix grep calls.
+
 == 0.4.3
 * Remove test output files before packaging, test.log and test.err.
 * Add the 'wsh.sh' file to the distribution.
