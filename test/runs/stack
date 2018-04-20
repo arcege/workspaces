@@ -1,0 +1,31 @@
+:
+
+reset
+# test destruction of workspaces before leaving one
+ws create foo1
+ws create foo2
+ws create foo3
+
+test $(ws current) = foo3 || fail create+current
+ws destroy foo2
+test ! -d $WS_DIR/foo2 || fail destroy foo2
+ws destroy foo3
+test $(ws current) = foo1 || fail destroy foo3-foo1
+ws create foo2
+ws destroy foo1
+test ! -d $WS_DIR/foo1 -a $(ws current) = foo2 || fail destroy foo1
+ws destroy foo2
+test "$(ws current)" = "" -a "${_ws__stack[*]}" = "" || fail destroy foo2-none
+
+reset
+# Testing removing workspace from middle of the stack
+ws create stack1
+ws create stack2
+ws create stack3
+test "$(ws stack | tr '\n' ' ')" = "stack3* stack2 stack1 (${cdir}) " || fail assert ws+stack
+ws stack del stack2
+test "$(ws stack | tr '\n' ' ')" = "stack3* stack1 (${cdir}) " || fail ws+stack+del middle
+ws stack del stack3
+test "$(ws stack | tr '\n' ' ')" = "stack1* (${cdir}) " -a "${_ws__current}" = "stack1" || fail ws+stack+del top
+_ws_cmd_leave # stack1
+

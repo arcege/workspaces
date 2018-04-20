@@ -102,7 +102,7 @@ replace_plugin_hardlink () {
     local wsfile="$wsdir/.ws/plugins/$plugin"
     if [ -h "$wsfile" -a -f "$instfile" ]; then
         _ws_rm "$wsfile"
-        _ws_ln "$instfile" "$wsfile"
+        _ws_ln -f "$instfile" "$wsfile"
     fi
 }
 
@@ -283,7 +283,11 @@ pre_initialization () {
             ;;
         upgrade)
             echo "Software updated"
-            echo "Run 'ws reload' to get update."
+            if type ws 2>/dev/null | fgrep -qw reload >/dev/null; then
+                echo "Run 'ws reload' to get update."
+            else
+                echo "Source $BASHDIR/ws.sh to get update."
+            fi
             update_hook_scripts
             update_plugins_hardlinks
             ;;

@@ -1,0 +1,57 @@
+:
+
+# run through the basic operations, enter, leave, create, destroy
+
+ws enter default
+test "${_ws__current}" = "default" || fail enter1 str _ws__current
+test "$(ws)" = "default" || fail enter1 cmd ws
+test "$(ws enter)" = "default" || fail enter1 cmd ws+enter
+test "$(ws list)" = "default@*" || fail enter1 cmd ws+list
+test "$(ws stack | tr '\n' ' ')" = "default* (${cdir}) " || fail enter1 cmd ws+stack
+
+ws leave
+test "${_ws__current}" = "" || fail leave _ws__current
+test "${_ws__stack[*]}" = "" || fail leave stack
+test "$(ws stack)" = "($cdir)" || fail leave ws+stack
+
+ws create foobar
+ws enter default
+test -d "$WS_DIR/default" || fail enter2 dir WS_DIR/default
+test "${_ws__stack[*]}" = ":$cdir foobar:$WS_DIR/foobar" || fail enter2 stack
+test "${_ws__current}" = "default" || fail enter2 str _ws__current
+test "$(ws stack | tr '\n' ' ')" = "default* foobar (${cdir}) " || fail enter2 cmd ws+stack
+
+ws leave
+test "${_ws__current}" = "foobar" || fail leave str _ws__current
+test "${_ws__stack[*]}" = ":$cdir" || fail leave stack
+test "$(_ws_getdir)" = "$WS_DIR/foobar" || fail routine _ws_getdir
+ws destroy foobar
+
+# checking the hook system
+( echo 'TEST_VALUE_1=hi'
+  echo 'TEST_VALUE_2=bye'
+) >> $TMPDIR/workspaces/.ws/config.sh
+_ws_run_hooks enter default || fail hook+call
+test x${TEST_VALUE_1:+X} = x || fail hook+config "value_1 unset"
+test x${TEST_VALUE_2:+X} = x || fail hook+config "value_2 unset"
+
+ws create foobar
+test -d "$WS_DIR/foobar" || fail create dir WS_DIR/foobar
+test -d "$WS_DIR/foobar/.ws" || fail create dir WS_DIR/foobar/.ws/
+test -s "$WS_DIR/foobar/.ws/hook.sh" -a -x "$WS_DIR/foobar/.ws/hook.sh" || fail create file WS_DIR/foobar/.ws/hook.sh
+test -s "$WS_DIR/foobar/.ws/config.sh" || fail create file WS_DIR/foobar/.ws/config.sh
+test "$_ws__current" = "foobar" || fail str _ws__current
+test -d "$WS_DIR/foobar/.ws/plugins" || fail create dir WS_DIR/foobar/.ws/plugins
+for plugin in $(ls -1 $WS_DIR/.ws/plugins); do
+    test -f $WS_DIR/foobar/.ws/plugins/$plugin || fail create plugin+add $plugin
+done
+
+ws relink foobar
+test $(readlink $HOME/workspace) = "$WS_DIR/foobar" || fail relink link
+test "$(ws list)" = "$(echo 'default'; echo 'foobar@*')" || fail relink ws+list
+
+ws destroy foobar #>/dev/null
+test "${_ws__current}" = "" || fail destroy _ws__current
+test ! -d "$WS_DIR/foobar" || fail destroy WS_DIR/foobar
+test ! -h "$HOME/workspace" || fail destroy link
+test "$(ws list)" = 'default' || fail destroy ws+list

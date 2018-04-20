@@ -1,0 +1,97 @@
+:
+
+# ws convert
+mkdir -p $WS_DIR/foobar1
+cat > $TMPDIR/config_vars <<EOF
+doset=false
+dontset=true
+EOF
+_ws_convert_ws foobar1 'cdpath java' $TMPDIR/config_vars
+test -d $WS_DIR/foobar1/.ws || fail convert_ws dir .ws
+test -s "$WS_DIR/foobar1/.ws/hook.sh" -a -x "$WS_DIR/foobar1/.ws/hook.sh" ||
+    fail convert_ws hook.sh
+test -s "$WS_DIR/foobar1/.ws/config.sh" || fail convert_ws config.sh
+result=$(ws config get foobar1 doset)
+test $? -eq 0 -a "$result" = "false" || fail convert_ws config value \"doset\"
+result=$(ws config get foobar1 dontset) || fail convert_ws config value \"dontset\"
+rm -rf $WS_DIR/foobar1
+
+ws create foobar
+
+# more intensive testing of the hooks
+cat > "$WS_DIR/foobar/.ws/hook.sh" <<'EOF'
+:
+# this is sourced by `ws` (workspaces)
+# commands could be run and the environment/shell could be modified.
+# anything set by the enter operation should be wound back by leave;
+# similarly, anything set by create should be removed by destroy.
+
+wsstate=$wshook__op
+
+# any variables you use here should be unset at the end; local
+# would not work as this is source'd
+case ${wshook__op} in
+    # the current context is NOT this workspace
+    create)
+        Which=$InConfig
+        ;;
+
+    # the current context is NOT this workspace
+    destroy)
+        IsDestroyed=ImDyingImDying
+        ;;
+
+    # the current context IS this workspace
+    enter)
+        HasEntered=yep
+        ;;
+
+    # the current context IS this workspace
+    leave)
+        HasLeft=Elvis
+        ;;
+esac
+EOF
+
+cat > "$WS_DIR/foobar/.ws/config.sh" <<'EOF'
+InConfig=$wshook__workspace
+EOF
+
+unset wsstate IsDestroyed HasEntered HasLeft
+_ws_run_hooks enter foobar; rc=$?
+test $rc -eq 0 || tail hook+var failed
+test x$wsstate = xenter || fail hook+var wsstate
+test x$HasEntered = xyep || fail hook+var HasEntered
+test x$HasLeft = x || fail hook+var unset
+test x$InConfig = x || fail hook+unset InConfig
+_ws_run_hooks leave foobar
+test x$wsstate = xleave || fail hook+var wsstate
+test x$HasLeft = xElvis || fail hook+var HasLeft
+_ws_run_hooks create foobar
+test x$Which = x$WS_DIR/foobar || fail hook+config passthru
+test x${InConfig:+X} = x || fail hook+config unset
+
+unset wsstate IsDestroyed HasEntered HasLeft
+> $cmdout; > $cmderr
+_ws_cmd_hook copy foobar default
+if [ $? -ne 0 ] || ! cmp $(_ws_getdir foobar)/.ws/hook.sh $(_ws_getdir default)/.ws/hook.sh > $cmdout 2> $cmderr; then
+    ( echo "== stdout =="; cat $cmdout; echo
+      echo "== stderr =="; cat $cmderr; echo
+    ) >&2
+    fail hook+copy
+fi
+
+_ws_cmd_hook save foobar $TMPDIR/hook-save.sh || fail hook+save
+sed -i -e '/HasEntered/s/=yep/=yes/' "$TMPDIR/hook-save.sh"
+_ws_cmd_hook load foobar "$TMPDIR/hook-save.sh"
+if [ $? -ne 0 ] || ! cmp $(_ws_getdir foobar)/.ws/hook.sh "$TMPDIR/hook-save.sh" > $cmdout 2> $cmderr; then
+    ( echo "== stdout =="; cat $cmdout; echo
+      echo "== stderr =="; cat $cmderr; echo
+    ) >&2
+    fail hook+copy
+fi
+
+_ws_cmd_hook run
+test x$wsstate = xenter || fail hook+run
+unset wsstate IsDestroyed HasEntered HasLeft
+

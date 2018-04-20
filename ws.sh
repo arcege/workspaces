@@ -70,14 +70,14 @@ if [ $_ws_shell = bash ]; then
 elif [ $_ws_shell = zsh ]; then
     _ws_prog="${(%):-%x}"
 fi
-_ws_dir="$(cd $(dirname ${_ws_prog}); pwd)"
+_ws_dir="$(cd $(/usr/bin/dirname ${_ws_prog}); pwd)"
 _WS_SOURCE="$_ws_dir/${_ws_prog##*/}"
 unset _ws_prog
 unset _ws_dir
 
 # global constants, per shell
 # unfortunately, bash 3 (macos) does not support declaring global vars
-WS_VERSION=0.4
+WS_VERSION=SNAPSHOT
 
 : ${WS_DIR:=$HOME/workspaces}
 : ${_WS_DEBUGFILE:=$WS_DIR/.log}
@@ -135,7 +135,6 @@ function _ws_curl { /usr/bin/curl ${1:+"$@"}; }
 function _ws_date { /bin/date ${1:+"$@"}; }
 function _ws_dirname { /usr/bin/dirname ${1:+"$@"}; }
 function _ws_echo { builtin echo "$@"; }
-function _ws_fgrep { _ws_grep -F "$@"; }
 function _ws_grep { /bin/grep "$@"; }
 function _ws_ln { /bin/ln "$@"; }
 function _ws_ls { /bin/ls ${1:+"$@"}; }
@@ -223,14 +222,16 @@ EOF
 }
 
 # implement a stack
+# * get - retrieve item at position in the stack
 # * last - print the top item on the stack
 # * push - add an item to the stack
 # * pop - remove the top item off the stack
+# * remove - remove an item from the middle of the stack
 # * size - return how many items on the stack
 # * state - print the top index and what is on the stack
 _ws_stack () {
     _ws_debug 7 args "$@"
-    local last pos size
+    local last size
     # bash arrays are zero based, but zsh is one based
     size=${#_ws__stack[*]}
     if [ $_ws_shell = bash ]; then
@@ -239,6 +240,14 @@ _ws_stack () {
         let last=size
     fi
     case $1 in
+        get)
+            if [ $2 -ge 0 -a $2 -lt $size ]; then
+                _ws_echo "${_ws__stack[$2]}"
+            else
+                _ws_debug 2 "out of bounds $2"
+                return 1
+            fi
+            ;;
         last)
             if [ $size -gt 0 ]; then
                 _ws_echo "${_ws__stack[$last]}"
@@ -264,6 +273,21 @@ _ws_stack () {
             else
                 _ws_debug 3 "empty stack"
                 return 1
+            fi
+            ;;
+        remove)
+            if [ $size -gt 0 ]; then
+                _ws_debug 4 "remove #$2 from stack"
+                local _newarray i
+                _newarrary=()
+                i=0
+                while [ $i -lt $size ]; do
+                    if [ $i -ne $2 ]; then
+                        _newarray+=( ${_ws__stack[$i]} )
+                    fi
+                    let i++
+                done
+                _ws__stack=( "${_newarray[@]}" )
             fi
             ;;
         size):
@@ -441,14 +465,16 @@ _ws_config_edit () {
                 return 1
             fi
             if _ws_grep -q "^${var}=" "$file"; then
+                _ws_debug 5 "Changeing ${var} in ${file} to ${val}"
                 _ws_sed -i -e "/^${var}=/s/=.*/=\"${val}\"/" "$file"
             else
+                _ws_debug 5 "Adding ${var} in ${file} to ${val}"
                 _ws_echo "${var}=\"${val}\"" >> "$file"
             fi
             ;;
         list)
             if [ "x$var" = x-v -o "x$var" = x--verbose ]; then
-                _ws_fgrep '=' "$file" | _ws_fgrep -v _wshook_
+                _ws_grep -F '=' "$file" | _ws_grep -Fv _wshook_
             else
                 _ws_sed -ne '/_wshook_/d;/=.*/s///p' "$file"
             fi
@@ -495,7 +521,7 @@ _ws_cmd_config () {
         load)
             local cfgfile="$3"
             _ws_debug 1 "Applying vars from $cfgfile"
-            while read var val; do
+            while IFS=$'=' read var val; do
                 _ws_cmd_config set ${wsname} "$var" "$val"
             done < $cfgfile
             return 0
@@ -731,7 +757,12 @@ _ws_cmd_plugin () {
                     _ws_error "No workspace exists for $wsname"
                     return 1
                 elif [ -d "${wsdir}/.ws/plugins" ]; then
-                    _ws_ls -1 ${wsdir}/.ws/plugins
+                    for name in "${wsdir}/.ws/plugins"/*; do
+                        if [ "$name" = "${wsdir}/.ws/plugins/*" ]; then
+                            break
+                        fi
+                        _ws_echo "${name##*/}"
+                    done
                 fi
             fi
             return 0
@@ -927,7 +958,7 @@ _ws_run_hooks () {
     if [ -d "$wsdir/.ws/plugins" ]; then
         local has_null_glob=0
         if [ $_ws_shell = zsh ]; then
-            setopt | _ws_fgrep -qs nullglob
+            setopt | _ws_grep -Fqs nullglob
             has_null_glob=$?
             setopt -o null_glob
         fi
@@ -957,77 +988,85 @@ _ws_run_hooks () {
 }
 
 _ws_cmd_hook () {
+    _ws_debug 7 args "$@"
     local hookfile="" copyto="" editor=${VISUAL:-${EDITOR:-vi}}
+    find_hookfile () {
+        if [ "x$1" = x--global ]; then
+            _ws_echo $WS_DIR/.ws/hook.sh
+        elif [ "x$1" = x--skel ]; then
+            _ws_echo $WS_DIR/.ws/skel.sh
+        elif [ "x$1" = x- -a -n "$_ws__current" ]; then
+            _ws_echo "$(_ws_getdir)/.ws/hook.sh"
+        elif [ "x$1" = x- ]; then
+            _ws_error "No workspace"
+            return 1
+        elif [ -n "$1" ] && _ws_getdir "$1" >/dev/null 2>&1; then
+            _ws_echo "$(_ws_getdir "$1")/.ws/hook.sh"
+            return $?
+        else
+            _ws_error "No workspace exists for $1"
+            return 1
+        fi
+    }
     case $1 in
         edit)
-            if [ "x$2" = x--global ]; then
-                hookfile=$WS_DIR/.ws/hook.sh
-            elif [ "x$2" = x--skel ]; then
-                hookfile=$WS_DIR/.ws/skel.sh
-            elif [ "x$2" = x- -a -n "$_ws__current" ]; then
-                hookfile=$(_ws_getdir)/.ws/hook.sh
-            elif [ "x$2" = x- ]; then
-                _ws_error "No workspace"
-                return 1
-            elif [ -n "$2" ] && _ws_getdir "$2" >/dev/null 2>&1; then
-                hookfile="$(_ws_getdir "$2")/.ws/hook.sh"
-            else
-                _ws_error "No workspace exists for $2"
+            hookfile=$(find_hookfile "$2")
+            if [ $? -ne 0 ]; then
                 return 1
             fi
             "${editor}" "${hookfile}"
             ;;
         copy)
-            if [ "x$2" = x--global ]; then
-                hookfile="$WS_DIR/.ws/hook.sh"
-            elif [ "x$2" = x--skel ]; then
-                hookfile="$WS_DIR/.ws.skel.sh"
-            elif [ "x$2" = x- -a -n "$_ws__current" ]; then
-                hookfile="$(_ws_getdir)/.ws/hook.sh"
-            elif [ "x$2" = x- ]; then
-                _ws_error "No workspace"
+            hookfile=$(find_hookfile "$2")
+            if [ $? -ne 0 ]; then
                 return 1
-            elif [ -n "$2" ]; then
-                hookfile="$(_ws_getdir "$2")/.ws/hook.sh"
-                if [ $? -eq 1 ]; then
-                    _ws_error "No workspace exists for $2"
-                    return 1
-                fi
-            else
+            elif [ "x$3" = x--global -o "x$3" = x--skel ]; then
+                _ws_error "Cannot copy over global hooks."
+                return 1
+            elif [ -z "x$3" ]; then
                 _ws_error "Workspace expected"
                 return 1
             fi
-            if [ "x$3" = x--global -o "x$3" = --skel ]; then
-                _ws_error "Cannot copy over global hooks."
-                return 1
-            elif [ "$3" = x- -a -n "$_ws__current" ]; then
-                copyto="$(_ws_getdir)/.ws/hook.sh"
-            elif [ -n "$3" ]; then
-                copyto="$(_ws_getdir "$3")/.ws/hook.sh"
-                if [ $? -ne 0 ]; then
-                    _ws_error "No workspace exists for $3"
-                    return 1
-                fi
-            elif [ -n "$_ws__current" ]; then
-                copyto="$(_ws_getdir)/.ws/hook.sh"
-            else
-                _ws_error "Workspace expected"
+            copyto=$(find_hookfile "$3")
+            if [ $? -ne 0 ]; then
                 return 1
             fi
             if [ "$hookfile" = "$copyto" -o ! -e "$hookfile" ]; then
                 _ws_error "Cannot copy $hookfile"
                 return 1
             fi
-            cp -p "$hookfile" "$copyto"
+            _ws_debug 3 "copy $hookfile $copyto"
+            _ws_cp -p "$hookfile" "$copyto"
+            _ws_chmod +x "$copyto"
+            ;;
+        load)
+            hookfile=$(find_hookfile "$2")
+            if [ $? -ne 0 ]; then
+                return 1
+            elif [ -z "$3" -o ! -r "$3" ]; then
+                _ws_error "Expecting filename"
+                return 1
+            fi
+            _ws_cp -p "$3" "$hookfile"
             ;;
         run)
             _ws_run_hooks leave $_ws__current $PWD
             _ws_run_hooks enter $_ws__current $PWD
             ;;
+        save)
+            hookfile=$(find_hookfile "$2")
+            if [ $? -ne 0 ]; then
+                return 1
+            fi
+            _ws_cp -p "$hookfile" "$3"
+            _ws_chmod +x "$3"
+            ;;
         help)
             _ws_echo "ws hook copy -|--global|--skel|wsname [-|wsname]"
             _ws_echo "ws hook edit -|--global|--skel|wsname"
+            _ws_echo "ws hook load -|--global|--skel|wsname filename"
             _ws_echo "ws hook run"
+            _ws_echo "ws hook save -|--global|--skel|wsname filename"
             ;;
     esac
 }
@@ -1254,29 +1293,56 @@ _ws_cmd_list () {
 # including the current workspace
 # arguments: none
 # result code: none
-_ws_cmd_show_stack () {
+_ws_cmd_stack () {
     _ws_debug 7 args "$@"
-    if [ x${_ws__current:+X} = xX ]; then
-        local context n=0 i=$(_ws_stack size)
-        local lhs rhs
-        if [ $_ws_shell = zsh ]; then
-            let i++
-            n=1
-        fi
-        _ws_echo "${_ws__current}*"
-        while [ $i -gt $n ]; do
-            let i--
-            context=${_ws__stack[$i]}
-            lhs="${context%%:*}"
-            rhs="${context#*:}"
-            case $lhs in
-                ""|/*) _ws_echo "($rhs)";;
-                *)     _ws_echo "$lhs";;
-            esac
-        done
-    else
-        _ws_echo "($PWD)"
-    fi
+    case $1 in
+        help)
+            _ws_echo "ws stack"
+            _ws_echo "ws stack del ws ..."
+            return 0
+            ;;
+        ''|show)
+            if [ x${_ws__current:+X} = xX ]; then
+                local context i=$(_ws_stack size)
+                _ws_echo "${_ws__current}*"
+                while [ $i -gt 0 ]; do
+                    let i--
+                    context=${_ws__stack[$i]}
+                    lhs="${context%%:*}"
+                    rhs="${context#*:}"
+                    case $lhs in
+                        ""|/*) _ws_echo "($rhs)";;
+                        *)     _ws_echo "$lhs";;
+                    esac
+                done
+            else
+                _ws_echo "($PWD)"
+            fi
+            ;;
+        del)
+            shift
+            local wsname
+            for wsname in "$@"; do
+                if [ x$wsname = x$_ws__current ]; then
+                    _ws_cmd_leave
+                else
+                    local found=false i=0 n=$(_ws_stack size)
+                    while [ $i -lt $n ]; do
+                        case $(_ws_stack get $i) in
+                            ${wsname}:*)
+                                _ws_stack remove $i
+                                found=true
+                                ;;
+                        esac
+                        let i++
+                    done
+                    if ! $found; then
+                        _ws_echo "$wsname not on the stack"
+                    fi
+                fi
+            done
+            ;;
+    esac
 }
 
 # convert a directory to a workspace, do:
@@ -1367,11 +1433,24 @@ _ws_cmd_initialize () {
     _ws_link set $(_ws_getdir default)
 }
 
+_ws_get_yesterday() {
+    if $is_linux; then
+        _ws_date --date=yesterday +%Y%m%d%H%M
+    else
+        _ws_date -v -1d +%Y%m%d%H%M
+    fi
+}
+
 _ws_get_versions () {
     local cachefile=$HOME/.ws/versions.txt
+    # backward compatibility
+    if [ ! -d $HOME/.ws -a -f $HOME/.ws_version.txt ]; then
+        cachefile=$HOME/.ws_version.txt
+    fi
     local tmpfile=$(_ws_mktemp)
     if [ -f $cachefile ]; then
-        _ws_touch -d '-1 day' $tmpfile
+        local when=$(_ws_get_yesterday)
+        _ws_touch -mt "${when}" $tmpfile
         # if older than a day, invalidate the cache
         if [ $cachefile -ot $tmpfile ]; then
             _ws_rm -f $cachefile
@@ -1384,6 +1463,8 @@ _ws_get_versions () {
         resturl="${resturl}/workspaces/downloads/"
         _ws_curl -sX GET $resturl | _ws_python -m json.tool |
             _ws_sed '/href.*\/downloads\//!d;s!.*/workspaces-\(.*\).tgz.*!\1!' |
+            _ws_grep -Fv '[S]NAPSHOT' |   # ignore dev version
+            _ws_grep -v 'b[1-9][0-9]*' |  # ignore beta release
             _ws_sort -t. -n > $cachefile
         _ws_debug 3 "cached versions from $resturl"
     fi
@@ -1425,8 +1506,9 @@ _ws_cmd_upgrade () {
         tmpdir="$(_ws_mktemp).d"
         mkdir -p $tmpdir
         if tar xzfC $tmpfile $tmpdir; then
-            local order=$(_ws_echo -e $"$SWvers\n$version" | _ws_sort -t. -n)
-            if [ "$order" = $"$WSvers\n$version" ]; then
+            local order=$(_ws_echo -e $"${SWvers}\n${version}")
+            local sorted=$(_ws_echo "${order}" | _ws_sort -t. -n)
+            if [ "${order}" = "${sorted}" ]; then
                 local verb_pres="Upgrading" verb_past="Upgraded"
             else
                 local verb_pres="Downgrading" verb_past="Downgraded"
@@ -1520,6 +1602,7 @@ _ws_cmd_release () {
             unset W_DIR _ws__stack unset _ws__current
             unset WS_DEBUG _WS_DEBUGFILE _WS_SOURCE
             unset _ws_shell
+            unset _ws__seen_upgrade_warning
             return 0
         else
             WS_DIR=$HOME/workspaces
@@ -1667,7 +1750,7 @@ ws () {
             _ws_cmd_list "$@"
             ;;
         stack)
-            _ws_cmd_show_stack
+            _ws_cmd_stack "$@"
             ;;
         version)
             _ws_echo "$WS_VERSION"
@@ -1781,7 +1864,7 @@ if [ $_ws_shell = bash ] && _ws_echo $- | _ws_grep -Fq i; then  # only for inter
                         COMPREPLY=( $(compgen -W "$commands" -- ${cur}) )
                     fi
                     ;;
-                leave|current|stack|state|version|validate)
+                leave|current|state|version|validate)
                     if [ $COMP_CWORD -eq 2 ]; then
                         COMPREPLY=( $(compgen -W "-h --help" -- ${cur}) )
                     fi
@@ -1834,16 +1917,19 @@ if [ $_ws_shell = bash ] && _ws_echo $- | _ws_grep -Fq i; then  # only for inter
                         COMPREPLY=( $(compgen -W "${names}" -- ${cur}) )
                     fi
                     ;;
+                stack)
+                    if [ $COMP_CWORD -eq 2 ]; then
+                        COMPREPLY=( $(compgen -W "help del" -- ${cur}) )
+                    elif [ $COMP_CWORD -gt 2 -a x${prev} = xdel ]; then
+                        COMPREPLY=( $(compgen -W  "$names" -- ${cur}) )
+                    fi
+                    ;;
                 hook)
                     if [ $COMP_CWORD -eq 2 ]; then
-                        COMPREPLY=( $(compgen -W "copy edit help run -h --help" -- ${cur}) )
-                    elif [ $COMP_CWORD -eq 3 -a "x${prev}" = xedit ]; then
-                        if [ -n "$_ws__current" ]; then
-                            COMPREPLY=( $(compgen -W "$names - --global --skel" -- ${cur}) )
-                        else
-                            COMPREPLY=( $(compgen -W "$names --global --skel" -- ${cur}) )
-                        fi
-                    elif [ $COMP_CWORD -eq 3 -a "x${prev}" = xcopy ]; then
+                        COMPREPLY=( $(compgen -W "copy edit help load run save -h --help" -- ${cur}) )
+                    elif [ $COMP_CWORD -eq 3 -a \
+                           \( "x${prev}" = xedit -o "x${prev}" = xcopy -o \
+                              "x${prev}" = xload -o "x${prev}" = xsave \) ]; then
                         if [ -n "$_ws__current" ]; then
                             COMPREPLY=( $(compgen -W "$names - --global --skel" -- ${cur}) )
                         else
@@ -1855,6 +1941,8 @@ if [ $_ws_shell = bash ] && _ws_echo $- | _ws_grep -Fq i; then  # only for inter
                         else
                             COMPREPLY=( $(compgen -W "$names" -- ${cur}) )
                         fi
+                    elif [ $COMP_CWORD -eq 4 -a "x${COMP_WORDS[2]}" = xload ]; then
+                        COMPREPLY=( $(compgen -f -- ${cur}) )
                     fi
                     ;;
                 create)
