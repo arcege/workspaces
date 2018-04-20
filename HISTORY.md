@@ -1,5 +1,10 @@
 # Workspaces
 
+## 0.4.5
+* Use version file instead of static version strings.
+* Fix hardlinking of plugins on upgrade.
+* Better determination of upgrading vs downgrading.
+
 ## 0.4.4
 * Fix where scripts are not executable (which is still valid).
 * Fix \_ws\_get\_versions.
