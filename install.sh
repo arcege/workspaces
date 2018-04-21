@@ -368,7 +368,7 @@ EOF
 zsh_processing () {
     if ! fgrep -sq .ws/ws.sh $HOME/.zshrc; then
         { echo
-          echo "if [ -x $HOME/.ws/ws.sh ]; then"
+          echo "if [ -f $HOME/.ws/ws.sh ]; then"
           echo "    source $HOME/.ws/ws.sh"
           echo "fi"
           echo
