@@ -35,7 +35,7 @@ fi
 # find the ~/.bash.d or ~/.bash, if there is one
 _BASHDIR=
 if [ $_ws_envshell = bash ]; then
-    if [ -d $HOME/.bash.d; then
+    if [ -d $HOME/.bash.d ]; then
         _BASHDIR=$HOME/.bash.d
     elif [ -d $HOME/.bash ]; then
         _BASHDIR=$HOME/.bash
