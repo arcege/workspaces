@@ -12,7 +12,8 @@ WsDir = BuildDir + 'workspaces'
 TarFile = DistDir + 'workspaces.tgz'
 
 ReleaseFiles = (
-    'install.sh', 'LICENSE.txt', 'README.md', 'test.sh', 'ws.sh', 'wsh.sh', VersionFile
+    'install.sh', 'LICENSE.txt', 'README.md', 'ws.sh', 'wsh.sh', VersionFile,
+    'test-bash.sh', 'test-zsh.sh', 'test-common.sh',
 ) + tuple(Path('plugins')) + tuple(Path('test', 'lib')) + tuple(Path('test', 'runs'))
 
 class CleanTest(Clean):
@@ -33,7 +34,7 @@ class SpawnTask(Task):
 
 Compile.tasks = (
     Copy(*ReleaseFiles, dest=WsDir),
-    Tokenize('ws.sh', 'test.sh', dest=WsDir,
+    Tokenize('ws.sh', 'test-common.sh', dest=WsDir,
         tokenmap=VariableSet(
             FileVariable('SNAPSHOT', 'version'),
         )
@@ -42,7 +43,7 @@ Compile.tasks = (
 
 
 Testonly.tasks = (
-    SpawnTask('./test.sh'),
+    SpawnTask('./test-bash.sh'),
 )
 InitDirs.files = ( WsDir, DistDir )
 Clean.files = ( BuildDir, DistDir, 'test.err', 'test.log' )

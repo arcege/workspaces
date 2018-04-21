@@ -1,4 +1,4 @@
-#!/bin/bash
+:
 # Copyright @ 2017-2018 Michael P. Reilly. All rights reserved.
 # A small functional test suite
 
@@ -6,15 +6,9 @@ versionstr=SNAPSHOT
 
 cdir=$PWD
 
-testlib=$cdir/test/lib
-rundir=$cdir/test/runs
+testlib=$progdir/test/lib
+rundir=$progdir/test/runs
 
-( echo X${cdir}X
-  echo X${testlib}X
-  echo X${rundir}X
-) > /tmp/where.am.i.txt
-
-# see files for side-effects from each
 source $testlib/system.sh
 source $testlib/functions.sh
 source $testlib/testdir.sh

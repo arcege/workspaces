@@ -9,7 +9,12 @@
 
 case ${wshook__op} in
     enter)
-        export CDPATH="${CDPATH}:$WORKSPACE"
+        if [ $_ws_shell = zsh ]; then
+            setopt -o auto_cd
+            cdpath=()
+        else
+            export CDPATH="${CDPATH}:$WORKSPACE"
+        fi
         CDHOME="$WORKSPACE"
         cd () { [ $# -eq 0 ] && builtin cd ${CDHOME} || builtin cd "$@"; }
         if [ -z "${wshook__retdir}" -a -n "$cdpath_startdir" ]; then
@@ -19,8 +24,14 @@ case ${wshook__op} in
     leave)
         CDPATH="${CDPATH%:*}"
         unset CDHOME
-        if [ $(type -t cd) = function ]; then
-            unset cd
+        if [ $_ws_shell = bash ]; then
+            if [ $(type -t cd) = function ]; then
+                unset cd
+            fi
+        elif [ $_ws_shell = zsh ]; then
+            if [ "$(whence -v cd)" = "cd is a shell function" ]; then
+                unset -f cd
+            fi
         fi
         ;;
 esac

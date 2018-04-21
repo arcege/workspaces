@@ -12,7 +12,7 @@ test "$(ws stack | tr '\n' ' ')" = "default* (${cdir}) " || fail enter1 cmd ws+s
 ws leave
 test "${_ws__current}" = "" || fail leave _ws__current
 test "${_ws__stack[*]}" = "" || fail leave stack
-test "$(ws stack)" = "($PWD)" || fail leave ws+stack
+test "$(ws stack)" = "($cdir)" || fail leave ws+stack
 
 ws create foobar
 ws enter default

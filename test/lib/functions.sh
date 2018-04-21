@@ -3,16 +3,19 @@
 # if we clear out the $PATH, then we can assume that we are not getting corrupted
 # by the user's environment
 
+# we define the basic commands as function since we clear out $PATH
+# and use explicit paths
+
 function awk { /usr/bin/awk "$@"; }
 function basename { /usr/bin/basename ${1:+"$@"}; }
 function cat { /bin/cat ${1:+"$@"}; }
-function cd { command cd ${1:+"$@"}; }
+function cd { builtin cd ${1:+"$@"}; }
 function chmod { /bin/chmod "$@"; }
 function cmp { /usr/bin/cmp "$@"; }
 function cp { /bin/cp "$@"; }
 function date { /bin/date ${1:+"$@"}; }
 function dirname { /usr/bin/dirname ${1:+"$@"}; }
-function echo { command echo "$@"; }
+function echo { builtin echo "$@"; }
 function grep { /bin/grep "$@"; }
 function ln { /bin/ln "$@"; }
 function ls { /bin/ls ${1:+"$@"}; }

@@ -17,7 +17,7 @@ test "$(/bin/readlink $HOME/workspace)" = "$WS_DIR/default" || fail init link
 test "$(_ws_getdir default)" = "$WS_DIR/default" || fail routine getdir
 
 test "$(ws list)" = "default@" || fail init cmd ws+list
-test "$(ws stack)" = "($PWD)" || fail init cmd ws+stack
+test "$(ws stack)" = "($cdir)" || fail init cmd ws+stack
 
 # test plugins extracted properly
 test -d $WS_DIR/.ws/plugins || fail init dir plugins
