@@ -56,6 +56,8 @@
 # the config.sh is called on every operation, commands should not be executed
 # variables should be assigned
 
+WS_VERSION=SNAPSHOT
+
 if [ "x${ZSH_VERSION:+X}" = xX ]; then
     _ws_shell=zsh
 elif [ "x${BASH_VERSION:+X}" = xX ]; then
@@ -75,12 +77,11 @@ _WS_SOURCE="$_ws_dir/${_ws_prog##*/}"
 unset _ws_prog
 unset _ws_dir
 
-# global constants, per shell
-# unfortunately, bash 3 (macos) does not support declaring global vars
-WS_VERSION=SNAPSHOT
-
 : ${WS_DIR:=$HOME/workspaces}
 : ${_WS_DEBUGFILE:=$WS_DIR/.log}
+
+# global constants, per shell
+# unfortunately, bash 3 (macos) does not support declaring global vars
 
 # _ws__current is a global variable, but initialized below
 declare -a _ws__stack
@@ -120,7 +121,7 @@ case $OSTYPE in
 esac
 
 # To help avoid overridden commands by functions, aliases or paths,
-# we'll create our own functions here to use throughout the app; 
+# we'll create our own functions here to use throughout the app;
 function _ws_awk { /usr/bin/awk "$@"; }
 function _ws_basename { /usr/bin/basename ${1:+"$@"}; }
 function _ws_cat { /bin/cat ${1:+"$@"}; }
@@ -166,6 +167,50 @@ _ws_error () {
     _ws_echo ${1:+"$@"} >&2
 }
 
+_ws_upgrade_warning () {
+    if [ x$_ws__seen_upgrade_warning != xtrue ]; then
+        _ws_cat <<'EOF' >&2
+It appears that the install program did not run. While hooks will still be
+called for backward compatibility, some aspects (e.g. config mgmt) may not
+work properly.
+Please run ./install.sh from the distribution which will upgrade the
+data structures for the new release of workspaces.
+EOF
+        _ws__seen_upgrade_warning=true
+    fi
+}
+
+_ws_get_yesterday() {
+    if $is_linux; then
+        _ws_date --date=yesterday +%Y%m%d%H%M
+    else
+        _ws_date -v -1d +%Y%m%d%H%M
+    fi
+}
+
+_ws_prompt_yesno () {
+    local msg="$*"
+    if [ -t 0 ]; then
+        _ws_echo -n "$msg [y/N]  "
+        while true; do
+            read ANS
+            case $ANS in
+                y|Y|ye|YE|yes|YES)
+                    return 0
+                    ;;
+                n|N|no|NO)
+                    return 1
+                    ;;
+                *)
+                    _ws_echo 'Expecting "y" or "n"... try again.'
+                    ;;
+            esac
+        done
+    else
+        return 1
+    fi
+}
+
 # write to the logfile based on the logging level
 # if first is 'config', then change output location or level
 _ws_debug () {
@@ -206,19 +251,6 @@ _ws_debug () {
             return 1
             ;;
     esac
-}
-
-_ws_upgrade_warning () {
-    if [ x$_ws__seen_upgrade_warning != xtrue ]; then
-        _ws_cat <<'EOF' >&2
-It appears that the install program did not run. While hooks will still be
-called for backward compatibility, some aspects (e.g. config mgmt) may not
-work properly.
-Please run ./install.sh from the distribution which will upgrade the
-data structures for the new release of workspaces.
-EOF
-        _ws__seen_upgrade_warning=true
-    fi
 }
 
 # implement a stack
@@ -375,52 +407,17 @@ _ws_getdir () {
     fi
 }
 
-
-# manage the ~/workspace symbolic link
-# operations include:
-# -  get  - return the referant (readline)
-# -  set  - replace the symlink
-# -  del  - delete the symlink
-_ws_link () {
+# create an "empty" config file
+# arguments:
+#  filename
+_ws_generate_config () {
+    local file="$1"
     _ws_debug 7 args "$@"
-    local linkfile="$HOME/workspace"
-    case $1 in
-        get)
-            if [ -h ${linkfile} ]; then
-                _ws_readlink ${linkfile}
-            else
-                _ws_debug 3 "no link"
-                return 1
-            fi
-            ;;
-        set)
-            if [ -e ${linkfile} -a ! -h ${linkfile} ]; then
-                _ws_error "Error: ~/workspace is not a symlink"
-                _ws_debug 1 "~/workspace is not a symlink"
-                return 1
-            elif [ $# -le 1 ]; then
-                _ws_error "Error: expecting directory"
-                _ws_debug 1 "No argument given."
-                return 1
-            elif [ ! -e "$2" ]; then
-                _ws_error "Error: no such workspace"
-                _ws_debug 1 "No file given."
-                return 1
-            fi
-            _ws_rm -f ${linkfile}
-            _ws_ln -s "$2" ${linkfile}
-            _ws_debug 2 "linking to $2"
-            ;;
-        del)
-            if [ -h ${linkfile} ]; then
-                _ws_rm -f ${linkfile}
-            elif [ -e ${linkfile} ]; then
-                _ws_error "Error: ~/workspace is not a symlink"
-                _ws_debug 1 "~/workspace is not a symlink"
-                return 1
-            fi
-            ;;
-    esac
+    if [ x${file:+X} = xX -a -d "${file%/*}" ]; then
+        _ws_cat > "$file" <<EOF
+: assignment used in .ws/hook.sh
+EOF
+    fi
 }
 
 # retrieve, remove or add/change variable in a config file
@@ -570,40 +567,6 @@ _ws_cmd_config () {
     _ws_config_edit "$file" $op "$var" "$val"
 }
 
-_ws_parse_configvars () {
-    local i cfgfile="$1"
-    local sedscr1 sedscr2
-    local sedfile=$(_ws_mktemp)
-    _ws_cat > ${sedfile} <<'EOF'
-/=/!d
-/_WS_/d
-/_ws_/d
-/_wshook_/d
-s/\\t/ /g
-s/^ *//
-s/ *$//
-/="/{
-  s//=/
-  s/".*//
-  b
-}
-/='/{
-  s//=/
-  s/'.*//
-  b
-}
-EOF
-    (
-        shift
-        for i in "$@"; do
-            case $i in
-                *=*) _ws_echo "$i";;
-                *)  _ws_cat "$i";;
-            esac
-        done
-    ) | _ws_sed -f "$sedfile" >> $cfgfile
-}
-
 _ws_show_config_vars () {
     local sdir wsdir sedscr wsname
     local wantgl=true wantws=true mode=normal modechr
@@ -637,6 +600,40 @@ _ws_show_config_vars () {
             _ws_sed -ne "/^[A-Za-z0-9_]*=/{${sedscr};s/^/${modechr}/;p;}" "$wsdir/.ws/config.sh"
         fi
     } | _ws_sort
+}
+
+_ws_parse_configvars () {
+    local i cfgfile="$1"
+    local sedscr1 sedscr2
+    local sedfile=$(_ws_mktemp)
+    _ws_cat > ${sedfile} <<'EOF'
+/=/!d
+/_WS_/d
+/_ws_/d
+/_wshook_/d
+s/\\t/ /g
+s/^ *//
+s/ *$//
+/="/{
+  s//=/
+  s/".*//
+  b
+}
+/='/{
+  s//=/
+  s/'.*//
+  b
+}
+EOF
+    (
+        shift
+        for i in "$@"; do
+            case $i in
+                *=*) _ws_echo "$i";;
+                *)  _ws_cat "$i";;
+            esac
+        done
+    ) | _ws_sed -f "$sedfile" >> $cfgfile
 }
 
 _ws_show_plugin_vars () {
@@ -841,19 +838,6 @@ _ws_copy_skel () {
         _ws_debug 3 "copy .skel.sh to $1"
     else
         _ws_debug 4 "no skel.sh to copy"
-    fi
-}
-
-# create an "empty" config file
-# arguments:
-#  filename
-_ws_generate_config () {
-    local file="$1"
-    _ws_debug 7 args "$@"
-    if [ x${file:+X} = xX -a -d "${file%/*}" ]; then
-        _ws_cat > "$file" <<EOF
-: assignment used in .ws/hook.sh
-EOF
     fi
 }
 
@@ -1238,6 +1222,113 @@ _ws_cmd_destroy () {
     fi
 }
 
+# convert a directory to a workspace, do:
+# - create a .ws/ directory
+# - copy the skel.sh to hook.sh
+# - create a config.sh db
+# - update configs db from cli data
+# - add plugins
+_ws_convert_ws () {
+    _ws_debug 7 args "$@"
+    local plugin wsdir wsname="$1" plugins="$2" cfgfile="$3"
+    # we don't use _ws_getdir here since it may give a false value
+    wsdir="$WS_DIR/$wsname"
+    if [ -z "$wsname" ]; then
+        _ws_error "No name given"
+        _ws_debug 2 "no name"
+        return 1
+    elif [ ! -d "$wsdir" ]; then
+        _ws_error "No directory to convert: $wsdir"
+        _ws_debug 2 "no directory"
+        return 1
+    elif [ -d "$wsdir/.ws" ]; then
+        _ws_echo "Already a workspace"
+        _ws_debug 2 "Workspace exists"
+        return 1
+    fi
+    _ws_mkdir $wsdir/.ws
+    _ws_copy_skel "$wsdir"
+    _ws_generate_config "$wsdir/.ws/config.sh"
+    # add assignments from cli
+    if [ -s "$cfgfile" ]; then
+        _ws_cmd_config load "$wsname" "$cfgfile"
+    fi
+    for plugin in $plugins; do
+        _ws_cmd_plugin add $wsname $plugin
+    done
+    _ws_debug 1 "$wsdir converted"
+}
+
+# convert a directory to a workspaces structure
+# move it into $WS_DIR if it is not already
+_ws_cmd_convert () {
+    _ws_debug 7 args "$@"
+    local moveto wsname="$1" srcdir="$2" plugins="$3" cfgfile="$4"
+    if [ ! -d "$srcdir" ]; then
+        _ws_error "No such directory: $srcdir"
+        _ws_debug 2 "src directory does not exist"
+        return 1
+    fi
+    if [ "$srcdir" = "$WS_DIR/$wsname" ]; then
+        moveto="$srcdir"
+    elif [ -d "$WS_DIR/$wsname" ]; then
+        _ws_error "Workspace already exists: $wsname"
+        _wsdebug 2 "workspace exists"
+        return 1
+    else
+        moveto="$WS_DIR/$wsname"
+        _ws_mv "$srcdir" "$moveto"
+    fi
+    _ws_convert_ws $wsname "$plugins" "$cfgfile"
+}
+
+# manage the ~/workspace symbolic link
+# operations include:
+# -  get  - return the referant (readline)
+# -  set  - replace the symlink
+# -  del  - delete the symlink
+_ws_link () {
+    _ws_debug 7 args "$@"
+    local linkfile="$HOME/workspace"
+    case $1 in
+        get)
+            if [ -h ${linkfile} ]; then
+                _ws_readlink ${linkfile}
+            else
+                _ws_debug 3 "no link"
+                return 1
+            fi
+            ;;
+        set)
+            if [ -e ${linkfile} -a ! -h ${linkfile} ]; then
+                _ws_error "Error: ~/workspace is not a symlink"
+                _ws_debug 1 "~/workspace is not a symlink"
+                return 1
+            elif [ $# -le 1 ]; then
+                _ws_error "Error: expecting directory"
+                _ws_debug 1 "No argument given."
+                return 1
+            elif [ ! -e "$2" ]; then
+                _ws_error "Error: no such workspace"
+                _ws_debug 1 "No file given."
+                return 1
+            fi
+            _ws_rm -f ${linkfile}
+            _ws_ln -s "$2" ${linkfile}
+            _ws_debug 2 "linking to $2"
+            ;;
+        del)
+            if [ -h ${linkfile} ]; then
+                _ws_rm -f ${linkfile}
+            elif [ -e ${linkfile} ]; then
+                _ws_error "Error: ~/workspace is not a symlink"
+                _ws_debug 1 "~/workspace is not a symlink"
+                return 1
+            fi
+            ;;
+    esac
+}
+
 # update the ~/workspace symlink to a workspace directory
 # arguments:
 #  workspace name - if not given, use the current workspace
@@ -1345,66 +1436,6 @@ _ws_cmd_stack () {
     esac
 }
 
-# convert a directory to a workspace, do:
-# - create a .ws/ directory
-# - copy the skel.sh to hook.sh
-# - create a config.sh db
-# - update configs db from cli data
-# - add plugins
-_ws_convert_ws () {
-    _ws_debug 7 args "$@"
-    local plugin wsdir wsname="$1" plugins="$2" cfgfile="$3"
-    # we don't use _ws_getdir here since it may give a false value
-    wsdir="$WS_DIR/$wsname"
-    if [ -z "$wsname" ]; then
-        _ws_error "No name given"
-        _ws_debug 2 "no name"
-        return 1
-    elif [ ! -d "$wsdir" ]; then
-        _ws_error "No directory to convert: $wsdir"
-        _ws_debug 2 "no directory"
-        return 1
-    elif [ -d "$wsdir/.ws" ]; then
-        _ws_echo "Already a workspace"
-        _ws_debug 2 "Workspace exists"
-        return 1
-    fi
-    _ws_mkdir $wsdir/.ws
-    _ws_copy_skel "$wsdir"
-    _ws_generate_config "$wsdir/.ws/config.sh"
-    # add assignments from cli
-    if [ -s "$cfgfile" ]; then
-        _ws_cmd_config load "$wsname" "$cfgfile"
-    fi
-    for plugin in $plugins; do
-        _ws_cmd_plugin add $wsname $plugin
-    done
-    _ws_debug 1 "$wsdir converted"
-}
-
-# convert a directory to a workspaces structure
-# move it into $WS_DIR if it is not already
-_ws_cmd_convert () {
-    _ws_debug 7 args "$@"
-    local moveto wsname="$1" srcdir="$2" plugins="$3" cfgfile="$4"
-    if [ ! -d "$srcdir" ]; then
-        _ws_error "No such directory: $srcdir"
-        _ws_debug 2 "src directory does not exist"
-        return 1
-    fi
-    if [ "$srcdir" = "$WS_DIR/$wsname" ]; then
-        moveto="$srcdir"
-    elif [ -d "$WS_DIR/$wsname" ]; then
-        _ws_error "Workspace already exists: $wsname"
-        _wsdebug 2 "workspace exists"
-        return 1
-    else
-        moveto="$WS_DIR/$wsname"
-        _ws_mv "$srcdir" "$moveto"
-    fi
-    _ws_convert_ws $wsname "$plugins" "$cfgfile"
-}
-
 # generate the initial structure with an empty default workspace
 _ws_cmd_initialize () {
     if [ $# -gt 0 ]; then
@@ -1433,11 +1464,83 @@ _ws_cmd_initialize () {
     _ws_link set $(_ws_getdir default)
 }
 
-_ws_get_yesterday() {
-    if $is_linux; then
-        _ws_date --date=yesterday +%Y%m%d%H%M
+# remove the workspaces structure, and optionally the application
+_ws_cmd_release () {
+    local to_move full=false force=false
+    while [ $# -gt 0 ]; do
+        case $1 in
+            -h|--help)
+                _ws_echo "ws release [--help|--full] [-y|--yes] [{wsname}]"
+                _ws_echo "  --help    - this message"
+                _ws_echo "  --full    - uninstall the code and workspace"
+                _ws_echo "  -y|--yes  - force the operation (when no tty)"
+                _ws_echo "  {wsname}  - optionall restore workspace to ~/workspace"
+                return 0
+                ;;
+            --full)
+                full=true
+                ;;
+            -y|--yes)
+                force=true
+                ;;
+            *)
+                to_move="$(_ws_getdir $1)"
+                if [ $? -ne 0 ]; then
+                    _ws_error "Not a valid workspace, aborting..."
+                    return 1
+                fi
+                ;;
+        esac
+        shift
+    done
+    # ensure that we really want to destroy the whole thing
+    if $force || _ws_prompt_yesno "Do you really wish to release ${WS_DIR}?"; then
+        _ws_debug config -
+        _ws_debug 3 "releasing ${WS_DIR}..."
+        _ws_link del  # unlink ~/workspace@
+        if [ -n "$to_move" -a ! -d "$to_move" ]; then
+            _ws_error "Invalid workspace to restore, aborting..."
+            return 1
+        elif [ -n "$to_move" ]; then
+            _ws_mv "$to_move" "$HOME/workspace"
+            _ws_debug 1 "moved $to_move $HOME/workspace"
+            _ws_rm -rf $HOME/workspace/.ws  # delete the workspace's .ws structure
+        fi
+        _ws_rm -rf $WS_DIR  # remove the workspaces and ~/workspaces/
+        _ws_debug 1 "removed workspace structure"
+        if $full; then
+            local name variables
+            _ws_debug 3 "removing code."
+            _ws_rm -rf $HOME/.ws      # remove installation directory
+            _ws_rm -f $bASHDIR/ws.sh  # remove the bash link
+            _ws_rm -f $HOME/bin/wsh   # remove the standalone tool
+            _ws_rm -f $_WS_SOURCE     # remove the application file (if left over)
+            _ws_rm -f $HOME/.ws_plugins.tbz2   # (if left over)
+            _ws_rm -f $HOME/.ws_versions.txt   # (if left over)
+            variables=$(set | _ws_sed -ne '/^_ws_[a-zA-Z0-9_]*/s/ ()//p')
+            for name in $variables; do
+                unset $name
+            done
+            if [ $_ws_shell = bash ]; then
+                unset ws
+                unset _ws__seen_upgrade_warning
+            elif [ $_ws_shell = zsh ]; then
+                unset -f ws
+                unset -f _ws__seen_upgrade_warning
+            fi
+            unset W_DIR _ws__stack unset _ws__current
+            unset WS_DEBUG _WS_DEBUGFILE _WS_SOURCE
+            unset _ws_shell
+            unset _ws__seen_upgrade_warning
+            return 0
+        else
+            WS_DIR=$HOME/workspaces
+            _ws__stack=()
+            _ws__current=""
+            return 0
+        fi
     else
-        _ws_date -v -1d +%Y%m%d%H%M
+        return 1
     fi
 }
 
@@ -1533,109 +1636,6 @@ _ws_cmd_upgrade () {
     fi
     rm -rf $tmpfile $tmpdir
     return $rc
-}
-
-# remove the workspaces structure, and optionally the application
-_ws_cmd_release () {
-    local to_move full=false force=false
-    while [ $# -gt 0 ]; do
-        case $1 in
-            -h|--help)
-                _ws_echo "ws release [--help|--full] [-y|--yes] [{wsname}]"
-                _ws_echo "  --help    - this message"
-                _ws_echo "  --full    - uninstall the code and workspace"
-                _ws_echo "  -y|--yes  - force the operation (when no tty)"
-                _ws_echo "  {wsname}  - optionall restore workspace to ~/workspace"
-                return 0
-                ;;
-            --full)
-                full=true
-                ;;
-            -y|--yes)
-                force=true
-                ;;
-            *)
-                to_move="$(_ws_getdir $1)"
-                if [ $? -ne 0 ]; then
-                    _ws_error "Not a valid workspace, aborting..."
-                    return 1
-                fi
-                ;;
-        esac
-        shift
-    done
-    # ensure that we really want to destroy the whole thing
-    if $force || _ws_prompt_yesno "Do you really wish to release ${WS_DIR}?"; then
-        _ws_debug config -
-        _ws_debug 3 "releasing ${WS_DIR}..."
-        _ws_link del  # unlink ~/workspace@
-        if [ -n "$to_move" -a ! -d "$to_move" ]; then
-            _ws_error "Invalid workspace to restore, aborting..."
-            return 1
-        elif [ -n "$to_move" ]; then
-            _ws_mv "$to_move" "$HOME/workspace"
-            _ws_debug 1 "moved $to_move $HOME/workspace"
-            _ws_rm -rf $HOME/workspace/.ws  # delete the workspace's .ws structure
-        fi
-        _ws_rm -rf $WS_DIR  # remove the workspaces and ~/workspaces/
-        _ws_debug 1 "removed workspace structure"
-        if $full; then
-            local name variables
-            _ws_debug 3 "removing code."
-            _ws_rm -rf $HOME/.ws      # remove installation directory
-            _ws_rm -f $bASHDIR/ws.sh  # remove the bash link
-            _ws_rm -f $HOME/bin/wsh   # remove the standalone tool
-            _ws_rm -f $_WS_SOURCE     # remove the application file (if left over)
-            _ws_rm -f $HOME/.ws_plugins.tbz2   # (if left over)
-            _ws_rm -f $HOME/.ws_versions.txt   # (if left over)
-            variables=$(set | _ws_sed -ne '/^_ws_[a-zA-Z0-9_]*/s/ ()//p')
-            for name in $variables; do
-                unset $name
-            done
-            if [ $_ws_shell = bash ]; then
-                unset ws
-                unset _ws__seen_upgrade_warning
-            elif [ $_ws_shell = zsh ]; then
-                unset -f ws
-                unset -f _ws__seen_upgrade_warning
-            fi
-            unset W_DIR _ws__stack unset _ws__current
-            unset WS_DEBUG _WS_DEBUGFILE _WS_SOURCE
-            unset _ws_shell
-            unset _ws__seen_upgrade_warning
-            return 0
-        else
-            WS_DIR=$HOME/workspaces
-            _ws__stack=()
-            _ws__current=""
-            return 0
-        fi
-    else
-        return 1
-    fi
-}
-
-_ws_prompt_yesno () {
-    local msg="$*"
-    if [ -t 0 ]; then
-        _ws_echo -n "$msg [y/N]  "
-        while true; do
-            read ANS
-            case $ANS in
-                y|Y|ye|YE|yes|YES)
-                    return 0
-                    ;;
-                n|N|no|NO)
-                    return 1
-                    ;;
-                *)
-                    _ws_echo 'Expecting "y" or "n"... try again.'
-                    ;;
-            esac
-        done
-    else
-        return 1
-    fi
 }
 
 _ws_cmd_help () {
@@ -2152,6 +2152,7 @@ if [ $_ws_shell = bash ] && _ws_echo $- | _ws_grep -Fq i; then  # only for inter
     complete -F _ws_complete ws
 fi
 
+# for when called by wsh
 if [ x${_WS_SHELL_WORKSPACE:+X} = xX ]; then
     _ws_echo "Switching to ${_WS_SHELL_WORKSPACE}"
     ws enter "${_WS_SHELL_WORKSPACE}"

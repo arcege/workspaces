@@ -26,6 +26,9 @@ command -v _ws_config_edit >&4 || fail routine _ws_config_edit
 command -v _ws_cmd_plugin >&4 || fail routine _ws_cmd_plugin
 command -v _ws_parse_configvars >&4 || fail routine _ws_parse_configvars
 command -v _ws_prompt_yesno >&4 || fail routine _ws_prompt_yesno
+command -v _ws_get_yesterday >&4 || fail routine _ws_get_yesterday
+command -v _ws_upgrade_warning >&4 || fail routine _ws_upgrade_warning
 command -v _ws_convert_ws >&4 || fail routine _ws_convert_ws
 command -v _ws_error >&4 || fail routine _ws_error
+command -v _ws_log >&4 || fail routine _ws_log
 
