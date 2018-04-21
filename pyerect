@@ -16,7 +16,8 @@ ReleaseFiles = (
     'test-bash.sh', 'test-zsh.sh', 'test-common.sh',
 ) + tuple(Path('plugins')) + tuple(Path('test', 'lib')) + tuple(Path('test', 'runs'))
 
-class CleanTest(Clean):
+class Cleantest(Clean):
+    """Remove files generated from the test suite."""
     files = (WsDir + 'test.err', WsDir + 'test.log')
 
 Packaging.tasks = (
@@ -24,7 +25,7 @@ Packaging.tasks = (
         root=BuildDir, name=TarFile.value),
 )
 Packaging.dependencies = (
-    CleanTest,
+    Cleantest,
 )
 
 class SpawnTask(Task):
