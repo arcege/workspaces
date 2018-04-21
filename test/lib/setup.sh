@@ -19,7 +19,7 @@ cmderr=${TMPDIR}/lastcmd.err
 unset WORKSPACE
 
 _WS_DEBUGFILE=$PWD/test.log
-WS_DEBUG=7
+WS_DEBUG=4
 rm -f $_WS_DEBUGFILE
 
 mkdir -p $HOME/.ws  # relative to TMPDIR
