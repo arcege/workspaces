@@ -1463,7 +1463,7 @@ _ws_get_versions () {
         resturl="${resturl}/workspaces/downloads/"
         _ws_curl -sX GET $resturl | _ws_python -m json.tool |
             _ws_sed '/href.*\/downloads\//!d;s!.*/workspaces-\(.*\).tgz.*!\1!' |
-            _ws_grep -Fv '[S]NAPSHOT' |   # ignore dev version
+            _ws_grep -v '[S]NAPSHOT' |    # ignore dev version
             _ws_grep -v 'b[1-9][0-9]*' |  # ignore beta release
             _ws_sort -t. -n > $cachefile
         _ws_debug 3 "cached versions from $resturl"
