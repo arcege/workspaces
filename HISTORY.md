@@ -1,5 +1,13 @@
 # Workspaces
 
+## 0.5
+* Add beta zsh support
+  * Functional, but not passing test suite
+* Add "versions" command, which will show the available versions and can invalidate
+  the cache.
+* Change "debug" to "logging"; keeping debug for backward compatibility.
+* [Internal] Reorg the ws.sh script for better maintenance.
+
 ## 0.4.5
 * Use version file instead of static version strings.
 * Fix hardlinking of plugins on upgrade.
