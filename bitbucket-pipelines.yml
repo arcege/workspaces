@@ -16,12 +16,6 @@ pipelines:
            - pip install -r requirements.txt
            - ./pyerect test upload
 
-  tags:
-    test*:
-      - step:
-          script:
-            - echo this ran on pushing a test tag
-
   custom:  # manually triggered
     manual:
       - step:
