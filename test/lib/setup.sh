@@ -18,7 +18,7 @@ cmderr=${TMPDIR}/lastcmd.err
 
 unset WORKSPACE
 
-_WS_DEBUGFILE=$PWD/test.log
+_WS_LOGFILE=$PWD/test.log
 WS_DEBUG=4
 rm -f $_WS_DEBUGFILE
 
