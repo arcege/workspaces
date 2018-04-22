@@ -18,7 +18,10 @@ ReleaseFiles = (
 
 class Cleantest(Clean):
     """Remove files generated from the test suite."""
-    files = (WsDir + 'test.err', WsDir + 'test.log')
+    files = (
+        'test.err', 'test.log',
+        WsDir + 'test.err', WsDir + 'test.log'
+    )
 
 Packaging.tasks = (
     Tar(WsDir,
