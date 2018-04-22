@@ -1545,23 +1545,42 @@ _ws_cmd_release () {
     fi
 }
 
-_ws_get_versions () {
-    local cachefile=$HOME/.ws/versions.txt
+_ws_get_version_cachefile () {
     # backward compatibility
-    if [ ! -d $HOME/.ws -a -f $HOME/.ws_version.txt ]; then
-        cachefile=$HOME/.ws_version.txt
+    if [ ! -d $HOME/.ws -a $HOME/.ws_version.txt ]; then
+        _ws_echo $HOME/.ws_version.txt
+    else
+        _ws_echo $HOME/.ws/versions.txt
     fi
-    local tmpfile=$(_ws_mktemp)
-    if [ -f $cachefile ]; then
-        local when=$(_ws_get_yesterday)
-        _ws_touch -mt "${when}" $tmpfile
-        # if older than a day, invalidate the cache
-        if [ $cachefile -ot $tmpfile ]; then
-            _ws_rm -f $cachefile
-            _ws_log 3 "invalidate version cache"
-        fi
+}
+
+_ws_isold_version_cache () {
+    local file
+    file=$(_ws_get_version_cachefile)
+    if [ -f $file ]; then
+        local irc tmpfile when
+        tmpfile=$(_ws_mktemp)
+        when=$(_ws_get_yesterday)
+        _ws_touch -mt ${when} $tmpfile
+        test $file -ot $tmpfile
+        irc=$?
         _ws_rm -f $tmpfile
+        return $irc
+    else
+        return 0
     fi
+}
+
+_ws_clear_version_cache () {
+    _ws_rm -f $(_ws_get_version_cachefile)
+}
+
+_ws_get_versions () {
+    local cachefile
+    if _ws_isold_version_cache; then
+        _ws_clear_version_cache
+    fi
+    cachefile=$(_ws_get_version_cachefile) # if it was backward, move forward
     if [ ! -f $cachefile ]; then
         local resturl="https://api.bitbucket.org/2.0/repositories/Arcege"
         resturl="${resturl}/workspaces/downloads/"
@@ -1670,6 +1689,7 @@ ws [<cmd> [<args>]]
                              - convert directory to workspace
   help|-h|--help             - this message
   version                    - display version number
+  versions [clear|regexp]    - show available versions, or clear cache
   [<name>]                   - same as 'ws enter [<name>]'
 * <cfg> is either a filename ('=' not allowed) with configuration assignments
   or variable assignments in the form VAR=VALUE
@@ -1755,6 +1775,17 @@ ws () {
             ;;
         version)
             _ws_echo "$WS_VERSION"
+            ;;
+        versions)
+            if [ $# -gt 0 ]; then
+                if [ "x$1" = xclear ]; then
+                    _ws_clear_version_cache
+                else
+                    _ws_get_versions | _ws_grep -e "$1"
+                fi
+            else
+                _ws_get_versions
+            fi
             ;;
         config)
             _ws_cmd_config "$@"
@@ -1847,7 +1878,7 @@ if [ $_ws_shell = bash ] && _ws_echo $- | _ws_grep -Fq i; then  # only for inter
         options="-h --help"
         commands="config convert create current debug destroy enter help hook"
         commands="$commands initialize leave list logging plugin relink reload"
-        commands="$commands stack release state upgrade validate version"
+        commands="$commands stack release state upgrade validate version versions"
         names=$(ws list -q | _ws_tr '\n' ' ')
         COMPREPLY=()
         #compopt +o default  # not available on Darwin version of bash
@@ -1923,6 +1954,11 @@ if [ $_ws_shell = bash ] && _ws_echo $- | _ws_grep -Fq i; then  # only for inter
                         COMPREPLY=( $(compgen -W "help del" -- ${cur}) )
                     elif [ $COMP_CWORD -gt 2 -a x${prev} = xdel ]; then
                         COMPREPLY=( $(compgen -W  "$names" -- ${cur}) )
+                    fi
+                    ;;
+                versions)
+                    if [ $COMP_CWORD -eq 2 ]; then
+                        COMPREPLY=( $(compgen -W "clear $(_ws_get_versions)" -- ${cur}) )
                     fi
                     ;;
                 hook)
