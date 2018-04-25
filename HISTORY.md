@@ -5,6 +5,7 @@
 * Add test for ws+initialize return code.
 * Properly parse the bitbucket\_repos and github\_repos in zsh (and bash) using a temporary
   array.
+* [Internal] Reorg the test scripts to all be under test/.
 
 ## 0.5
 * Add beta zsh support

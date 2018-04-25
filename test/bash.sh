@@ -7,5 +7,5 @@ export SHELL=$(type -p bash | awk '{print $NF}')
 prog=${BASH_SOURCE[0]}
 progdir=$(cd $(dirname $prog); pwd)
 
-source $progdir/test-common.sh
+source $progdir/common.sh
 exit $?

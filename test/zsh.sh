@@ -7,6 +7,7 @@ export SHELL=$(type -p zsh | awk '{print $NF}')
 prog=${(%):-%x}
 progdir=$(cd $(dirname $prog); pwd)
 
-source $progdir/test-common.sh
+unset _WS_SOURCE
+source $progdir/common.sh
 exit $?
 

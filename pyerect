@@ -13,8 +13,8 @@ TarFile = DistDir + 'workspaces.tgz'
 
 ReleaseFiles = (
     'install.sh', 'LICENSE.txt', 'README.md', 'ws.sh', 'wsh.sh', VersionFile,
-    'test-bash.sh', 'test-zsh.sh', 'test-common.sh',
-) + tuple(Path('plugins')) + tuple(Path('test', 'lib')) + tuple(Path('test', 'runs'))
+) + tuple(Path('plugins')) \
+  + tuple(Path('test')) + tuple(Path('test', 'lib')) + tuple(Path('test', 'runs'))
 
 class Cleantest(Clean):
     """Remove files generated from the test suite."""
@@ -38,17 +38,17 @@ class SpawnTask(Task):
 
 Compile.tasks = (
     Copy(*ReleaseFiles, dest=WsDir),
-    Tokenize('ws.sh', 'test-common.sh', dest=WsDir,
+    Tokenize('ws.sh', 'test/common.sh', dest=WsDir,
         tokenmap=VariableSet(
             FileVariable('SNAPSHOT', 'version'),
         )
     ),
 )
 
-
 Testonly.tasks = (
-    SpawnTask('./test-bash.sh'),
+    SpawnTask('./test/bash.sh'),
 )
+
 InitDirs.files = ( WsDir, DistDir )
 Clean.files = ( BuildDir, DistDir, 'test.err', 'test.log' )
 

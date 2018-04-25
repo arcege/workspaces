@@ -4,10 +4,15 @@
 
 versionstr=SNAPSHOT
 
+if [ -z "$progdir" -o ! -d "$progdir" ]; then
+    echo "Expecting this to be called from another script."
+    exit 1
+fi
+
 cdir=$PWD
 
-testlib=$progdir/test/lib
-rundir=$progdir/test/runs
+testlib=$progdir/lib
+rundir=$progdir/runs
 
 source $testlib/system.sh
 source $testlib/functions.sh
