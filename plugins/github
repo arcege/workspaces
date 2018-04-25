@@ -7,9 +7,15 @@
 # uses github_push_on_leave - non-empty (true) or empty (false)
 
 if [ -n "$github_repos" -a -n "$github_org" ]; then
+    if [ $_ws_shell = bash ]; then
+        repos=( ${github_repos// / } )
+    elif [ $_ws_shell = zsh ]; then
+        repos=( ${(s/ /)github_repos} )
+    fi
+
     case ${wshook__op} in
         create)
-            for reponame in $github_repos; do
+            for reponame in $repos; do
                 case $reponame in
                     *:*)  # has a branch
                           ref=${reponame#*:}
@@ -27,7 +33,7 @@ if [ -n "$github_repos" -a -n "$github_org" ]; then
             ;;
         enter)
             if [ -n "$github_fetch_on_enter" ]; then
-                for reponame in $github_repos; do
+                for reponame in $repos; do
                     case $reponame in
                         *:*)  # has a branch
                               reponame=${reponame%%:*}
@@ -39,7 +45,7 @@ if [ -n "$github_repos" -a -n "$github_org" ]; then
             ;;
         leave)
             if [ -n "$github_push_on_leave" ]; then
-                for reponame in $github_repos; do
+                for reponame in $repos; do
                     case $reponame in
                         *:*)  # has a branch
                               reponame=${reponame%%:*}
@@ -51,3 +57,4 @@ if [ -n "$github_repos" -a -n "$github_org" ]; then
             ;;
     esac
 fi
+unset repos
