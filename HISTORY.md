@@ -1,5 +1,8 @@
 # Workspaces
 
+## 0.5.0.2
+* [Internal] Reorg the test scripts to all be under test/.
+
 ## 0.5
 * Add beta zsh support
   * Functional, but not passing test suite
