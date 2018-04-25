@@ -1,5 +1,11 @@
 # Workspaces
 
+## 0.5.0.1
+* Fix function name in \_ws\_log.
+* Add test for ws+initialize return code.
+* Properly parse the bitbucket\_repos and github\_repos in zsh (and bash) using a temporary
+  array.
+
 ## 0.5
 * Add beta zsh support
   * Functional, but not passing test suite

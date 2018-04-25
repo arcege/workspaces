@@ -238,7 +238,12 @@ _ws_log () {
                 shift
                 proc="($$:$(_ws_tty))"
                 when=$(_ws_date +%Y%m%d.%H%M%S)
-                func="${FUNCNAME[1]}"  # The calling routine
+                # get the calling routine name
+                if [ $_ws_shell = bash ]; then
+                    funct="${FUNCNAME[1]}"
+                elif [ $_ws_shell = zsh ]; then
+                    funct=${funcstack[2]}
+                fi
                 msg="${when}${proc}${funct}[$lvl] $*"
                 if [ "x${_WS_LOGFILE}" = x- ]; then # stdout
                     _ws_echo "$msg"
@@ -528,18 +533,21 @@ _ws_cmd_config () {
             local text maxlen workspaces=$(_ws_cmd_list --workspace -q)
             maxlen=$(_ws_echo "$workspaces" | _ws_awk '{if (length>max) {max=length}} END{print max}')
             shift  # move over op
+            _ws_center_justify () {
+                _ws_awk -F: '{fmt=sprintf("%%%ds: %%s\n", N)} { printf(fmt, $1, $2) }' N=$maxlen
+            }
             for var in "$@"; do
                 _ws_cmd_config list --global -q | _ws_grep -e "$var" | while read val; do
                     text=$(_ws_cmd_config get --global $val)
-                    printf '%*s: '"$val=$text"'\n' $maxlen "--global"
+                    _ws_echo "--global:$val=$text"
                 done
                 for wsname in $(_ws_cmd_list -q); do
                     _ws_cmd_config list -w -q $wsname | _ws_grep -e "$var" | while read val; do
                         text=$(_ws_cmd_config get $wsname $val)
-                        printf '%*s: '"$val=$text"'\n' $maxlen "$wsname"
+                        _ws_echo "${wsname}:${val}=${text}"
                     done
                 done
-            done
+            done | _ws_center_justify
             return 0
             ;;
         "")

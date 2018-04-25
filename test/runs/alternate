@@ -3,6 +3,7 @@
 # Testing alternate structure
 
 ws initialize $HOME/alternate
+test $? -eq 0 || fail init alternate
 
 test $WS_DIR = $HOME/alternate || fail init alternate set
 test -d $HOME/alternate || fail init alternate created
