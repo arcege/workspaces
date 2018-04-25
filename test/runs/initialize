@@ -1,6 +1,7 @@
 :
 
 ws initialize
+test $? -eq 0 || fail init standard
 
 test -d "$WS_DIR" || fail init dir WS_DIR/
 test -d "$WS_DIR/.ws" || fail init dir WS_DIR/.ws/
