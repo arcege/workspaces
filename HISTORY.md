@@ -1,5 +1,8 @@
 # Workspaces
 
+## 0.5.0.2
+* Fix install.sh where neither .bash.d or .bash exist, causing hangs and errors.
+
 ## 0.5.0.1
 * Fix function name in \_ws\_log.
 * Add test for ws+initialize return code.

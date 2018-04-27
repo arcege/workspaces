@@ -39,6 +39,8 @@ if [ $_ws_envshell = bash ]; then
         _BASHDIR=$HOME/.bash.d
     elif [ -d $HOME/.bash ]; then
         _BASHDIR=$HOME/.bash
+    else
+        _BASHDIR=$HOME/.bash.d
     fi
 fi
 
