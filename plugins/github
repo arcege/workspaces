@@ -62,5 +62,5 @@ if [ -n "$github_repos" -a -n "$github_org" -a -z "$github_no_hooks" ]; then
             fi
             ;;
     esac
+    unset repos
 fi
-unset repos
