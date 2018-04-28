@@ -5,8 +5,10 @@
 # uses github_org - Arcege or whichever user/organization in github
 # uses github_fetch_on_enter - non-empty (true) or empty (false)
 # uses github_push_on_leave - non-empty (true) or empty (false)
+# if GITHUB_HTTPS is set, then do not use ssh access
+# if github_no_hooks is set, then do not perform operations
 
-if [ -n "$github_repos" -a -n "$github_org" ]; then
+if [ -n "$github_repos" -a -n "$github_org" -a -z "$github_no_hooks" ]; then
     if [ $_ws_shell = bash ]; then
         repos=( ${github_repos// / } )
     elif [ $_ws_shell = zsh ]; then
@@ -15,21 +17,25 @@ if [ -n "$github_repos" -a -n "$github_org" ]; then
 
     case ${wshook__op} in
         create)
+            if [ -n "${GITHUB_HTTPS}" ]; then
+                baseuri="https://github.com/${github_org}"
+            else
+                baseuri="git@github.com:${github_org}"
+            fi
             for reponame in $repos; do
                 case $reponame in
                     *:*)  # has a branch
                           ref=${reponame#*:}
                           reponame=${reponame%%:*}
-                          /usr/bin/git clone -b ${ref} git@github.com:${github_org}/${reponame}.git \
-                              ${wshook__workspace}/${reponame}
                           ;;
-                    *)
-                          /usr/bin/git clone git@github.com:${github_org}/${reponame}.git \
-                              ${wshook__workspace}/${reponame}
+                    *)    # no branch, so use master
+                          ref=master
                           ;;
                 esac
+              /usr/bin/git clone -b ${ref} ${baseuri}/${reponame}.git \
+                  ${wshook__workspace}/${reponame}
             done
-            unset reponame
+            unset baseuri reponame
             ;;
         enter)
             if [ -n "$github_fetch_on_enter" ]; then
