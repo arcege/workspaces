@@ -5,6 +5,7 @@
   bitbucket\_no\_hooks for bitbucket plugin.
 * Add a test suite.
 * Test upgrading from multiple previous releases.
+* Fixes for MacOS and Bash 3 (default on MacOS).
 
 ## 0.5.0.2
 * Fix install.sh where neither .bash.d or .bash exist, causing hangs and errors.
