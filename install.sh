@@ -9,7 +9,6 @@ if [ ${DEBUG:-0} = 1 ]; then
     chmod () { echo "chmod $*"; }
     cp () { echo "cp $*"; }
     dirname () { echo "${1%/*}"; }
-    ed () { echo "ed $*"; }
     grep () { /bin/grep "$@"; }
     ln () { echo "ln $*"; }
     mkdir () { echo "mkdir $*"; }
@@ -25,7 +24,6 @@ elif [ $OSTYPE = linux-gnu ]; then
     chmod () { /bin/chmod "$@"; }
     cp () { /bin/cp "$@"; }
     dirname () { /usr/bin/dirname "$@"; }
-    ed () { /bin/ed ${1:+"$@"}; }
     grep () { /bin/grep "$@"; }
     ln () { /bin/ln "$@"; }
     mkdir () { /bin/mkdir "$@"; }
@@ -42,7 +40,6 @@ else  # Darwin (MacOs)
     chmod () { /bin/chmod "$@"; }
     cp () { /bin/cp "$@"; }
     dirname () { /usr/bin/dirname "$@"; }
-    ed () { /bin/ed ${1:+"$@"}; }
     grep () { /bin/grep "$@"; }
     ln () { /bin/ln "$@"; }
     mkdir () { /bin/mkdir "$@"; }
@@ -372,11 +369,11 @@ bash_processing () {
 
             if [ $found = false ]; then
                 test -z "$last" && last=${HOME}/.bashrc
-                test ! -e $last && (echo 0a; echo :; echo .; echo w) | ed - "$last"
-
+                if [ -! -e $last ]; then
+                    echo : > $last
+                fi
                 #last=/dev/null  # for debugging
-                ed - "$last" <<EOF
-\$a
+                cat <<EOF >> $last
 
 if test -d \${HOME}/${_BASHDIR##*/}
 then
@@ -389,8 +386,6 @@ then
     done
     unset file
 fi
-.
-w
 EOF
 
             fi
