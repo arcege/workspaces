@@ -15,8 +15,11 @@ testlib=$progdir/lib
 rundir=$progdir/runs
 
 source $testlib/system.sh
+source $testlib/redirect.sh
+source $testlib/path.sh
 source $testlib/functions.sh
 source $testlib/testdir.sh
+source $testlib/homedir.sh
 source $testlib/setup.sh
 
 # should be no side-effects, all either pass through or call the 'fail' function

@@ -3,6 +3,8 @@
 ## 0.5.0.3
 * Add GITHUB\_HTTPS and github\_no\_hooks variables for github plugin and BITBUCKET\_HTTPS and
   bitbucket\_no\_hooks for bitbucket plugin.
+* Add a test suite.
+* Test upgrading from multiple previous releases.
 
 ## 0.5.0.2
 * Fix install.sh where neither .bash.d or .bash exist, causing hangs and errors.

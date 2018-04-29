@@ -23,11 +23,19 @@ if [ -z "$repodir" ]; then
     repodir=$progdir
 fi
 
-OLDPATH=$PATH
+if [ ! -d $repodir/.hg ]; then
+    msg "Unable to determine code repository."
+    exit 1
+fi
+
 source $testdir/lib/system.sh
-PATH=$OLDPATH
+source $testdir/lib/redirect.sh
 source $testdir/lib/functions.sh
 source $testdir/lib/testdir.sh
+
+repo=$TMPDIR/workspaces
+HOME=$TMPDIR/home
+mkdir $HOME
 
 populate_home_bash () {
     local homedir="$1"
@@ -45,15 +53,6 @@ pull_release () {
     #echo "Pulling $release to $extractdir"
     hg clone -u "${release}" "${progdir}" "${extractdir}" >&2
 }
-
-if [ ! -d $repodir/.hg ]; then
-    msg "Unable to determine code repository."
-    exit 1
-fi
-
-repo=$TMPDIR/workspaces
-HOME=$TMPDIR/home
-mkdir $HOME
 
 if [ $shtype = bash ]; then
     populate_home_bash $HOME
@@ -76,4 +75,4 @@ elif ! ${testdir}/${shtype}.sh >&2; then
     msg "test on upgrade from ${release} failed"
     exit 1
 fi
-msg "test successful"
+msg "upgrade test successful"
