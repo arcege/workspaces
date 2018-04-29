@@ -316,12 +316,13 @@ _ws_stack () {
         remove)
             if [ $size -gt 0 ]; then
                 _ws_log 4 "remove #$2 from stack"
-                local _newarray i
+                local _newarray i j
                 _newarrary=()
-                i=0
+                i=0; j=0
                 while [ $i -lt $size ]; do
                     if [ $i -ne $2 ]; then
-                        _newarray+=( ${_ws__stack[$i]} )
+                        _newarray[$j]=${_ws__stack[$i]}
+                        let j++
                     fi
                     let i++
                 done
