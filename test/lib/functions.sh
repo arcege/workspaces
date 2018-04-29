@@ -38,6 +38,7 @@ function tty { /usr/bin/tty; }
 # these are not in the same directory as linux
 if ! $is_linux; then
     function grep { /usr/bin/grep "$@"; }
+    function hg { /usr/local/bin/hg "$@"; }
     function mktemp { /usr/bin/mktemp ${1:+"$@"}; }
     function readlink { /usr/bin/readlink "$@"; }
     function sed { /usr/bin/sed "$@"; }
