@@ -3,20 +3,30 @@
 repodir=$1
 
 testdir=$(cd $(dirname ${BASH_SOURCE[0]}); pwd)
+rc=0
 
 # run through the tests, not worrying about the exit status, let the test programs
 # deal with their error conditions
 
 # note: we are not ready for zsh yet
 
-$testdir/bash.sh
+run () {
+    local irc
+    "$@"
+    irc=$?; test $irc -ne 0 && rc=$irc
+    return $irc
+}
 
-#$testdir/zsh.sh
+run $testdir/bash.sh
 
-$testdir/upgrade.sh bash 0.3 $repodir
+#run $testdir/zsh.sh
 
-$testdir/upgrade.sh bash 0.4.1 $repodir
+run $testdir/upgrade.sh bash 0.3 $repodir
 
-$testdir/upgrade.sh bash 0.5.0.2 $repodir
+run $testdir/upgrade.sh bash 0.4.1 $repodir
 
-#$testdir/upgrade.sh zsh 0.5.0.2 $repodir
+run $testdir/upgrade.sh bash 0.5.0.2 $repodir
+
+#run $testdir/upgrade.sh zsh 0.5.0.2 $repodir
+
+exit $rc
