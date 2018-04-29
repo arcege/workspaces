@@ -1,17 +1,57 @@
 #!/bin/bash
 # Copyright @ 2017-2018 Michael P. Reilly. All rights reserved.
 
+PATH=
+
 if [ ${DEBUG:-0} = 1 ]; then
+    awk () { /usr/bin/awk "$@"; }
+    cat () { echo "cat $*"; }
+    chmod () { echo "chmod $*"; }
     cp () { echo "cp $*"; }
-    rm () { echo "rm $*"; }
-    mv () { echo "mv $*"; }
+    dirname () { echo "${1%/*}"; }
     ed () { echo "ed $*"; }
+    grep () { /bin/grep "$@"; }
     ln () { echo "ln $*"; }
     mkdir () { echo "mkdir $*"; }
-    chmod () { echo "chmod $*"; }
-    touch () { echo "touch $*"; }
-    cat () { echo "cat $*"; }
+    mv () { echo "mv $*"; }
+    rm () { echo "rm $*"; }
     tar () { echo "tar $*"; }
+    touch () { echo "touch $*"; }
+    uname () { /bin/uname ${1:+"$@"}; }
+
+elif [ $OSTYPE = linux-gnu ]; then
+    awk () { /usr/bin/awk "$@"; }
+    cat () { /bin/cat ${1:+"$@"}; }
+    chmod () { /bin/chmod "$@"; }
+    cp () { /bin/cp "$@"; }
+    dirname () { /usr/bin/dirname "$@"; }
+    ed () { /bin/ed ${1:+"$@"}; }
+    grep () { /bin/grep "$@"; }
+    ln () { /bin/ln "$@"; }
+    mkdir () { /bin/mkdir "$@"; }
+    md5sum () { /usr/bin/md5sum ${1:+"$@"}; }
+    mv () { /bin/mv "$@"; }
+    rm () { /bin/rm "$@"; }
+    tar () { PATH=/bin:/usr/bin /bin/tar "$@"; }
+    touch () { /bin/touch "$@"; }
+    uname () { /bin/uname ${1:+"$@"}; }
+
+else  # Darwin (MacOs)
+    awk () { /usr/bin/awk "$@"; }
+    cat () { /bin/cat ${1:+"$@"}; }
+    chmod () { /bin/chmod "$@"; }
+    cp () { /bin/cp "$@"; }
+    dirname () { /usr/bin/dirname "$@"; }
+    ed () { /bin/ed ${1:+"$@"}; }
+    grep () { /bin/grep "$@"; }
+    ln () { /bin/ln "$@"; }
+    mkdir () { /bin/mkdir "$@"; }
+    md5sum () { /sbin/md5 ${1:+"$@"} | sed 's/.* = //;s/$/  -/'; }
+    mv () { /bin/mv "$@"; }
+    rm () { /bin/rm "$@"; }
+    tar () { PATH=/bin:/usr/bin /usr/bin/tar "$@"; }
+    touch () { /usr/bin/touch "$@"; }
+    uname () { /bin/uname ${1:+"$@"}; }
 fi
 
 case $SHELL in
@@ -89,15 +129,6 @@ bbaf9610a8a1d6fcb59f07db76244ebc
 ce3e735d54ea9e54d26360b03f2fe57f
 "
 
-case $(uname) in
-    Linux)
-        md5sum () { command md5sum ${1:-"$@"} | awk '{print NF}'; }
-        ;;
-    Darwin)
-        md5sum () { command md5 ${1:-"$@"} | awk '{print $NF}'; }
-        ;;
-esac
-
 replace_plugin_hardlink () {
     local plugin="$1" wsdir="$2"
     local instfile="$WS_DIR/.ws/plugins/$plugin"
@@ -159,7 +190,7 @@ update_hook () {
                 cp $tmphook $newfile
                 state=adjust
             elif [ $state != overwritten ]; then
-                if fgrep -q wshook__op= $newfile; then
+                if grep -Fq wshook__op= $newfile; then
                     cp $tmpdir $newfile.new
                     local sedscr1 sedscr2 sedscr3
                     sedscr1='/_wshook__op=/,/\[ -s "$_wshook__configdir\/config\.sh"/d'
@@ -216,7 +247,7 @@ update_config () {
     if [ ! -f $file -o ! -s $file ]; then
         _ws_generate_config $file
         echo "New config $file"
-    elif fgrep -q _wshook__variables $file; then
+    elif grep -Fq _wshook__variables $file; then
         # this gathers the variable names and add to the hook unset "registry" var
         sed -i -e '/^_wshook__variables=/d;/^# .*_wshook__variables /d' $file
         echo "Removed config _wshook__variables from $file"
@@ -285,7 +316,7 @@ pre_initialization () {
             ;;
         upgrade)
             echo "Software updated"
-            if type ws 2>/dev/null | fgrep -qw reload >/dev/null; then
+            if type ws 2>/dev/null | grep -Fqw reload >/dev/null; then
                 echo "Run 'ws reload' to get update."
             else
                 echo "Source $BASHDIR/ws.sh to get update."
@@ -332,7 +363,7 @@ bash_processing () {
             for file in $HOME/.profile $HOME/.bash_profile $HOME/.bashrc; do
                 if [ -f $file ]; then
                     last=$file
-                    if fgrep -w ${_BASHDIR##*/} $file >/dev/null 2>&1; then
+                    if grep -Fw ${_BASHDIR##*/} $file >/dev/null 2>&1; then
                         found=true
                         break
                     fi
@@ -368,7 +399,7 @@ EOF
 }
 
 zsh_processing () {
-    if ! fgrep -sq .ws/ws.sh $HOME/.zshrc; then
+    if ! grep -Fsq .ws/ws.sh $HOME/.zshrc; then
         { echo
           echo "if [ -f $HOME/.ws/ws.sh ]; then"
           echo "    source $HOME/.ws/ws.sh"
