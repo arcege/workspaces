@@ -40,7 +40,11 @@ mkdir $HOME
 populate_home_bash () {
     local homedir="$1"
     #echo "Copying /etc/skel to $homedir"
-    cp -a /etc/skel ${homedir}
+    if [ -d /etc/skel ]; then
+        cp -a /etc/skel ${homedir}
+    else
+        touch ${homedir}/.bashrc
+    fi
 }
 
 populate_home_zsh () {
