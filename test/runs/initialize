@@ -14,7 +14,7 @@ test -s "$WS_DIR/.ws/config.sh" || fail init dir WS_DIR/.ws/config.sh
 test -s "$WS_DIR/.ws/hook.sh" -a -x "$WS_DIR/default/.ws/hook.sh" || fail init file WS_DIR/default/.ws/hook.sh
 test "$(md5sum < $WS_DIR/.ws/hook.sh)" = "$md5_hook_sh  -" || fail init md5 hook.sh
 test "$(md5sum < $WS_DIR/.ws/config.sh)" = "$md5_config_sh  -" || fail init md5 config.sh
-test "$(/bin/readlink $HOME/workspace)" = "$WS_DIR/default" || fail init link
+test "$(readlink $HOME/workspace)" = "$WS_DIR/default" || fail init link
 test "$(_ws_getdir default)" = "$WS_DIR/default" || fail routine getdir
 
 test "$(ws list)" = "default@" || fail init cmd ws+list
