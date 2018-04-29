@@ -13,10 +13,13 @@ function cd { builtin cd ${1:+"$@"}; }
 function chmod { /bin/chmod "$@"; }
 function cmp { /usr/bin/cmp "$@"; }
 function cp { /bin/cp "$@"; }
+function curl { /usr/bin/curl "$@"; }
 function date { /bin/date ${1:+"$@"}; }
 function dirname { /usr/bin/dirname ${1:+"$@"}; }
 function echo { builtin echo "$@"; }
+function hg { /usr/bin/hg "$@"; }
 function grep { /bin/grep "$@"; }
+function gzip { /bin/gzip "$@"; }
 function ln { /bin/ln "$@"; }
 function ls { /bin/ls ${1:+"$@"}; }
 function mkdir { /bin/mkdir "$@"; }

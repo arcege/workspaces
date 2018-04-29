@@ -33,8 +33,7 @@ Packaging.dependencies = (
 
 class SpawnTask(Task):
     def run(self):
-        prog = self.args[0]
-        Subcommand( (prog,), wdir=WsDir )
+        Subcommand( tuple(self.args), wdir=WsDir )
 
 Compile.tasks = (
     Copy(*ReleaseFiles, dest=WsDir),
@@ -46,7 +45,7 @@ Compile.tasks = (
 )
 
 Testonly.tasks = (
-    SpawnTask('./test/bash.sh'),
+    SpawnTask('./test/suite.sh', V['basedir']),
 )
 
 InitDirs.files = ( WsDir, DistDir )
