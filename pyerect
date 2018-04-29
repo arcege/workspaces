@@ -45,7 +45,7 @@ Compile.tasks = (
 )
 
 Testonly.tasks = (
-    SpawnTask('./test/suite.sh', V['basedir']),
+    SpawnTask('./test/bash.sh'),
 )
 
 InitDirs.files = ( WsDir, DistDir )
