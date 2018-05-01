@@ -10,6 +10,7 @@ rc=0
 
 # note: we are not ready for zsh yet
 
+# side-effect, rc is set to the exit status if command fails
 run () {
     local irc
     "$@"
@@ -17,16 +18,14 @@ run () {
     return $irc
 }
 
-run $testdir/bash.sh
+for shell in bash; do  # zsh
+    run $testdir/${shell}.sh
+done
 
-#run $testdir/zsh.sh
-
-run $testdir/upgrade.sh bash 0.3 $repodir
-
-run $testdir/upgrade.sh bash 0.4.1 $repodir
-
-run $testdir/upgrade.sh bash 0.5.0.2 $repodir
-
-#run $testdir/upgrade.sh zsh 0.5.0.2 $repodir
+for version in 0.3 0.4.1 0.5.0.3; do
+    for shell in bash; do  # zsh
+        run $testdir/upgrade.sh $shell $version
+    done
+done
 
 exit $rc
