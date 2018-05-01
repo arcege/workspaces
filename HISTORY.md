@@ -1,5 +1,8 @@
 # Workspaces
 
+## 0.5.0.4
+* [plugin] correct comment in pythonpath denoting configuration variable
+
 ## 0.5.0.3
 * Add GITHUB\_HTTPS and github\_no\_hooks variables for github plugin and BITBUCKET\_HTTPS and
   bitbucket\_no\_hooks for bitbucket plugin.

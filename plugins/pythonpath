@@ -1,7 +1,7 @@
 :
 # Copyright @ 2017 Michael P. Reilly. All rights reserved.
 
-# users PYPATH - location of Python code
+# uses PYPATH - location of Python code
 
 if [ -n "$PYPATH" ]; then
     wshook__path=$wshook__workspace/$PYPATH
