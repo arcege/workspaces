@@ -22,7 +22,7 @@ if [ -n "$bitbucket_repos" -a -n "$bitbucket_org" -a -z "$bitbucket_no_hooks" ];
             else
                 baseuri="ssh://hg@bitbucket.org/${bitbucket_org}"
             fi
-            for reponame in $repos; do
+            for reponame in "${repos[@]}"; do
                 case $reponame in
                     *:*)  # has a branch
                           ref=${reponame#*:}

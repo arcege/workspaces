@@ -22,7 +22,7 @@ if [ -n "$github_repos" -a -n "$github_org" -a -z "$github_no_hooks" ]; then
             else
                 baseuri="git@github.com:${github_org}"
             fi
-            for reponame in $repos; do
+            for reponame in "${repos[@]}"; do
                 case $reponame in
                     *:*)  # has a branch
                           ref=${reponame#*:}
