@@ -48,6 +48,14 @@ Testonly.tasks = (
     SpawnTask('./test/bash.sh'),
 )
 
+class Suite(Target):
+    dependencies = (
+        Build,
+    )
+    tasks = (
+        SpawnTask('./test/suite.sh', V['basedir']),
+    )
+
 InitDirs.files = ( WsDir, DistDir )
 Clean.files = ( BuildDir, DistDir, 'test.err', 'test.log' )
 
@@ -75,6 +83,57 @@ class Bitbucket_Pipelines_Upload(Task):
             url, '--form', 'files=@%s' % newname
         )
         Subcommand(cmd)
+
+class HgTarget(Target):
+    """For subclassing"""
+    def __init__(self, *args, **kwargs):
+        super(HgTarget, self).__init__(*args, **kwargs)
+        if not hasattr(self.__class__, 'tags'):
+            self.get_entries('tags')
+        if not hasattr(self.__class__, 'bookmarks'):
+            self.get_entries('bookmarks')
+
+    @classmethod
+    def get_entries(cls, entrytype):
+        p = Subcommand( ('hg', entrytype), stdout=Subcommand.PIPE)
+        entries = [e.strip().split()[0] for e in p.stdout]
+        setattr(cls, entrytype, entries)
+
+class Tag(HgTarget):
+    """Create a tag and bookmark for this release."""
+    def run(self):
+        version = FileVariable('file.version', VersionFile)
+        tagname = '%s' % str(version).rstrip()
+        bookmarkname = 'release-%s' % str(version).rstrip()
+        bookmarks = self.get_entries('bookmarks')
+        tags = self.get_entries('tags')
+        # must bookmark before setting the tag or the wrong version is bookmarked
+        if bookmarkname not in self.bookmarks:
+            Subcommand( ('hg', 'bookmark', '-i', bookmarkname) )
+            self.bookmarks.append(bookmarkname)
+        if tagname not in self.tags:
+            Subcommand( ('hg', 'tag', tagname) )
+            self.tags.append(tagname)
+
+class Bitbucket(HgTarget):
+    """Push release to bitbucket."""
+    def run(self):
+        if 'hg.path' not in V:
+            V['hg.path'] = 'default'
+        path = V['hg.path']
+        version = FileVariable('file.version', VersionFile)
+        versionstr = str(version).rstrip()
+        bookmarkname = 'release-%s' % versionstr
+        if versionstr in self.tags:
+            Subcommand( ('hg', 'push', path) )
+        if bookmarkname in self.bookmarks:
+            Subcommand( ('hg', 'push', '-B', bookmarkname, path) )
+
+class Release(Target):
+    """Tag and push to bitbucket."""
+    dependencies = (
+        Tag, Bitbucket
+    )
 
 class Upload(Target):
     """Upload to bitbucket downloads."""
