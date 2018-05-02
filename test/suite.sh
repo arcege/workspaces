@@ -24,7 +24,7 @@ done
 
 for version in 0.3 0.4.1 0.5.0.3; do
     for shell in bash; do  # zsh
-        run $testdir/upgrade.sh $shell $version
+        run $testdir/upgrade.sh $shell $version $repodir
     done
 done
 
