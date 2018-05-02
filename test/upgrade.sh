@@ -60,13 +60,13 @@ pull_release () {
 
 validate_release () {
     local name
-    if ! cmp $progdir/ws.sh $HOME/.ws/ws.sh; then
+    if ! cmp -s $progdir/ws.sh $HOME/.ws/ws.sh; then
         msg "upgrade failed, ws.sh not matching"
         return 1
     fi
     for pluginfile in $HOME/workspaces/.ws/plugins/*; do
         name=${pluginfile##*/}
-        if ! cmp $pluginfile $progdir/plugins/$name; then
+        if ! cmp -s $pluginfile $progdir/plugins/$name; then
             msg "upgrade failed: plugin $name"
             return 1
         fi
