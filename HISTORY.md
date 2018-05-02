@@ -1,6 +1,7 @@
 # Workspaces
 
-## 0.5.0.4
+## 0.5.1
+* Install will not update plugins if not in srcdir.
 * Add ws+logging+show to display the logfile contents in a pager.
 * [plugin] correct comment in pythonpath denoting configuration variable
 
