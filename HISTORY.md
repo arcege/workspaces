@@ -1,6 +1,7 @@
 # Workspaces
 
 ## 0.5.0.4
+* Add ws+logging+show to display the logfile contents in a pager.
 * [plugin] correct comment in pythonpath denoting configuration variable
 
 ## 0.5.0.3
