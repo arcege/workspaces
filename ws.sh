@@ -135,6 +135,7 @@ function _ws_date { /bin/date ${1:+"$@"}; }
 function _ws_dirname { /usr/bin/dirname ${1:+"$@"}; }
 function _ws_echo { builtin echo "$@"; }
 function _ws_grep { /bin/grep "$@"; }
+function _ws_less { /usr/bin/less ${1:+"$@"}; }
 function _ws_ln { /bin/ln "$@"; }
 function _ws_ls { /bin/ls ${1:+"$@"}; }
 function _ws_mkdir { /bin/mkdir "$@"; }
@@ -217,12 +218,23 @@ _ws_log () {
     case $1 in
         config)
             case $2 in
+                -h|--help)
+                    _ws_echo "ws log [reset|show|N|FILE]"
+                    _ws_echo "    without arguments, show current level and filename"
+                    _ws_echo "  reset - set to default values"
+                    _ws_echo "  show  - display the log contents in a pager"
+                    _ws_echo "  N     - log level to a number"
+                    _ws_echo "  FILE  - log file to a path"
+                    ;;
                 "")
                     _ws_echo "lvl=$value; file=$_WS_LOGFILE"
                     ;;
                 reset)
                     WS_DEBUG=${default}
                     _WS_LOGFILE=${WS_DIR}/.log
+                    ;;
+                show)
+                    ${PAGER:-_ws_less} "$_WS_LOGFILE"
                     ;;
                 [0-9]*)
                     WS_DEBUG=$2
@@ -1926,7 +1938,7 @@ if [ $_ws_shell = bash ] && _ws_echo $- | _ws_grep -Fq i; then  # only for inter
                     ;;
                 debug|logging)
                     if [ $COMP_CWORD -eq 2 ]; then
-                        COMPREPLY=( $(compgen -W "-h --help reset 0 1 2 3 4 5 6 8 9" -f -- ${cur}) )
+                        COMPREPLY=( $(compgen -W "-h --help reset show 0 1 2 3 4 5 6 8 9" -f -- ${cur}) )
                     fi
                     ;;
                 list)
