@@ -278,13 +278,13 @@ add_plugin_to_all_workspaces () {
 
 update_plugins () {
     local file destdir=$WS_DIR/.ws/plugins
-    for file in plugins/*; do
+    for file in $srcdir/plugins/*; do
         if [ "$file" = "plugins/*" ]; then
             break
         elif [ ! -e "$destdir/${file##*/}" ]; then
             ws plugin install $file
             add_plugin_to_all_workspaces ${file##*/}
-        elif [ $file -nt "$destdir/${file##*/}" ]; then
+        else
             ws plugin install -f $file
             add_plugin_to_all_workspaces ${file##*/}
         fi
@@ -369,7 +369,7 @@ bash_processing () {
 
             if [ $found = false ]; then
                 test -z "$last" && last=${HOME}/.bashrc
-                if [ -! -e $last ]; then
+                if [ ! -e $last ]; then
                     echo : > $last
                 fi
                 #last=/dev/null  # for debugging
