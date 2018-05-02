@@ -58,6 +58,21 @@ pull_release () {
     hg clone -u "${release}" "${progdir}" "${extractdir}" >&2
 }
 
+validate_release () {
+    local name
+    if ! cmp $progdir/ws.sh $HOME/.ws/ws.sh; then
+        msg "upgrade failed, ws.sh not matching"
+        return 1
+    fi
+    for pluginfile in $HOME/workspaces/.ws/plugins/*; do
+        name=${pluginfile##*/}
+        if ! cmp $pluginfile $progdir/plugins/$name; then
+            msg "upgrade failed: plugin $name"
+            return 1
+        fi
+    done
+}
+
 if [ $shtype = bash ]; then
     populate_home_bash $HOME
     shprog=/bin/bash
@@ -74,6 +89,9 @@ elif ! $shprog --login -c "${repo}/install.sh" >&2; then
     exit 1
 elif ! ${progdir}/install.sh upgrade >&2; then
     msg "failed to upgrade to current release"
+    exit 1
+elif ! validate_release; then
+    msg "validation of ${release} failed"
     exit 1
 elif ! ${testdir}/${shtype}.sh >&2; then
     msg "test on upgrade from ${release} failed"
