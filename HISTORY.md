@@ -1,9 +1,11 @@
 # Workspaces
 
 ## 0.5.1
-* Install will not update plugins if not in srcdir.
+* Install will now update plugins if not in srcdir.
 * Add ws+logging+show to display the logfile contents in a pager.
 * [plugin] correct comment in pythonpath denoting configuration variable
+* "release" targets for tagging and pushing to bitbucket.
+* "suite" target for running test suite.
 
 ## 0.5.0.3
 * Add GITHUB\_HTTPS and github\_no\_hooks variables for github plugin and BITBUCKET\_HTTPS and
