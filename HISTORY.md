@@ -1,5 +1,8 @@
 # Workspaces
 
+## 0.5.2
+* More bash3-isms
+
 ## 0.5.1
 * Install will now update plugins if not in srcdir.
 * Add ws+logging+show to display the logfile contents in a pager.
