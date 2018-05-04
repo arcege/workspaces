@@ -291,11 +291,17 @@ _ws_stack () {
     fi
     case $1 in
         get)
-            if [ $2 -ge 0 -a $2 -lt $size ]; then
-                _ws_echo "${_ws__stack[$2]}"
-            else
-                _ws_log 2 "out of bounds $2"
+            if [ $2 -lt 0 -o $2 -gt $size ]; then
+                _ws_log 2 "out of bounds $pos"
                 return 1
+            else
+                local pos
+                if [ $_ws_shell = zsh ]; then  # one-based
+                    let pos=$2+1
+                else                           # zero-based
+                    let pos=$2
+                fi
+                _ws_echo "${_ws__stack[$pos]}"
             fi
             ;;
         last)
@@ -543,7 +549,8 @@ _ws_cmd_config () {
             return 0
             ;;
         search)
-            local text maxlen workspaces=$(_ws_cmd_list --workspace -q)
+            local text maxlen workspaces
+            workspaces=$(_ws_cmd_list --workspace -q)
             maxlen=$(_ws_echo "$workspaces" | _ws_awk '{if (length>max) {max=length}} END{print max}')
             shift  # move over op
             _ws_center_justify () {
@@ -563,6 +570,7 @@ _ws_cmd_config () {
             done | _ws_center_justify
             return 0
             ;;
+
         "")
             _ws_error "config: expecting 'del', 'get', 'help', 'list' or 'set'"
             return 1
@@ -692,12 +700,14 @@ _ws_cmd_plugin () {
             return 0
             ;;
         available)
+            local name
             if [ -d $plugindir ]; then
                 for plugin in $plugindir/*; do
-                    if [ "$plugin" = "$plugindir/*" ]; then
+                    name=${plugin##$plugindir/}
+                    if [ "$name" = "*" ]; then
                         break
                     fi
-                    _ws_echo ${plugin##$plugindir/}
+                    _ws_echo ${name}
                 done
             fi
             return 0
@@ -740,7 +750,7 @@ _ws_cmd_plugin () {
             return 0
             ;;
         uninstall)
-            local dir wsdir name="$1"
+            local dir name="$1"
             for dir in $WS_DIR/*/.ws; do
                 wsdir=${dir%/.ws}
                 wsname=${wsdir##*/}
@@ -756,7 +766,8 @@ _ws_cmd_plugin () {
             return 0
             ;;
         list)
-            local dir name wsdir wsname="$1"
+            local dir name
+            wsname="$1"
             if [ -z "$wsname" ]; then
                 _ws_error "Expecting workspace name"
                 return 1
@@ -787,7 +798,7 @@ _ws_cmd_plugin () {
             return 0
             ;;
         add)
-            local wsdir wsname="$1" plugin
+            wsname="$1"
             shift  # rest of the arguments will be plugin names
             if [ -z "$wsname" ]; then
                 _ws_error "Expecting workspace name"
@@ -809,16 +820,16 @@ _ws_cmd_plugin () {
                 if [ ! -x "${plugindir}/${plugin}" ]; then
                     _ws_error "Plugin $plugin not installed"
                     rc=1
-                elif [ ! -h "${wsdir}/.ws/plugins/${plugin}" ]; then
+                elif [ ! -e "${wsdir}/.ws/plugins/${plugin}" ]; then
                     # use a hard link here for fs mounts
-                    _ws_ln "${plugindir}/${plugin}" "${wsdir}/.ws/plugins/${plugin}"
+                    _ws_ln -f "${plugindir}/${plugin}" "${wsdir}/.ws/plugins/${plugin}"
                     _ws_log 2 "Added $plugin to $wsname"
                 fi
             done
             return $rc
             ;;
         remove)
-            local wsdir wsname="$1" plugin
+            wsname="$1"
             shift  # rest of the arguments will be plugin names
             if [ -z "$wsname" ]; then
                 _ws_error "Expecting workspace name"
@@ -1252,7 +1263,12 @@ _ws_cmd_destroy () {
 # - add plugins
 _ws_convert_ws () {
     _ws_log 7 args "$@"
-    local plugin wsdir wsname="$1" plugins="$2" cfgfile="$3"
+    local plugin wsdir wsname="$1" plugins=$2 cfgfile="$3"
+    if [ $_ws_shell = bash ]; then
+        plugins=( ${plugins// / } )
+    elif [ $_ws_shell = zsh ]; then
+        plugins=( ${(f)plugins} )
+    fi
     # we don't use _ws_getdir here since it may give a false value
     wsdir="$WS_DIR/$wsname"
     if [ -z "$wsname" ]; then
@@ -1275,7 +1291,7 @@ _ws_convert_ws () {
     if [ -s "$cfgfile" ]; then
         _ws_cmd_config load "$wsname" "$cfgfile"
     fi
-    for plugin in $plugins; do
+    for plugin in "${plugins[@]}"; do
         _ws_cmd_plugin add $wsname $plugin
     done
     _ws_log 1 "$wsdir converted"
@@ -1420,7 +1436,7 @@ _ws_cmd_stack () {
                 _ws_echo "${_ws__current}*"
                 while [ $i -gt 0 ]; do
                     let i--
-                    context=${_ws__stack[$i]}
+                    context=$(_ws_stack get $i)
                     lhs="${context%%:*}"
                     rhs="${context#*:}"
                     case $lhs in

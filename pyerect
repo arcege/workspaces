@@ -46,6 +46,7 @@ Compile.tasks = (
 
 Testonly.tasks = (
     SpawnTask('./test/bash.sh'),
+    SpawnTask('./test/zsh.sh'),
 )
 
 class Suite(Target):

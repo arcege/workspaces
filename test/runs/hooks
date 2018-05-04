@@ -72,7 +72,8 @@ test x$Which = x$WS_DIR/foobar || fail hook+config passthru
 test x${InConfig:+X} = x || fail hook+config unset
 
 unset wsstate IsDestroyed HasEntered HasLeft
-> $cmdout; > $cmderr
+cat /dev/null > $cmdout
+cat /dev/null > $cmderr
 _ws_cmd_hook copy foobar default
 if [ $? -ne 0 ] || ! cmp $(_ws_getdir foobar)/.ws/hook.sh $(_ws_getdir default)/.ws/hook.sh > $cmdout 2> $cmderr; then
     ( echo "== stdout =="; cat $cmdout; echo
