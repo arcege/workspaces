@@ -4,7 +4,7 @@ pipelines:
   default:
     - step:
         script:
-          - apt-get install -y python-pip
+          - apt-get install -y python-pip zsh
           - pip install -r requirements.txt
           - ./pyerect test
 
@@ -12,7 +12,7 @@ pipelines:
     release-*:
       - step:
          script:
-           - apt-get install -y python-pip
+           - apt-get install -y python-pip zsh
            - pip install -r requirements.txt
            - ./pyerect test upload
 
@@ -20,13 +20,13 @@ pipelines:
     manual:
       - step:
           script:
-            - apt-get install -y python-pip
+            - apt-get install -y python-pip zsh
             - pip install -r requirements.txt
             - ./pyerect test
 
     package:
       - step:
           script:
-            - apt-get install -y python-pip
+            - apt-get install -y python-pip zsh
             - pip install -r requirements.txt
             - ./pyerect upload
