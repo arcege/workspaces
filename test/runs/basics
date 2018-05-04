@@ -39,7 +39,7 @@ elif [ $_ws_shell = zsh ]; then
     test "$(declare -p WS_DIR)" = "typeset WS_DIR=$HOME/workspaces" || fail declare WS_DIR
     test "$(declare -p WS_VERSION)" = "typeset WS_VERSION=${versionstr}" || fail declare WS_VERSION
     test "$(declare -p _ws__current)" = "typeset _ws__current=''" || fail declare _ws__current
-    test "$(declare -p _ws__stack)" = $'typeset -a _ws__stack\n_ws__stack=(  )' || fail declare _ws__stack
+    test "$(declare -p _ws__stack | sed 's/( *)/()/')" = $'typeset -a _ws__stack\n_ws__stack=()' || fail declare _ws__stack
 fi
 
 # a few unit tests
