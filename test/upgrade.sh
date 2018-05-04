@@ -84,10 +84,10 @@ fi
 if ! pull_release ${release} ${repo} ${repodir}; then
     msg "unable to download ${release}"
     exit 1
-elif ! $shprog --login -c "${repo}/install.sh" >&2; then
+elif ! SHELL=$shprog $shprog --login -c "${repo}/install.sh" >&2; then
     msg "failed to install ${release}"
     exit 1
-elif ! ${progdir}/install.sh upgrade >&2; then
+elif ! SHELL=$shprog $shprog --login -c "${progdir}/install.sh upgrade" >&2; then
     msg "failed to upgrade to current release"
     exit 1
 elif ! validate_release; then
