@@ -549,7 +549,8 @@ _ws_cmd_config () {
             return 0
             ;;
         search)
-            local text maxlen workspaces=$(_ws_cmd_list --workspace -q)
+            local text maxlen workspaces
+            workspaces=$(_ws_cmd_list --workspace -q)
             maxlen=$(_ws_echo "$workspaces" | _ws_awk '{if (length>max) {max=length}} END{print max}')
             shift  # move over op
             _ws_center_justify () {
