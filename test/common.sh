@@ -35,4 +35,7 @@ source $rundir/plugin
 source $rundir/alternate
 source $rundir/release
 
-echo "tests complete."
+case $SHELL in
+    */bash) echo "bash tests complete.";;
+    */zsh)  echo "zsh tests complete.";;
+esac
