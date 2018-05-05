@@ -1,5 +1,10 @@
 # Workspaces
 
+## 0.5.3
+* Fixes for failures of hard link of plugins on upgrade.
+* Fixes for zsh support, all tests pass successfully.
+* Automated tests now include zsh.
+
 ## 0.5.2
 * More bash3-isms
 
