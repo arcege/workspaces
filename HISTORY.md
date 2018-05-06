@@ -1,5 +1,8 @@
 # Workspaces
 
+## 0.5.4
+* Add "ws use" command to change Workspaces root directories.
+
 ## 0.5.3
 * Fixes for failures of hard link of plugins on upgrade.
 * Fixes for zsh support, all tests pass successfully.

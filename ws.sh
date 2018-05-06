@@ -1474,32 +1474,72 @@ _ws_cmd_stack () {
     esac
 }
 
+# change to use a different $WS_DIR structure
+_ws_cmd_use () {
+    _ws_log 7 "$@"
+    local wsdir wsname saved_context savedp
+    if [ -n "$1" ]; then
+        wsdir="$1"
+    else
+        wsdir="$HOME/workspaces"
+    fi
+    if [ -n "$2" ]; then
+        wsname="$2"
+    fi
+    if [ ! -d $wsdir/.ws ]; then
+        _ws_error "$wsdir is not initialized; aborting"
+        return 1
+    fi
+    # we'll save the bottom of the stack, which should be the
+    # directory where we all started from
+    # if that is set and we are supposed to enter a workspace,
+    # then after we change the root, we will cd to that
+    # directory and then enter, restoring the proper context
+    saved_context=$(_ws_stack get 0) # get the lowest on the stack
+    savedp=$?
+    # pop everything off the stack
+    while _ws_stack pop; do true; done
+    if [ -n "$_ws__current" ]; then
+        _ws_cmd_leave
+    fi
+    WS_DIR=$wsdir
+    if [ -n "$wsname" ] && _ws_getdir "$wsname" >/dev/null; then
+        if [ $savedp -eq 0 ]; then
+            cd "${saved_context#*:}"
+        fi
+        _ws_cmd_enter $wsname
+    fi
+}
+
 # generate the initial structure with an empty default workspace
 _ws_cmd_initialize () {
-    if [ $# -gt 0 ]; then
-        # change WS_DIR
-        WS_DIR="$1"
+    local wsdir
+    if [ $# -eq 0 ]; then
+        wsdir=${WS_DIR}
+    else
+        wsdir=$1
     fi
-    if [ -z "$WS_INITIALIZE" -a -d $WS_DIR ]; then
+    if [ -z "$WS_INITIALIZE" -a -d $wsdir ]; then
         _ws_echo "Already initialized, aborting..."
         return 1
     fi
-    _ws_mkdir -p $WS_DIR/.ws/plugins
+    _ws_mkdir -p $wsdir/.ws/plugins
     # extract the plugins
     if [ -f $HOME/.ws/plugins.tbz2 ]; then
-        _ws_tar xjfC $HOME/.ws/plugins.tbz2 $WS_DIR/.ws plugins
-        _ws_chmod +x $WS_DIR/.ws/plugins/*
+        _ws_tar xjfC $HOME/.ws/plugins.tbz2 $wsdir/.ws plugins
+        _ws_chmod +x $wsdir/.ws/plugins/*
     elif [ -f $HOME/.ws_plugins.tbz2 ]; then
-        _ws_tar xjfC $HOME/.ws_plugins.tbz2 $WS_DIR/.ws plugins
-        _ws_chmod +x $WS_DIR/.ws/plugins/*
+        _ws_tar xjfC $HOME/.ws_plugins.tbz2 $wsdir/.ws plugins
+        _ws_chmod +x $wsdir/.ws/plugins/*
     else
         _ws_log 1 "Plugins distribution (plugins.tbz2) file not found"
     fi
-    _ws_generate_hook "${WS_DIR}/.ws/hook.sh"
-    _ws_generate_hook "${WS_DIR}/.ws/skel.sh"
-    _ws_generate_config "${WS_DIR}/.ws/config.sh"
-    _ws_cmd_create default "$(_ws_cmd_plugin available)"
+    _ws_generate_hook "${wsdir}/.ws/hook.sh"
+    _ws_generate_hook "${wsdir}/.ws/skel.sh"
+    _ws_generate_config "${wsdir}/.ws/config.sh"
+    WS_DIR=$wsdir _ws_cmd_create default "$(_ws_cmd_plugin available)"
     _ws_link set $(_ws_getdir default)
+    _ws_cmd_use ${wsdir}
 }
 
 # remove the workspaces structure, and optionally the application
@@ -1714,8 +1754,9 @@ ws [<cmd> [<args>]]
   relink [<name>]            - reset ~/workspace symlink
   list                       - show available workspaces
   stack                      - show workspaces on the stack
-  initialize [{wsdir}]       - create the workspaces structure
   upgrade {version}          - upgrade workspaces from the distribution
+  initialize [{wsdir}]       - create the workspaces structure
+  use {wsdir} [{wsname}]     - change to different workspaces structure
   release [--full] [--yes] [{wsname}]
                              - delete ~/workspaces, restoring workspace
   config+ <op> <wsname> ...  - modify config variables
@@ -1893,6 +1934,9 @@ ws () {
         debug|logging)
             _ws_log config "$1"
             ;;
+        use)
+            _ws_cmd_use "$@"
+            ;;
         initialize)
             _ws_cmd_initialize "$@"
             ;;
@@ -1915,7 +1959,7 @@ if [ $_ws_shell = bash ] && _ws_echo $- | _ws_grep -Fq i; then  # only for inter
         options="-h --help"
         commands="config convert create current debug destroy enter help hook"
         commands="$commands initialize leave list logging plugin relink reload"
-        commands="$commands stack release state upgrade validate version versions"
+        commands="$commands stack release state upgrade use validate version versions"
         names=$(ws list -q | _ws_tr '\n' ' ')
         COMPREPLY=()
         #compopt +o default  # not available on Darwin version of bash
@@ -1965,6 +2009,16 @@ if [ $_ws_shell = bash ] && _ws_echo $- | _ws_grep -Fq i; then  # only for inter
                 reload)
                     if [ $COMP_CWORD -eq 2 ]; then
                         COMPREPLY=( $(compgen -f -W "-h --help" -- ${cur}) )
+                    fi
+                    ;;
+                use)
+                    if [ $COMP_CWORD -eq 2 ]; then
+                        COMPREPLY=( $(compgen -d -- ${cur}) )
+                    elif [ $COMP_CWORD -eq 3 ]; then
+                        # this gets around some quoting issues in bash
+                        local wsdir=$(builtin eval builtin echo ${COMP_WORDS[2]})
+                        names=$(WS_DIR=$wsdir ws list -q)
+                        COMPREPLY=( $(compgen -W "$names" -- ${cur}) )
                     fi
                     ;;
                 initialize)
