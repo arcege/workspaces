@@ -2,6 +2,7 @@
 
 ## 0.5.4
 * Add "ws use" command to change Workspaces root directories.
+* Allow `enter` command to take configuration values.
 
 ## 0.5.3
 * Fixes for failures of hard link of plugins on upgrade.

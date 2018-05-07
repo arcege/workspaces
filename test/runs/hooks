@@ -28,6 +28,10 @@ cat > "$WS_DIR/foobar/.ws/hook.sh" <<'EOF'
 
 wsstate=$wshook__op
 
+if [ -n "$myname" ]; then
+    users_name=$myname
+fi
+
 # any variables you use here should be unset at the end; local
 # would not work as this is source'd
 case ${wshook__op} in
@@ -59,7 +63,7 @@ EOF
 
 unset wsstate IsDestroyed HasEntered HasLeft
 _ws_run_hooks enter foobar; rc=$?
-test $rc -eq 0 || tail hook+var failed
+test $rc -eq 0 || fail hook+var failed
 test x$wsstate = xenter || fail hook+var wsstate
 test x$HasEntered = xyep || fail hook+var HasEntered
 test x$HasLeft = x || fail hook+var unset
@@ -95,4 +99,22 @@ fi
 _ws_cmd_hook run
 test x$wsstate = xenter || fail hook+run
 unset wsstate IsDestroyed HasEntered HasLeft
+
+echo myname=michael > $TMPDIR/hook.cfg
+unset users_name
+_ws_run_hooks enter foobar; rc=$?
+test $rc -eq 0 || fail runhook no-cfgfile
+test -z "$users_name" || fail runhook var-unset
+
+_ws_run_hooks enter foobar "" $TMPDIR/hook.cfg; rc=$?
+test $rc -eq 0 || fail runhook cfgfile
+test "$users_name" = michael || fail runhook var-set
+
+unset users_name
+ws enter foobar $TMPDIR/hook.cfg
+test "$users_name" = michael || fail ws+enter cli-configfile
+
+unset users_name
+ws enter foobar myname=michael
+test "$users_name" = michael || fail ws+enter cli-configfile
 

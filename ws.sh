@@ -604,7 +604,7 @@ _ws_show_config_vars () {
     while [ $# -gt 0 ]; do
         case $1 in
             --|"") break;;
-            -) wsname=$_ws_current;;
+            -) wsname=$_ws__current;;
             -h|--help) _ws_echo "ws config list [-q|-v] [-b|-q|-w] [wsname|-]"; return;;
             -g|--global) wantgl=true; wantws=false;;
             -b|--both) wantgl=true; wantws=true;;
@@ -630,6 +630,16 @@ _ws_show_config_vars () {
             _ws_sed -ne "/^[A-Za-z0-9_]*=/{${sedscr};s/^/${modechr}/;p;}" "$wsdir/.ws/config.sh"
         fi
     } | _ws_sort
+}
+
+_ws_show_all_config_vars () {
+    local set wsname
+    {
+        _ws_show_config_vars --global --quiet
+        for i in $(_ws_cmd_list -q); do
+            _ws_show_config_vars --workspace --quiet $i
+        done
+    } | _ws_sort -u
 }
 
 _ws_parse_configvars () {
@@ -928,7 +938,7 @@ _ws_run_hooks () {
     # assigned and unset at the end of the script
     # for backward compatibility, the .ws.sh script would be called if
     # .ws/hook.sh is not found
-    local hookfile sdir wsdir rc=0 op="${1:-enter}" context=$2 wshook__retdir=$3
+    local hookfile sdir wsdir rc=0 op="${1:-enter}" context=$2 wshook__retdir=$3 configfile=$4
     local var tmpfile="${TMPDIR:-/tmp}/ws.hook.cfg.$$.${RANDOM}.sh"
     local wshook__op wshook__workspace wshook__configdir wshook__variables
     wshook__op=${op}
@@ -954,6 +964,9 @@ _ws_run_hooks () {
             _ws_grep '^[^=]*=' $sdir/config.sh
         fi
     done > $tmpfile
+    if [ -n "$configfile" -a -r "$configfile" ]; then
+        cat $configfile >> $tmpfile
+    fi
     # register the variables for later unset
     wshook__variables=$(_ws_sed -n '/=.*/s///p' $tmpfile | _ws_tr '\n' ' ')
     # load the gathered variables
@@ -1099,7 +1112,7 @@ _ws_cmd_hook () {
 #   1 if workspace directory does not exist
 _ws_cmd_enter () {
     _ws_log 7 args "$@"
-    local wsdir wsname=${1:-""}
+    local wsdir wsname=${1:-""} configfile=${2:-/dev/null}
     wsdir="$(_ws_getdir "$wsname")"
     if [ -z "$wsname" ]; then
         if [ -n "$_ws__current" ]; then
@@ -1120,7 +1133,7 @@ _ws_cmd_enter () {
         _ws__current="$wsname"
         export WORKSPACE="$wsdir"
         _ws_cd "$wsdir"
-        _ws_run_hooks enter $_ws__current
+        _ws_run_hooks enter $_ws__current "" $configfile
         _ws_log 2 "entered $wsname $wsdir"
     fi
 }
@@ -1745,11 +1758,11 @@ _ws_cmd_help () {
     else
         _ws_cat <<'EOF'
 ws [<cmd> [<args>]]
-  enter [<name>]             - show the current workspace or enter one
+  enter [<name> [<cfg*>]...] - show the current workspace or enter one
   leave                      - leave current workspace
   create [-p <plugins>] <name> [<cfg*>]...
                              - create a new workspace
-  destroy+ name              - destroy a workspace ('-' alias for current)
+  destroy+ name              - destroy a workspace
   current                    - show current workspace (same as 'ws enter')
   relink [<name>]            - reset ~/workspace symlink
   list                       - show available workspaces
@@ -1797,7 +1810,13 @@ ws () {
             _ws_cmd_help "$@"
             ;;
         enter)
-            _ws_cmd_enter "$1"
+            local wsname configfile
+            wsname="$1"; shift
+            configfile="${TMPDIR:-/tmp}/ws.cfg.$$.${wsname}"
+            # process the config (files or arguments) passed on the command-line
+            _ws_parse_configvars ${configfile} "$@"
+            _ws_cmd_enter "$wsname" "${configfile}"
+            _ws_rm -f ${configfile}
             ;;
         leave)
             _ws_cmd_leave
@@ -1985,6 +2004,9 @@ if [ $_ws_shell = bash ] && _ws_echo $- | _ws_grep -Fq i; then  # only for inter
                 enter)
                     if [ $COMP_CWORD -eq 2 ]; then
                         COMPREPLY=( $(compgen -W "-h --help $names" -- $cur) )
+                    else
+                        local configvars=$(_ws_show_all_config_vars)
+                        COMPREPLY=( $(compgen -W "${configvars}" -f -- ${cur}) )
                     fi
                     ;;
                 destroy|relink)
@@ -2097,7 +2119,7 @@ if [ $_ws_shell = bash ] && _ws_echo $- | _ws_grep -Fq i; then  # only for inter
                             ;;
                         cfg)
                             local configvars pluginvars
-                            configvars=$(_ws_show_config_vars -b -q $(_ws_cmd_list -q))
+                            configvars=$(_ws_show_all_config_vars)
                             pluginvars=$(_ws_cmd_plugin show -q)
                             COMPREPLY=( $(compgen -W "${configvars} ${pluginvars}" -- ${cur}) )
                             ;;
@@ -2157,7 +2179,7 @@ if [ $_ws_shell = bash ] && _ws_echo $- | _ws_grep -Fq i; then  # only for inter
                             ;;
                         var|re)
                             local configvars pluginvars
-                            configvars=$(_ws_show_config_vars -b -q $(_ws_cmd_list -q))
+                            configvars=$(_ws_show_all_config_vars)
                             pluginvars=$(_ws_cmd_plugin show -q)
                             COMPREPLY=( $(compgen -W "$configvars $pluginvars" -- ${cur}) )
                             ;;
@@ -2260,7 +2282,7 @@ if [ $_ws_shell = bash ] && _ws_echo $- | _ws_grep -Fq i; then  # only for inter
                             ;;
                         cfg)
                             local configvars pluginvars
-                            configvars=$(_ws_show_config_vars -b -q $(_ws_cmd_list -q))
+                            configvars=$(_ws_show_all_config_vars)
                             pluginvars=$(_ws_cmd_plugin show -q)
                             COMPREPLY=( $(compgen -W "$configvars $pluginvars" -- ${cur}) )
                             ;;
