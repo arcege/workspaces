@@ -2,21 +2,57 @@
 
 # Testing alternate structure
 
-ws initialize $HOME/alternate >&3
-test $? -eq 0 || fail init alternate
+#reset_home
 
-test $WS_DIR = $HOME/alternate || fail init alternate set
-test -d $HOME/alternate || fail init alternate created
-test -d $HOME/alternate/.ws || fail init alternate .ws
-test -f $HOME/alternate/.ws/config.sh || fail init alternate config.sh
-test -f $HOME/alternate/.ws/hook.sh || fail init alternate hook.sh
-test -f $HOME/alternate/.ws/skel.sh || fail init alternate skel.sh
-test -d $HOME/alternate/.ws/plugins || fail init alternate plugins
+function initialize_alternate {
+    ws initialize $HOME/alternate
+    test $? -eq 0 || return 1
 
-ws use $HOME/workspaces
-test $? -eq 0 || fail use
-test $WS_DIR = $HOME/workspaces || fail use WS_DIR
-test -z "$_ws__current" || fail use current no-ws
+    test $WS_DIR = $HOME/alternate || return 1
+    test -d $HOME/alternate || return 1
+    test -d $HOME/alternate/.ws || return 1
+    test -f $HOME/alternate/.ws/config.sh || return 1
+    test -f $HOME/alternate/.ws/hook.sh || return 1
+    test -f $HOME/alternate/.ws/skel.sh || return 1
+    test -d $HOME/alternate/.ws/plugins || return 1
+}
 
-ws use $HOME/alternate default >&3
-test "$_ws__current" = "default" || fail use current ws
+function ws_use {
+    ws use $HOME/workspaces
+    test $? -eq 0 || return 1
+    test $WS_DIR = $HOME/workspaces || return 1
+    test -z "$_ws__current" || return 1
+
+    ws use $HOME/alternate default
+    test "$_ws__current" = "default" || return 1
+}
+
+# Testing releasing the structure and uninstallation
+
+function release_no_input {
+    touch "$HOME/alternate/default/foo.c"
+    ws release default <&4
+    test $? -eq 1 -a -d $HOME/alternate || return 1
+    ws release --yes default <&4
+    test $? -eq 0 -a ! -d $HOME/alternate || return 1
+    test -d $HOME/workspace -a -f $HOME/workspace/foo.c -a ! -d $HOME/workspace/.ws || return 1
+}
+
+function release_answer_yes {
+    rm -rf $HOME/workspace
+    ws initialize $HOME/alternate
+
+    ws release -y <&4
+    test $? -eq 0 -a ! -d $HOME/alternate -a ! -d $HOME/workspace || return 1
+}
+
+function release_full {
+    ws release -y --full <&4
+    test $? -eq 0 -a ! -d $HOME/.ws -a ! -f $HOME/bin/wsh -a ! -e $HOME/.bash.d/ws.sh || return 1
+}
+
+run_test initialize_alternate initialize_alternate
+run_test ws_use               ws_use
+run_test release-no-input     release_no_input
+run_test release-answer-yes   release_answer_yes
+run_test release-full         release_full

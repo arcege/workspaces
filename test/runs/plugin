@@ -24,38 +24,48 @@ pythonpath
 vagrant
 virtualenv
 virtualenvwrapper"
-ws plugin available >$cmdout 2>$cmderr
-test $? -eq 0 -a "$(cat $cmdout)" = "${packaged_plugins}" || fail ws+plugin available packaged
-ws plugin install $TMPDIR/plugin
-test $? -eq 0 -a -x $WS_DIR/.ws/plugins/plugin || fail ws+plugin install
-ws plugin available >$cmdout 2>$cmderr
-new_plugins=$(echo "${packaged_plugins}
-plugin" | sort)
-test $? -eq 0 -a "$(cat $cmdout)" = "${new_plugins}" || fail ws+plugin available non-empty
-ws create --plugins plugin testplugin1 >$cmdout 2>$cmderr
-test $? -eq 0 -a -f $WS_DIR/testplugin1/.ws/plugins/plugin || fail ws+create plugin
-test "$(cat $cmdout)" = $'creating\nentering' || fail ws+create plugin running
-test "x${plugin_ext_value}" = xplugin-run || fail ws+plugin add var carried
-var=$(ws plugin list testplugin1)
-test $? -eq 0 -a "x$var" = xplugin || fail ws+plugin list non-empty
-ws plugin remove testplugin1 plugin >$cmdout 2>$cmderr
-test $? -eq 0 -a ! -e $WS_DIR/testplugin1/.ws/plugins/plugin || fail ws+plugin remove
-ws plugin add testplugin1 plugin
-test $? -eq 0 -a -f $WS_DIR/testplugin1/.ws/plugins/plugin || fail ws+plugin add
 
-ws plugin install $TMPDIR/plugin >$cmdout 2>$cmderr
-test $? -eq 1 -a "$(cat $cmderr)" = "Plugin plugin exists" || fail ws+plugin reinstall
-ws plugin install -f $TMPDIR/plugin >$cmdout 2>$cmderr
-test $? -eq 0 -a "$(cat $cmdout)" = "" -a -x $WS_DIR/.ws/plugins/plugin || fail ws+plugin reinstall-force
-test ! -e $WS_DIR/.ws/plugins/other || fail ws+plugin assert no-other
-ws plugin install -n other $TMPDIR/plugin
-test $? -eq 0 -a -x $WS_DIR/.ws/plugins/other || fail ws+plugin install-name
-ws create --plugins "other" testplugin2 >$cmdout 2>$cmderr
-test $? -eq 0 -a "$(ws plugin list testplugin2)" = "other" || fail ws+plugin create+other
-test ! -e $WS_DIR/testplugin2/.ws/plugins/plugin -a -f $WS_DIR/testplugin2/.ws/plugins/other ||
-    fail assert testplugin2 plugins
-ws leave >$cmdout 2>$cmderr
-ws plugin uninstall other >$cmdout 2>$cmderr
-test $? -eq 0 -a ! -e $WS_DIR/.ws/plugins/other -a ! -e $WS_DIR/testplugin2/.ws/plugin/other ||
-    fail ws+plugin uninstall
+function test_plugin_install {
+    ws plugin available >$cmdout
+    test $? -eq 0 -a "$(cat $cmdout)" = "${packaged_plugins}" || return 1
+    ws plugin install $TMPDIR/plugin
+    test $? -eq 0 -a -x $WS_DIR/.ws/plugins/plugin || return 2
+    ws plugin available >$cmdout
+    new_plugins=$(echo "${packaged_plugins}"$'\n'"plugin" | sort)
+    test $? -eq 0 -a "$(cat $cmdout)" = "${new_plugins}" || return 3
+}
 
+function test_ws_create_plugin {
+    ws create --plugins plugin testplugin1 >$cmdout 2>$cmderr
+    test $? -eq 0 -a -f $WS_DIR/testplugin1/.ws/plugins/plugin || return 1
+    test "$(cat $cmdout)" = $'creating\nentering' || return 1
+    test "x${plugin_ext_value}" = xplugin-run || return 1
+    var=$(ws plugin list testplugin1)
+    test $? -eq 0 -a "x$var" = xplugin || return 1
+    ws plugin remove testplugin1 plugin >$cmdout 2>$cmderr
+    test $? -eq 0 -a ! -e $WS_DIR/testplugin1/.ws/plugins/plugin || return 1
+    ws plugin add testplugin1 plugin
+    test $? -eq 0 -a -f $WS_DIR/testplugin1/.ws/plugins/plugin || return 1
+}
+
+function test_plugin_reinstall {
+    ws plugin install $TMPDIR/plugin >$cmdout 2>$cmderr
+    test $? -eq 1 -a "$(cat $cmderr)" = "Plugin plugin exists" || return 1
+    ws plugin install -f $TMPDIR/plugin >$cmdout 2>$cmderr
+    test $? -eq 0 -a "$(cat $cmdout)" = "" -a -x $WS_DIR/.ws/plugins/plugin || return 1
+    test ! -e $WS_DIR/.ws/plugins/other || return 1
+    ws plugin install -n other $TMPDIR/plugin
+    test $? -eq 0 -a -x $WS_DIR/.ws/plugins/other || return 1
+    ws create --plugins "other" testplugin2 >$cmdout 2>$cmderr
+    test $? -eq 0 -a "$(ws plugin list testplugin2)" = "other" || return 1
+    test ! -e $WS_DIR/testplugin2/.ws/plugins/plugin -a -f $WS_DIR/testplugin2/.ws/plugins/other ||
+        return 1
+    ws leave >$cmdout 2>$cmderr
+    ws plugin uninstall other >$cmdout 2>$cmderr
+    test $? -eq 0 -a ! -e $WS_DIR/.ws/plugins/other -a ! -e $WS_DIR/testplugin2/.ws/plugin/other ||
+        return 1
+}
+
+run_test plugin-install        test_plugin_install
+run_test ws+create-plugin      test_ws_create_plugin
+run_test plugin-reinstall      test_plugin_reinstall

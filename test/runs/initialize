@@ -1,35 +1,45 @@
 :
 
-ws initialize
-test $? -eq 0 || fail init standard
+function test_initialize {
+    ws initialize
+    test $? -eq 0 || return 1
 
-test -d "$WS_DIR" || fail init dir WS_DIR/
-test -d "$WS_DIR/.ws" || fail init dir WS_DIR/.ws/
-test -s "$WS_DIR/.ws/config.sh" || fail init dir WS_DIR/.ws/config.sh
-test -s "$WS_DIR/.ws/hook.sh" -a -x "$WS_DIR/.ws/hook.sh" || fail init file WS_DIR/.ws/hook.sh
-test -s "$WS_DIR/.ws/hook.sh" -a -x "$WS_DIR/.ws/skel.sh" || fail init file WS_DIR/.ws/skel.sh
-test -d "$WS_DIR/default" || fail init dir WS_DIR/default/
-test -d "$WS_DIR/default/.ws" || fail init dir WS_DIR/default/.ws/
-test -s "$WS_DIR/.ws/config.sh" || fail init dir WS_DIR/.ws/config.sh
-test -s "$WS_DIR/.ws/hook.sh" -a -x "$WS_DIR/default/.ws/hook.sh" || fail init file WS_DIR/default/.ws/hook.sh
-test "$(md5sum < $WS_DIR/.ws/hook.sh)" = "$md5_hook_sh  -" || fail init md5 hook.sh
-test "$(md5sum < $WS_DIR/.ws/config.sh)" = "$md5_config_sh  -" || fail init md5 config.sh
-test "$(readlink $HOME/workspace)" = "$WS_DIR/default" || fail init link
-test "$(_ws_getdir default)" = "$WS_DIR/default" || fail routine getdir
+    test -d "$WS_DIR" || return 1
+    test -d "$WS_DIR/.ws" || return 1
+    test -s "$WS_DIR/.ws/config.sh" || return 1
+    test -s "$WS_DIR/.ws/hook.sh" -a -x "$WS_DIR/.ws/hook.sh" || return 1
+    test -s "$WS_DIR/.ws/hook.sh" -a -x "$WS_DIR/.ws/skel.sh" || return 1
+    test -d "$WS_DIR/default" || return 1
+    test -d "$WS_DIR/default/.ws" || return 1
+    test -s "$WS_DIR/.ws/config.sh" || return 1
+    test -s "$WS_DIR/.ws/hook.sh" -a -x "$WS_DIR/default/.ws/hook.sh" || return 1
+    test "$(md5sum < $WS_DIR/.ws/hook.sh)" = "$md5_hook_sh  -" || return 1
+    test "$(md5sum < $WS_DIR/.ws/config.sh)" = "$md5_config_sh  -" || return 1
+    test "$(readlink $HOME/workspace)" = "$WS_DIR/default" || return 1
+    test "$(_ws_getdir default)" = "$WS_DIR/default" || return 1
 
-test "$(ws list)" = "default@" || fail init cmd ws+list
-test "$(ws stack)" = "($cdir)" || fail init cmd ws+stack
+    test "$(ws list)" = "default@" || return 1
+    test "$(ws stack)" = "($cdir)" || return 1
 
-# test plugins extracted properly
-test -d $WS_DIR/.ws/plugins || fail init dir plugins
-test -f $WS_DIR/.ws/plugins/cdpath -a -f $WS_DIR/.ws/plugins/github || fail init file plugins
+    # test plugins extracted properly
+    test -d $WS_DIR/.ws/plugins || return 1
+    test -f $WS_DIR/.ws/plugins/cdpath -a -f $WS_DIR/.ws/plugins/github || return 1
+}
 
-result=$(_ws_getdir default)
-test $? -eq 0 -a "$result" = "$WS_DIR/default" || fail unit _ws_getdir ws
-result=$(_ws_getdir foobar)
-test $? -eq 1 -a "$result" = "$WS_DIR/foobar" || fail unit _ws_getdir nodir
-result=$(_ws_link get)
-test $? -eq 0 -a "$result" = "$WS_DIR/default" || fail unit _ws_link ws
-result=$(_ws_link set $WS_DIR/default)
-test $? -eq 0 -a "$result" = "" -a $(readlink $HOME/workspace) = "$WS_DIR/default" || fail unit _ws_link ws
+function test_ws_getdir {
+    result=$(_ws_getdir default)
+    test $? -eq 0 -a "$result" = "$WS_DIR/default" || return 1
+    result=$(_ws_getdir foobar)
+    test $? -eq 1 -a "$result" = "$WS_DIR/foobar" || return 1
+}
 
+function test_ws_link {
+    result=$(_ws_link get)
+    test $? -eq 0 -a "$result" = "$WS_DIR/default" || return 1
+    result=$(_ws_link set $WS_DIR/default)
+    test $? -eq 0 -a "$result" = "" -a $(readlink $HOME/workspace) = "$WS_DIR/default" || return 1
+}
+
+run_test initialize        test_initialize
+run_test ws_getdir         test_ws_getdir
+run_test ws_link           test_ws_link

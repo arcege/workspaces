@@ -15,6 +15,7 @@
 # carry through
 cmdout=${TMPDIR}/lastcmd.out
 cmderr=${TMPDIR}/lastcmd.err
+clear_cmdout () { rm -f ${cmdout} ${cmderr}; }
 
 unset WORKSPACE
 
@@ -35,6 +36,3 @@ md5_hook_sh='ce3e735d54ea9e54d26360b03f2fe57f'
 
 # function to reset the state, clearing stack and current workspace
 reset () { cd $cdir; _ws__stack=(); _ws__current=""; }
-
-# function to mark failed conditions in the test runs
-fail () { rc=$?; echo "failure: $*"; exit $rc; }
