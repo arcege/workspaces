@@ -22,7 +22,7 @@ for shell in bash zsh; do  # zsh
     run $testdir/${shell}.sh
 done
 
-for version in 0.3 0.4.1 0.5.0.3; do
+for version in 0.3 0.4.1 0.5.0.3 0.5.2 0.5.3; do
     for shell in bash zsh; do  # zsh
         run $testdir/upgrade.sh $shell $version $repodir
     done
