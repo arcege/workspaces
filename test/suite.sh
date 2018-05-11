@@ -18,12 +18,16 @@ run () {
     return $irc
 }
 
-for shell in bash zsh; do  # zsh
+shells=( bash zsh )
+
+versions=( 0.3 0.4.1 0.5.0.3 )
+
+for shell in ${shells[@]}; do  # zsh
     run $testdir/${shell}.sh
 done
 
-for version in 0.3 0.4.1 0.5.0.3; do
-    for shell in bash zsh; do  # zsh
+for version in ${versions[@]}; do
+    for shell in ${shells[@]}; do  # zsh
         run $testdir/upgrade.sh $shell $version $repodir
     done
 done
