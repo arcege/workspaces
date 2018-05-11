@@ -14,6 +14,7 @@ if [ ${DEBUG:-0} = 1 ]; then
     mkdir () { echo "mkdir $*"; }
     mv () { echo "mv $*"; }
     rm () { echo "rm $*"; }
+    sed () { echo "sed $*"; }
     tar () { echo "tar $*"; }
     touch () { echo "touch $*"; }
     uname () { /bin/uname ${1:+"$@"}; }
@@ -30,6 +31,7 @@ elif [ $OSTYPE = linux-gnu ]; then
     md5sum () { /usr/bin/md5sum ${1:+"$@"}; }
     mv () { /bin/mv "$@"; }
     rm () { /bin/rm "$@"; }
+    sed () { /bin/sed "$@"; }
     tar () { PATH=/bin:/usr/bin /bin/tar "$@"; }
     touch () { /bin/touch "$@"; }
     uname () { /bin/uname ${1:+"$@"}; }
@@ -40,12 +42,13 @@ else  # Darwin (MacOs)
     chmod () { /bin/chmod "$@"; }
     cp () { /bin/cp "$@"; }
     dirname () { /usr/bin/dirname "$@"; }
-    grep () { /bin/grep "$@"; }
+    grep () { /usr/bin/grep "$@"; }
     ln () { /bin/ln "$@"; }
     mkdir () { /bin/mkdir "$@"; }
     md5sum () { /sbin/md5 ${1:+"$@"} | sed 's/.* = //;s/$/  -/'; }
     mv () { /bin/mv "$@"; }
     rm () { /bin/rm "$@"; }
+    sed () { /usr/bin/sed "$@"; }
     tar () { PATH=/bin:/usr/bin /usr/bin/tar "$@"; }
     touch () { /usr/bin/touch "$@"; }
     uname () { /bin/uname ${1:+"$@"}; }
@@ -141,7 +144,7 @@ update_workspace_plugin_hardlinks () {
     wsdir=$(_ws_getdir $wsname)
     if [ $? -eq 0 ]; then
         _ws_cmd_plugin list $wsname -q | while read plugin; do
-            replace_plugin_hardlink "$plugin" "$wsdir"
+            replace_plugin_hardlink "$plugin" "$wsdir" || return 1
         done
     fi
 }
@@ -149,13 +152,14 @@ update_workspace_plugin_hardlinks () {
 update_plugins_hardlinks () {
     local wsname
     _ws_cmd_list -q | while read wsname; do
-        update_workspace_plugin_hardlinks "$wsname"
+        update_workspace_plugin_hardlinks "$wsname" || return 1
     done
 }
 
 update_hook () {
     local oldchk chksum state=none tmphook=$1 wsdir=$2 oldname=$3 newname=$4
-    local oldfile=$wsdir/$oldname newfile=$wsdir/.ws/$newname
+    local oldfile=$wsdir/$oldname newfile=$wsdir/.ws/$newname rc
+    rc=0
     if [ -f $oldfile ]; then
         chksum=$(md5sum < $oldfile)
         local found=false
@@ -178,13 +182,21 @@ update_hook () {
             # if the old hook never changed, overwrite it
             for oldchk in $oldmd5s_hook_sh; do
                 if [ "$chksum" = "$oldchk  -" ]; then
-                    cp $tmphook $newfile
-                    chmod +x $newfile
-                    state=overwritten
+                    cp $tmphook $newfile &&
+                        chmod +x $newfile
+                    if [ $? -eq 0 ]; then
+                        state=overwritten
+                    else
+                        rc=1
+                        break
+                    fi
                 fi
             done
+            if [ $rc -ne 0 ]; then
+                return 1
+            fi
             if [ $state = moved ]; then
-                cp $tmphook $newfile
+                cp $tmphook $newfile || return 1
                 state=adjust
             elif [ $state != overwritten ]; then
                 if grep -Fq wshook__op= $newfile; then
@@ -236,59 +248,90 @@ update_hook () {
     else
         echo "[Unknown state: $state]"
     fi
+    return $rc
 }
 
 update_config () {
-    local wsdir=$1 name=$2 file
+    local rc wsdir=$1 name=$2 file
+    rc=0
     file="$wsdir/.ws/$name"
     if [ ! -f $file -o ! -s $file ]; then
         _ws_generate_config $file
-        echo "New config $file"
+        rc=$/
+        if [ $rc -eq 0 ]; then
+            echo "New config $file"
+        fi
     elif grep -Fq _wshook__variables $file; then
         # this gathers the variable names and add to the hook unset "registry" var
         sed -i -e '/^_wshook__variables=/d;/^# .*_wshook__variables /d' $file
-        echo "Removed config _wshook__variables from $file"
+        rc=$?
+        if [ $rc -eq 0 ]; then
+            echo "Removed config _wshook__variables from $file"
+        fi
     fi
+    return $rc
 }
 
 update_hook_scripts () {
-    local path
+    local path rc
+    rc=0
     mkdir -p $WS_DIR/.ws
     tmphook=${TMPDIR:-/tmp}/wshook.$$
-    _ws_generate_hook $tmphook  # generate the latest hook in a temp area
-    update_hook $tmphook $WS_DIR .ws.sh hook.sh
-    update_hook $tmphook $WS_DIR .skel.sh skel.sh
-    update_config $WS_DIR config.sh
+    _ws_generate_hook $tmphook  && # generate the latest hook in a temp area
+        update_hook $tmphook $WS_DIR .ws.sh hook.sh &&
+        update_hook $tmphook $WS_DIR .skel.sh skel.sh &&
+        update_config $WS_DIR config.sh
+    rc=$?
+    if [ $rc -ne 0 ]; then
+        echo "update_hook_scripts: failed"
+        return 1
+    fi
     for path in $WS_DIR/*; do
         if [ -d $path ]; then
             mkdir -p $path/.ws
-            update_hook $tmphook $path .ws.sh hook.sh
-            update_config $path config.sh
+            update_hook $tmphook $path .ws.sh hook.sh &&
+                update_config $path config.sh
+            rc=$?
+        fi
+        if [ $rc -ne 0 ]; then
+            echo "update_hook_scripts: failed"
+            break
         fi
     done
     rm -f $tmphook
+    return $rc
 }
 
 add_plugin_to_all_workspaces () {
     local wsname plugin=$1
     _ws_cmd_list -q | while read wsname; do
         _ws_cmd_plugin add $wsname $plugin
+        if [ $? -ne 0 ]; then
+            return 1
+        fi
     done
 }
 
 update_plugins () {
-    local file destdir=$WS_DIR/.ws/plugins
+    local file rc destdir=$WS_DIR/.ws/plugins
+    rc=0
     for file in $srcdir/plugins/*; do
         if [ "$file" = "plugins/*" ]; then
             break
         elif [ ! -e "$destdir/${file##*/}" ]; then
-            ws plugin install $file
-            add_plugin_to_all_workspaces ${file##*/}
+            ws plugin install $file &&
+                add_plugin_to_all_workspaces ${file##*/}
+            rc=$?
         else
-            ws plugin install -f $file
-            add_plugin_to_all_workspaces ${file##*/}
+            ws plugin install -f $file &&
+                add_plugin_to_all_workspaces ${file##*/}
+            rc=$?
+        fi
+        if [ $rc -eq 0 ]; then
+            break
         fi
     done
+    return $rc
 }
 
 pre_initialization () {
@@ -318,8 +361,8 @@ pre_initialization () {
             else
                 echo "Source $BASHDIR/ws.sh to get update."
             fi
-            update_hook_scripts
-            update_plugins_hardlinks
+            update_hook_scripts &&
+                update_plugins_hardlinks
             ;;
     esac
 }
@@ -445,30 +488,43 @@ main () {
 
     unset _WS_SOURCE WS_DIR  # in case of leak from calling shell
 
-    pre_installation
+    pre_installation &&
+        installation &&
+        post_installation
 
-    installation
-
-    post_installation
+    if [ $? -ne 0 ]; then
+        echo "Unable to install the software."
+        exit 1
+    fi
 
     source $srcdir/ws.sh
+    if [ $? -ne 0 ]; then
+        echo "Unable to load software."
+        exit 2
+    fi
 
     # for just in this script, we'll ignore the upgrade warnings
     # (or we'll get false messages).
     _ws_upgrade_warning () { true; }
 
-    pre_initialization $operation
-
-    initialization $operation
-
-    post_initialization $operation
+    pre_initialization $operation &&
+        initialization $operation &&
+        post_initialization $operation
+    if [ $? -ne 0 ]; then
+        echo "Unable to initialize."
+        exit 3
+    fi
 
     if [ $_ws_envshell = bash ]; then
         bash_processing $operation
     elif [ $_ws_envshell = zsh ]; then
         zsh_processing $operation
     fi
+    if [ $? -ne 0 ]; then
+        echo "Unable to post-process for ${_ws_envshell}."
+        exit 4
+    fi
 }
 
 main "$@"
-
+exit $?
