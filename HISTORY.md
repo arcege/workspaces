@@ -1,5 +1,9 @@
 # Workspaces
 
+## 0.5.3.1
+* On Darwin, grep is in /usr/bin, and sed was not given a function.
+* The install program were not handling errors well.
+
 ## 0.5.3
 * Fixes for failures of hard link of plugins on upgrade.
 * Fixes for zsh support, all tests pass successfully.
