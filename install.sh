@@ -55,8 +55,17 @@ else  # Darwin (MacOs)
 fi
 
 case $SHELL in
-    */bash) _ws_envshell=bash;;
-    */zsh)  _ws_envshell=zsh;;
+    */bash)
+        _ws_envshell=bash
+        ;;
+    */zsh)
+        if [ $OSTYPE != "linux-gnu" ]; then
+            echo "Fatal: zsh unsupported on macos"
+            exit 2
+        else
+            then_ws_envshell=zsh
+        fi
+        ;;
     *)
         echo "Unsupported shell"
         exit 2

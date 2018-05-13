@@ -18,7 +18,12 @@ run () {
     return $irc
 }
 
-shells=( bash zsh )
+if [ $(uname) = "Linux" ]; then
+    shells=( bash zsh )
+elif [ $(uname) = "Darwin" ]; then
+    echo "note: zsh unsupported on Darwin (macos)"
+    shells=( bash )
+fi
 
 versions=( 0.3 0.4.1 0.5.0.3 )
 

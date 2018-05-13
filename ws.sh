@@ -118,6 +118,11 @@ case $OSTYPE in
         ;;
 esac
 
+if [ $is_linux = false -a $_ws_shell = zsh ]; then
+    echo "Fatal: zsh unsupported on macos"
+    return 2
+fi
+
 # To help avoid overridden commands by functions, aliases or paths,
 # we'll create our own functions here to use throughout the app;
 function _ws_awk { /usr/bin/awk "$@"; }
