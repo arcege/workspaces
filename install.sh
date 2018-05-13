@@ -14,6 +14,7 @@ if [ ${DEBUG:-0} = 1 ]; then
     mkdir () { echo "mkdir $*"; }
     mv () { echo "mv $*"; }
     rm () { echo "rm $*"; }
+    sed () { echo "sed $*"; }
     tar () { echo "tar $*"; }
     touch () { echo "touch $*"; }
     uname () { /bin/uname ${1:+"$@"}; }
@@ -30,6 +31,7 @@ elif [ $OSTYPE = linux-gnu ]; then
     md5sum () { /usr/bin/md5sum ${1:+"$@"}; }
     mv () { /bin/mv "$@"; }
     rm () { /bin/rm "$@"; }
+    sed () { /bin/sed "$@"; }
     tar () { PATH=/bin:/usr/bin /bin/tar "$@"; }
     touch () { /bin/touch "$@"; }
     uname () { /bin/uname ${1:+"$@"}; }
@@ -40,20 +42,30 @@ else  # Darwin (MacOs)
     chmod () { /bin/chmod "$@"; }
     cp () { /bin/cp "$@"; }
     dirname () { /usr/bin/dirname "$@"; }
-    grep () { /bin/grep "$@"; }
+    grep () { /usr/bin/grep "$@"; }
     ln () { /bin/ln "$@"; }
     mkdir () { /bin/mkdir "$@"; }
     md5sum () { /sbin/md5 ${1:+"$@"} | sed 's/.* = //;s/$/  -/'; }
     mv () { /bin/mv "$@"; }
     rm () { /bin/rm "$@"; }
+    sed () { /usr/bin/sed "$@"; }
     tar () { PATH=/bin:/usr/bin /usr/bin/tar "$@"; }
     touch () { /usr/bin/touch "$@"; }
     uname () { /bin/uname ${1:+"$@"}; }
 fi
 
 case $SHELL in
-    */bash) _ws_envshell=bash;;
-    */zsh)  _ws_envshell=zsh;;
+    */bash)
+        _ws_envshell=bash
+        ;;
+    */zsh)
+        if [ $OSTYPE != "linux-gnu" ]; then
+            echo "Fatal: zsh unsupported on macos"
+            exit 2
+        else
+            then_ws_envshell=zsh
+        fi
+        ;;
     *)
         echo "Unsupported shell"
         exit 2
@@ -471,4 +483,4 @@ main () {
 }
 
 main "$@"
-
+exit $?

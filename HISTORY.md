@@ -4,6 +4,9 @@
 * Add "ws use" command to change Workspaces root directories.
 * Allow `enter` command to take configuration values.
 
+## 0.5.3.1
+* On Darwin, grep is in /usr/bin, and sed was not given a function.
+
 ## 0.5.3
 * Fixes for failures of hard link of plugins on upgrade.
 * Fixes for zsh support, all tests pass successfully.
