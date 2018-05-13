@@ -144,7 +144,7 @@ update_workspace_plugin_hardlinks () {
     wsdir=$(_ws_getdir $wsname)
     if [ $? -eq 0 ]; then
         _ws_cmd_plugin list $wsname -q | while read plugin; do
-            replace_plugin_hardlink "$plugin" "$wsdir" || return 1
+            replace_plugin_hardlink "$plugin" "$wsdir"
         done
     fi
 }
@@ -152,14 +152,13 @@ update_workspace_plugin_hardlinks () {
 update_plugins_hardlinks () {
     local wsname
     _ws_cmd_list -q | while read wsname; do
-        update_workspace_plugin_hardlinks "$wsname" || return 1
+        update_workspace_plugin_hardlinks "$wsname"
     done
 }
 
 update_hook () {
     local oldchk chksum state=none tmphook=$1 wsdir=$2 oldname=$3 newname=$4
-    local oldfile=$wsdir/$oldname newfile=$wsdir/.ws/$newname rc
-    rc=0
+    local oldfile=$wsdir/$oldname newfile=$wsdir/.ws/$newname
     if [ -f $oldfile ]; then
         chksum=$(md5sum < $oldfile)
         local found=false
@@ -182,21 +181,13 @@ update_hook () {
             # if the old hook never changed, overwrite it
             for oldchk in $oldmd5s_hook_sh; do
                 if [ "$chksum" = "$oldchk  -" ]; then
-                    cp $tmphook $newfile &&
-                        chmod +x $newfile
-                    if [ $? -eq 0 ]; then
-                        state=overwritten
-                    else
-                        rc=1
-                        break
-                    fi
+                    cp $tmphook $newfile
+                    chmod +x $newfile
+                    state=overwritten
                 fi
             done
-            if [ $rc -ne 0 ]; then
-                return 1
-            fi
             if [ $state = moved ]; then
-                cp $tmphook $newfile || return 1
+                cp $tmphook $newfile
                 state=adjust
             elif [ $state != overwritten ]; then
                 if grep -Fq wshook__op= $newfile; then
@@ -248,90 +239,59 @@ update_hook () {
     else
         echo "[Unknown state: $state]"
     fi
-    return $rc
 }
 
 update_config () {
-    local rc wsdir=$1 name=$2 file
-    rc=0
+    local wsdir=$1 name=$2 file
     file="$wsdir/.ws/$name"
     if [ ! -f $file -o ! -s $file ]; then
         _ws_generate_config $file
-        rc=$/
-        if [ $rc -eq 0 ]; then
-            echo "New config $file"
-        fi
+        echo "New config $file"
     elif grep -Fq _wshook__variables $file; then
         # this gathers the variable names and add to the hook unset "registry" var
         sed -i -e '/^_wshook__variables=/d;/^# .*_wshook__variables /d' $file
-        rc=$?
-        if [ $rc -eq 0 ]; then
-            echo "Removed config _wshook__variables from $file"
-        fi
+        echo "Removed config _wshook__variables from $file"
     fi
-    return $rc
 }
 
 update_hook_scripts () {
-    local path rc
-    rc=0
+    local path
     mkdir -p $WS_DIR/.ws
     tmphook=${TMPDIR:-/tmp}/wshook.$$
-    _ws_generate_hook $tmphook  && # generate the latest hook in a temp area
-        update_hook $tmphook $WS_DIR .ws.sh hook.sh &&
-        update_hook $tmphook $WS_DIR .skel.sh skel.sh &&
-        update_config $WS_DIR config.sh
-    rc=$?
-    if [ $rc -ne 0 ]; then
-        echo "update_hook_scripts: failed"
-        return 1
-    fi
+    _ws_generate_hook $tmphook  # generate the latest hook in a temp area
+    update_hook $tmphook $WS_DIR .ws.sh hook.sh
+    update_hook $tmphook $WS_DIR .skel.sh skel.sh
+    update_config $WS_DIR config.sh
     for path in $WS_DIR/*; do
         if [ -d $path ]; then
             mkdir -p $path/.ws
-            update_hook $tmphook $path .ws.sh hook.sh &&
-                update_config $path config.sh
-            rc=$?
-        fi
-        if [ $rc -ne 0 ]; then
-            echo "update_hook_scripts: failed"
-            break
+            update_hook $tmphook $path .ws.sh hook.sh
+            update_config $path config.sh
         fi
     done
     rm -f $tmphook
-    return $rc
 }
 
 add_plugin_to_all_workspaces () {
     local wsname plugin=$1
     _ws_cmd_list -q | while read wsname; do
         _ws_cmd_plugin add $wsname $plugin
-        if [ $? -ne 0 ]; then
-            return 1
-        fi
     done
 }
 
 update_plugins () {
-    local file rc destdir=$WS_DIR/.ws/plugins
-    rc=0
+    local file destdir=$WS_DIR/.ws/plugins
     for file in $srcdir/plugins/*; do
         if [ "$file" = "plugins/*" ]; then
             break
         elif [ ! -e "$destdir/${file##*/}" ]; then
-            ws plugin install $file &&
-                add_plugin_to_all_workspaces ${file##*/}
-            rc=$?
+            ws plugin install $file
+            add_plugin_to_all_workspaces ${file##*/}
         else
-            ws plugin install -f $file &&
-                add_plugin_to_all_workspaces ${file##*/}
-            rc=$?
-        fi
-        if [ $rc -eq 0 ]; then
-            break
+            ws plugin install -f $file
+            add_plugin_to_all_workspaces ${file##*/}
         fi
     done
-    return $rc
 }
 
 pre_initialization () {
@@ -361,8 +321,8 @@ pre_initialization () {
             else
                 echo "Source $BASHDIR/ws.sh to get update."
             fi
-            update_hook_scripts &&
-                update_plugins_hardlinks
+            update_hook_scripts
+            update_plugins_hardlinks
             ;;
     esac
 }
@@ -488,41 +448,28 @@ main () {
 
     unset _WS_SOURCE WS_DIR  # in case of leak from calling shell
 
-    pre_installation &&
-        installation &&
-        post_installation
+    pre_installation
 
-    if [ $? -ne 0 ]; then
-        echo "Unable to install the software."
-        exit 1
-    fi
+    installation
+
+    post_installation
 
     source $srcdir/ws.sh
-    if [ $? -ne 0 ]; then
-        echo "Unable to load software."
-        exit 2
-    fi
 
     # for just in this script, we'll ignore the upgrade warnings
     # (or we'll get false messages).
     _ws_upgrade_warning () { true; }
 
-    pre_initialization $operation &&
-        initialization $operation &&
-        post_initialization $operation
-    if [ $? -ne 0 ]; then
-        echo "Unable to initialize."
-        exit 3
-    fi
+    pre_initialization $operation
+
+    initialization $operation
+
+    post_initialization $operation
 
     if [ $_ws_envshell = bash ]; then
         bash_processing $operation
     elif [ $_ws_envshell = zsh ]; then
         zsh_processing $operation
-    fi
-    if [ $? -ne 0 ]; then
-        echo "Unable to post-process for ${_ws_envshell}."
-        exit 4
     fi
 }
 
