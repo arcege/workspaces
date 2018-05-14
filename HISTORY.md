@@ -3,6 +3,7 @@
 ## 0.5.4
 * Add "ws use" command to change Workspaces root directories.
 * Allow `enter` command to take configuration values.
+* [plugin] add cdpath\_no\_cdhome config var to disable cdhome feature (`cd` -> `cd $WORKSPACE`)
 * Refactor tests to use a test harness system with cleaner output.  Output from failed tests
   will be displayed at the end.
 
