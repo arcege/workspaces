@@ -6,31 +6,38 @@
 # of "HOME" to the workspace
 
 # uses cdpath_startdir - change to a specific directory before entering
+# uses cdpath_no_cdhome - if not empty (true), then do not make a function of `cd`
 
 case ${wshook__op} in
     enter)
         if [ $_ws_shell = zsh ]; then
             setopt -o auto_cd
-            cdpath=()
+            cdpath=( $WORKSPACE )
         else
             export CDPATH="${CDPATH}:$WORKSPACE"
         fi
-        CDHOME="$WORKSPACE"
-        cd () { [ $# -eq 0 ] && builtin cd ${CDHOME} || builtin cd "$@"; }
+        if [ -z "$cdpath_no_cdhome" ]; then  # do not set up cd as a function
+            CDHOME="$WORKSPACE"
+            cd () { [ $# -eq 0 ] && builtin cd ${CDHOME} || builtin cd "$@"; }
+        else
+            _ws_log 2 "cdpath: not making cd into a function"
+        fi
         if [ -z "${wshook__retdir}" -a -n "$cdpath_startdir" ]; then
             cd ${cdpath_startdir}
         fi
         ;;
     leave)
         CDPATH="${CDPATH%:*}"
-        unset CDHOME
-        if [ $_ws_shell = bash ]; then
-            if [ $(type -t cd) = function ]; then
-                unset cd
-            fi
-        elif [ $_ws_shell = zsh ]; then
-            if [ "$(whence -v cd)" = "cd is a shell function" ]; then
-                unset -f cd
+        if [ -z "$cdpath_no_cdhome" ]; then
+            unset CDHOME
+            if [ $_ws_shell = bash ]; then
+                if [ $(type -t cd) = function ]; then
+                    unset cd
+                fi
+            elif [ $_ws_shell = zsh ]; then
+                if [ "$(whence -v cd)" = "cd is a shell function" ]; then
+                    unset -f cd
+                fi
             fi
         fi
         ;;
