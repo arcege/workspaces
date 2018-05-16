@@ -67,6 +67,7 @@ validate_release () {
     for pluginfile in $HOME/workspaces/.ws/plugins/*; do
         name=${pluginfile##*/}
         if ! cmp -s $pluginfile $progdir/plugins/$name; then
+            diff -u $pluginfile $progdir/plugins/$name
             msg "upgrade failed: plugin $name"
             return 1
         fi

@@ -2,24 +2,66 @@
 # Copyright @ 2017 Michael P. Reilly. All rights reserved.
 
 # uses virtualenv - non-empty (true) to create a local virutalenv (not wrapper)
+# uses virtualenv_root = root directory to house named virtualenvs, default is workspace
+# uses virtualenv_name = name of virtualenv
+
+# if virtualenv_root begins with a slash, it is the root of where virtualenvs reside
+# otherwise, it is relative to the workspace directory
+# if virtualenv_name is empty and virtualenv_root is not empty, use the workspace name as the
+# virtualenv name
+# if virtualenv_name is empty, the virtualenv name is ".venv"
+# if virtualenv_name begins with a slash, it is explicit pathname to the virtualenv
+# otherwise, the value of virtualenv_name is used
+# the virtualenv directory is the rootdir and name combined
 
 if [ -n "$virtualenv" ] && command -v virtualenv >/dev/null; then
+    # in case it is not in the workspace itself
+    case $virtualenv_root in
+        "") rootdir=$wshook__workspace;;
+        /*) rootdir=$virtualenv_root;;
+        *)  rootdir=$wshook_workspace/$virtualenv_root;;
+    esac
+    case $virtualenv_name in
+        "")
+            if [ -z "$virtualenv_root" ]; then
+                name=".venv"
+            else
+                name="$wshook__name"
+            fi
+            ;;
+        /*) rootdir=""; name="$virtualenv_name";;
+        *)  name="$virtualenv_name";;
+    esac
+    if [ -z "$rootdir" ]; then
+        venvdir="$name"
+    else
+        venvdir="$rootdir/$name"
+    fi
+
     case ${wshook__op} in
         create)
-            virtualenv $wshook__workspace/.venv
+            virtualenv $venvdir
             ;;
 
         destroy)
+            case $venvdir in
+                "$wshook__workspace"/*)
+                    ;;
+                *)
+                    rm -fr "$venvdir"
+                    ;;
+            esac
             ;;
         enter)
-            if [ -d $wshook__workspace/.venv/bin ]; then
-                . $wshook__workspace/.venv/bin/activate
+            if [ -d $venvdir/bin ]; then
+                . $venvdir/bin/activate
             fi
             ;;
         leave)
-            if [ -d $wshook__workspace/.venv/bin ]; then
+            if [ -d $venvdir/bin ] && command -v deactivate >/dev/null; then
                 deactivate
             fi
             ;;
     esac
+    unset rootdir name venvdir
 fi

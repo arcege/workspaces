@@ -118,6 +118,11 @@ case $OSTYPE in
         ;;
 esac
 
+if [ $is_linux = false -a $_ws_shell = zsh ]; then
+    echo "Fatal: zsh unsupported on macos"
+    return 2
+fi
+
 # To help avoid overridden commands by functions, aliases or paths,
 # we'll create our own functions here to use throughout the app;
 function _ws_awk { /usr/bin/awk "$@"; }
@@ -940,8 +945,9 @@ _ws_run_hooks () {
     # .ws/hook.sh is not found
     local hookfile sdir wsdir rc=0 op="${1:-enter}" context=$2 wshook__retdir=$3 configfile=$4
     local var tmpfile="${TMPDIR:-/tmp}/ws.hook.cfg.$$.${RANDOM}.sh"
-    local wshook__op wshook__workspace wshook__configdir wshook__variables
+    local wshook_name wshook__op wshook__workspace wshook__configdir wshook__variables
     wshook__op=${op}
+    wshook__name=${context}
 
     case ${op}:${2:+X} in
         # if no context ($2==""), then just return
@@ -970,7 +976,13 @@ _ws_run_hooks () {
     # register the variables for later unset
     wshook__variables=$(_ws_sed -n '/=.*/s///p' $tmpfile | _ws_tr '\n' ' ')
     # load the gathered variables
-    [ -s $tmpfile ] && source $tmpfile
+    _ws_log 4 "wshook__op=${wshook__op}; wshook__workspace=${wshook__workspace}"
+    _ws_log 4 "wshook__name=${wshook__name}; wshook__retdir=${wshook__retdir}"
+    if [ -s $tmpfile ]; then
+        _ws_log 4 "config vars:
+$(cat $tmpfile)"
+        source $tmpfile
+    fi
     for sdir in $WS_DIR $wsdir; do
         wshook__configdir="$sdir/.ws"
         if [ -x $sdir/.ws/hook.sh ]; then

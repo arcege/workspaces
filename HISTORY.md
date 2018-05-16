@@ -3,6 +3,17 @@
 ## 0.5.4
 * Add "ws use" command to change Workspaces root directories.
 * Allow `enter` command to take configuration values.
+* [hooks] add 'wshook\_\_name' variable as the name of the workspace (better for create and destroy
+  operations)
+* [plugin] add cdpath\_no\_cdhome config var to disable cdhome feature (`cd` -> `cd $WORKSPACE`)
+* [plugin] add virtualenv\_root and virtualenv\_name config vars for virtualenv locations other than
+  $WORKSPACE/.venv).
+* Refactor tests to use a test harness system with cleaner output.  Output from failed tests
+  will be displayed at the end.
+* \_ws\_run\_hooks logs the config variables being used at loglevel=4.
+
+## 0.5.3.1
+* On Darwin, grep is in /usr/bin, and sed was not given a function.
 
 ## 0.5.3
 * Fixes for failures of hard link of plugins on upgrade.

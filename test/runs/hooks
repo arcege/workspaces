@@ -1,25 +1,12 @@
 :
 
-# ws convert
-mkdir -p $WS_DIR/foobar1
 cat > $TMPDIR/config_vars <<EOF
 doset=false
 dontset=true
 EOF
-_ws_convert_ws foobar1 'cdpath java' $TMPDIR/config_vars
-test -d $WS_DIR/foobar1/.ws || fail convert_ws dir .ws
-test -s "$WS_DIR/foobar1/.ws/hook.sh" -a -x "$WS_DIR/foobar1/.ws/hook.sh" ||
-    fail convert_ws hook.sh
-test -s "$WS_DIR/foobar1/.ws/config.sh" || fail convert_ws config.sh
-result=$(ws config get foobar1 doset)
-test $? -eq 0 -a "$result" = "false" || fail convert_ws config value \"doset\"
-result=$(ws config get foobar1 dontset) || fail convert_ws config value \"dontset\"
-rm -rf $WS_DIR/foobar1
-
-ws create foobar
 
 # more intensive testing of the hooks
-cat > "$WS_DIR/foobar/.ws/hook.sh" <<'EOF'
+cat > "$TMPDIR/foobar-hook.sh" <<'EOF'
 :
 # this is sourced by `ws` (workspaces)
 # commands could be run and the environment/shell could be modified.
@@ -57,64 +44,94 @@ case ${wshook__op} in
 esac
 EOF
 
-cat > "$WS_DIR/foobar/.ws/config.sh" <<'EOF'
+cat > "$TMPDIR/foobar-config" <<'EOF'
 InConfig=$wshook__workspace
 EOF
 
-unset wsstate IsDestroyed HasEntered HasLeft
-_ws_run_hooks enter foobar; rc=$?
-test $rc -eq 0 || fail hook+var failed
-test x$wsstate = xenter || fail hook+var wsstate
-test x$HasEntered = xyep || fail hook+var HasEntered
-test x$HasLeft = x || fail hook+var unset
-test x$InConfig = x || fail hook+unset InConfig
-_ws_run_hooks leave foobar
-test x$wsstate = xleave || fail hook+var wsstate
-test x$HasLeft = xElvis || fail hook+var HasLeft
-_ws_run_hooks create foobar
-test x$Which = x$WS_DIR/foobar || fail hook+config passthru
-test x${InConfig:+X} = x || fail hook+config unset
+function test_ws_convert {
+    # ws convert
+    mkdir -p $WS_DIR/foobar1
+    _ws_convert_ws foobar1 'cdpath java' $TMPDIR/config_vars
+    test -d $WS_DIR/foobar1/.ws || return 1
+    test -s "$WS_DIR/foobar1/.ws/hook.sh" -a -x "$WS_DIR/foobar1/.ws/hook.sh" ||
+        return 1
+    test -s "$WS_DIR/foobar1/.ws/config.sh" || return 1
+    result=$(ws config get foobar1 doset)
+    test $? -eq 0 -a "$result" = "false" || return 1
+    result=$(ws config get foobar1 dontset) || return 1
+    rm -rf $WS_DIR/foobar1
+}
+
+function test_ws_create_hook {
+    ws create foobar
+    cp $TMPDIR/foobar-hook.sh $WS_DIR/foobar/.ws/hook.sh
+    cp $TMPDIR/foobar-config $WS_DIR/foobar/.ws/config.sh
+
+    _ws_run_hooks enter foobar; rc=$?
+    test $rc -eq 0 || return 1
+    test x$wsstate = xenter || return 1
+    test x$HasEntered = xyep || return 1
+    test x$HasLeft = x || return 1
+    test x$InConfig = x || return 1
+    _ws_run_hooks leave foobar
+    test x$wsstate = xleave || return 1
+    test x$HasLeft = xElvis || return 1
+    _ws_run_hooks create foobar
+    test x$Which = x$WS_DIR/foobar || return 1
+    test x${InConfig:+X} = x || return 1
+
+    unset wsstate IsDestroyed HasEntered HasLeft
+    cat /dev/null > $cmdout
+    cat /dev/null > $cmderr
+    _ws_cmd_hook copy foobar default
+    if [ $? -ne 0 ] || ! cmp $(_ws_getdir foobar)/.ws/hook.sh $(_ws_getdir default)/.ws/hook.sh > $cmdout 2> $cmderr; then
+        ( echo "== stdout =="; cat $cmdout; echo
+          echo "== stderr =="; cat $cmderr; echo
+        ) >&2
+        return 1
+    fi
+}
+
+function test_hook_export {
+    _ws_cmd_hook save foobar $TMPDIR/hook-save.sh || return 1
+    sed -i -e '/HasEntered/s/=yep/=yes/' "$TMPDIR/hook-save.sh"
+    _ws_cmd_hook load foobar "$TMPDIR/hook-save.sh"
+    if [ $? -ne 0 ] || ! cmp $(_ws_getdir foobar)/.ws/hook.sh "$TMPDIR/hook-save.sh" > $cmdout 2> $cmderr; then
+        ( echo "== stdout =="; cat $cmdout; echo
+          echo "== stderr =="; cat $cmderr; echo
+        ) >&2
+        return 1
+    fi
+}
+
+function test_hook_run {
+    _ws_cmd_hook run
+    test x$wsstate = xenter || return 1
+}
+
+function test_hook_cfgfile {
+    echo myname=michael > $TMPDIR/hook.cfg
+    unset users_name
+    _ws_run_hooks enter foobar; rc=$?
+    test $rc -eq 0 || return 1
+    test -z "$users_name" || return 1
+
+    _ws_run_hooks enter foobar "" $TMPDIR/hook.cfg; rc=$?
+    test $rc -eq 0 || return 1
+    test "$users_name" = michael || return 1
+
+    unset users_name
+    ws enter foobar $TMPDIR/hook.cfg
+    test "$users_name" = michael || return 1
+
+    unset users_name
+    ws enter foobar myname=michael
+    test "$users_name" = michael || return 1
+}
 
 unset wsstate IsDestroyed HasEntered HasLeft
-cat /dev/null > $cmdout
-cat /dev/null > $cmderr
-_ws_cmd_hook copy foobar default
-if [ $? -ne 0 ] || ! cmp $(_ws_getdir foobar)/.ws/hook.sh $(_ws_getdir default)/.ws/hook.sh > $cmdout 2> $cmderr; then
-    ( echo "== stdout =="; cat $cmdout; echo
-      echo "== stderr =="; cat $cmderr; echo
-    ) >&2
-    fail hook+copy
-fi
-
-_ws_cmd_hook save foobar $TMPDIR/hook-save.sh || fail hook+save
-sed -i -e '/HasEntered/s/=yep/=yes/' "$TMPDIR/hook-save.sh"
-_ws_cmd_hook load foobar "$TMPDIR/hook-save.sh"
-if [ $? -ne 0 ] || ! cmp $(_ws_getdir foobar)/.ws/hook.sh "$TMPDIR/hook-save.sh" > $cmdout 2> $cmderr; then
-    ( echo "== stdout =="; cat $cmdout; echo
-      echo "== stderr =="; cat $cmderr; echo
-    ) >&2
-    fail hook+copy
-fi
-
-_ws_cmd_hook run
-test x$wsstate = xenter || fail hook+run
+run_test ws+create-hooks     test_ws_create_hook
+run_test hook-export         test_hook_export
+run_test hook-run            test_hook_run
+run_test hook-cfgfile        test_hook_cfgfile
 unset wsstate IsDestroyed HasEntered HasLeft
-
-echo myname=michael > $TMPDIR/hook.cfg
-unset users_name
-_ws_run_hooks enter foobar; rc=$?
-test $rc -eq 0 || fail runhook no-cfgfile
-test -z "$users_name" || fail runhook var-unset
-
-_ws_run_hooks enter foobar "" $TMPDIR/hook.cfg; rc=$?
-test $rc -eq 0 || fail runhook cfgfile
-test "$users_name" = michael || fail runhook var-set
-
-unset users_name
-ws enter foobar $TMPDIR/hook.cfg
-test "$users_name" = michael || fail ws+enter cli-configfile
-
-unset users_name
-ws enter foobar myname=michael
-test "$users_name" = michael || fail ws+enter cli-configfile
-

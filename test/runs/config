@@ -7,39 +7,52 @@ hook_1=hello
 hook_2=goodbye
 EOF
 
-ws create xyzzy $configfile hook_3=hola
-configsh=$WS_DIR/xyzzy/.ws/config.sh
-test "$(md5sum < $configsh)" != "$md5_config_sh  -" || fail create+config md5 config.sh
-grep -q '^hook_1=' $configsh; rc1=$?
-grep -q '^hook_2=' $configsh; rc2=$?
-grep -q '^hook_3=' $configsh; rc3=$?
-test $rc1 -eq 0 -a $rc2 -eq 0 -a $rc3 -eq 0 || fail create+config vars included
+function test_create_config_vars {
+    ws create xyzzy $configfile hook_3=hola
+    configsh=$WS_DIR/xyzzy/.ws/config.sh
+    test "$(md5sum < $configsh)" != "$md5_config_sh  -" || return 1
+    grep -q '^hook_1=' $configsh; rc1=$?
+    grep -q '^hook_2=' $configsh; rc2=$?
+    grep -q '^hook_3=' $configsh; rc3=$?
+    test $rc1 -eq 0 -a $rc2 -eq 0 -a $rc3 -eq 0 || return 1
+}
 
-test "$(_ws_config_edit $configsh list)" = $'hook_1\nhook_2\nhook_3' || fail ws_config list
-test "$(_ws_config_edit $configsh get hook_2)" = "goodbye" || fail ws_config_edit get
-var="$(_ws_config_edit $configsh get hook_4)"
-test $? -eq 1 -a "$var" = "" || fail ws_config_edit get novar
-var="$(_ws_config_edit $configsh set hook_4 adios)"
-test $? -eq 0 -a "$var" = "" || fail ws_config_edit set newvar
-test "$(_ws_config_edit $configsh get hook_4)" = "adios" || fail ws_config_edit newvar value
-var="$(_ws_config_edit $configsh set hook_4 caio)"
-test "$(_ws_config_edit $configsh get hook_4)" = "caio" || fail ws_config_edit exstvar value
-var="$(_ws_config_edit $configsh del hook_4)"
-test $? -eq 0 -a "$var" = "" || fail ws_config_edit del op
-grep -Fq hook_4 $configsh && fail ws_config_edit del check
-var="$(_ws_config_edit $configsh del hook_4)"
-test $? -eq 0 -a "$var" = "" || fail ws_config_edit del novar
+function test_config_ops {
+    test "$(_ws_config_edit $configsh list)" = $'hook_1\nhook_2\nhook_3' || return 1
+    test "$(_ws_config_edit $configsh get hook_2)" = "goodbye" || return 1
+    var="$(_ws_config_edit $configsh get hook_4)"
+    test $? -eq 1 -a "$var" = "" || return 1
+    var="$(_ws_config_edit $configsh set hook_4 adios)"
+    test $? -eq 0 -a "$var" = "" || return 1
+    test "$(_ws_config_edit $configsh get hook_4)" = "adios" || return 1
+    var="$(_ws_config_edit $configsh set hook_4 caio)"
+    test "$(_ws_config_edit $configsh get hook_4)" = "caio" || return 1
+    var="$(_ws_config_edit $configsh del hook_4)"
+    test $? -eq 0 -a "$var" = "" || return 1
+    grep -Fq hook_4 $configsh && return 1
+    var="$(_ws_config_edit $configsh del hook_4)"
+    test $? -eq 0 -a "$var" = "" || return 1
+}
 
-test "$(_ws_cmd_config list -w -q xyzzy)" = $'hook_1\nhook_2\nhook_3' || fail ws+config list
-test "$(_ws_cmd_config get xyzzy hook_1)" = "hello" || fail ws+config get
-var="$(_ws_cmd_config set xyzzy hook_4 adios)"
-test $? -eq 0 -a "$var" = "" || tail ws+config set new rc
-test "$(_ws_cmd_config get xyzzy hook_4)" = "adios" || fail ws+config set new value
-var="$(_ws_cmd_config del xyzzy hook_4 adios)"
-test $? -eq 0 -a "$var" = "" || tail ws+config del
-var="$(_ws_cmd_config get xyzzy hook_4)"
-test $? -eq 1 -a "$var" = "" || tail ws+config get novar
+function test_config_cmd {
+    test "$(_ws_cmd_config list -w -q xyzzy)" = $'hook_1\nhook_2\nhook_3' || return 1
+    test "$(_ws_cmd_config get xyzzy hook_1)" = "hello" || return 1
+    var="$(_ws_cmd_config set xyzzy hook_4 adios)"
+    test $? -eq 0 -a "$var" = "" || return 1
+    test "$(_ws_cmd_config get xyzzy hook_4)" = "adios" || return 1
+    var="$(_ws_cmd_config del xyzzy hook_4 adios)"
+    test $? -eq 0 -a "$var" = "" || return 1
+    var="$(_ws_cmd_config get xyzzy hook_4)"
+    test $? -eq 1 -a "$var" = "" || return 1
+}
 
-var=$(_ws_cmd_config search .)
-result=$'--global: TEST_VALUE_1=\n--global: TEST_VALUE_2=\n foobar: InConfig=\n  xyzzy: hook_1=hello\n  xyzzy: hook_2=goodbye\n  xyzzy: hook_3=hola'
-test $? -eq 0 -a "$var" = "$result" || fail ws+config search
+function test_config_search {
+    var=$(_ws_cmd_config search .)
+    result=$'--global: TEST_VALUE_1=\n--global: TEST_VALUE_2=\n foobar: InConfig=\n  xyzzy: hook_1=hello\n  xyzzy: hook_2=goodbye\n  xyzzy: hook_3=hola'
+    test $? -eq 0 -a "$var" = "$result" || return 1
+}
+
+run_test create-config-vars test_create_config_vars
+run_test config-ops         test_config_ops
+run_test cmd-config         test_config_cmd
+run_test config-search      test_config_search

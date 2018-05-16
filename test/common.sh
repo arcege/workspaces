@@ -20,9 +20,12 @@ source $testlib/path.sh
 source $testlib/functions.sh
 source $testlib/testdir.sh
 source $testlib/homedir.sh
+source $testlib/harness.sh
 source $testlib/setup.sh
 
-# should be no side-effects, all either pass through or call the 'fail' function
+# each is a separate set of tests, calling run_test which will get
+# aggregated at the end.  each test function should return 0 of success
+# or non-zero for failure (numbers can be significate for the test cases)
 source $rundir/basics
 # more unit tests to follow after initialization
 source $rundir/initialize
@@ -35,7 +38,10 @@ source $rundir/plugin
 source $rundir/alternate
 source $rundir/release
 
-case $SHELL in
-    */bash) echo "bash tests complete.";;
-    */zsh)  echo "zsh tests complete.";;
+aggregate_tests; rc=$?
+
+case $rc in
+    0) echo "${SHELL##*/} tests complete.";;
+    *) echo "${SHELL##*/} tests failed.";;
 esac
+return $rc
