@@ -1,5 +1,9 @@
 # Workspaces
 
+## 0.5.4.1
+* Fix install to handle ~/.bash\*/ws.sh properly on upgrade.
+* Fix upgrade test script to correctly test for ~/.bash\*/ws.sh script.
+
 ## 0.5.4
 * Add "ws use" command to change Workspaces root directories.
 * Allow `enter` command to take configuration values.

@@ -63,7 +63,7 @@ case $SHELL in
             echo "Fatal: zsh unsupported on macos"
             exit 2
         else
-            then_ws_envshell=zsh
+            _ws_envshell=zsh
         fi
         ;;
     *)
@@ -103,8 +103,8 @@ installation () {
 
 pre_installation () {
     # clean up old installation locations
-    if [ -z "${_BASHDIR}" -a -x $_BASHDIR/ws.sh ]; then
-        rm -f $_BASHDIR/ws.sh
+    if [ -n "${_BASHDIR}" -a ! -h $_BASHDIR/ws.sh ]; then
+        rm -f ${_BASHDIR}/ws.sh
     fi
     rm -f $HOME/.ws_plugins.tbz2
     rm -f $HOME/.ws_versions.txt
@@ -112,9 +112,9 @@ pre_installation () {
 
 post_installation () {
     # "register" the configuration script for bash
-    if [ $_ws_envshell = bash -a ! -r $_BASHDIR/ws.sh ]; then
-        mkdir -p $_BASHDIR
-        ln -s ../.ws/ws.sh $_BASHDIR/ws.sh
+    if [ $_ws_envshell = bash -a ! -r ${_BASHDIR}/ws.sh ]; then
+        mkdir -p ${_BASHDIR}
+        ln -s ../.ws/ws.sh ${_BASHDIR}/ws.sh
     fi
 }
 

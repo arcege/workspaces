@@ -28,14 +28,47 @@ if [ ! -d $repodir/.hg ]; then
     exit 1
 fi
 
+case $shtype in
+    bash)
+        _ws_envshell=bash
+        ;;
+    zsh)
+        if [ $OSTYPE != "linux-gnu" ]; then
+            echo "Fatal: zsh unsupported on macos"
+            exit 2
+        else
+            _ws_envshell=zsh
+        fi
+        ;;
+    *)
+        echo "Unsupported shell"
+        exit 2
+        ;;
+esac
+
 source $testdir/lib/system.sh
 source $testdir/lib/redirect.sh
 source $testdir/lib/functions.sh
 source $testdir/lib/testdir.sh
 
 repo=$TMPDIR/workspaces
-HOME=$TMPDIR/home
+export HOME=$TMPDIR/home
 mkdir $HOME
+
+find_bash_dir () {
+    # find the ~/.bash.d or ~/.bash, if there is one
+    _BASHDIR=
+    if [ $_ws_envshell = bash ]; then
+        if [ -d $HOME/.bash.d ]; then
+            _BASHDIR=.bash.d
+        elif [ -d $HOME/.bash ]; then
+            _BASHDIR=.bash
+        else
+            _BASHDIR=.bash.d
+        fi
+    fi
+    return 0
+}
 
 populate_home_bash () {
     local homedir="$1"
@@ -60,6 +93,10 @@ pull_release () {
 
 validate_release () {
     local name
+    if [ -n "${_BASHDIR}" -a ! -h "$HOME/${_BASHDIR}/ws.sh" ]; then
+        msg "upgrade failed, ${_BASHDIR}/ws.sh is not a symlink"
+        return 2
+    fi
     if ! cmp -s $progdir/ws.sh $HOME/.ws/ws.sh; then
         msg "upgrade failed, ws.sh not matching"
         return 1
@@ -88,6 +125,8 @@ if ! pull_release ${release} ${repo} ${repodir}; then
 elif ! SHELL=$shprog $shprog --login -c "${repo}/install.sh" >&2; then
     msg "failed to install ${release}"
     exit 1
+elif ! find_bash_dir; then
+    :
 elif ! SHELL=$shprog $shprog --login -c "${progdir}/install.sh upgrade" >&2; then
     msg "failed to upgrade to current release"
     exit 1
