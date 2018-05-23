@@ -3,6 +3,12 @@
 ## 0.5.4.1
 * Fix install to handle ~/.bash\*/ws.sh properly on upgrade.
 * Fix upgrade test script to correctly test for ~/.bash\*/ws.sh script.
+* Add a '--full' ('-f') option to the test suite; runs the entire version
+  upgrade suite; without runs only 0.5.4
+* An internal 0.5.4 changes was to not rely on ed(1), but use sed(1)
+  instead.
+* Change pyerect 'test' target to run Suite target, add Fullsuite target which passes
+  new --full' argument).
 
 ## 0.5.4
 * Add "ws use" command to change Workspaces root directories.

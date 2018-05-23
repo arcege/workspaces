@@ -1,6 +1,26 @@
 #!/bin/bash
+# run a full suite of tests.  The functional tests for both bash and zsh (if not mac).
+# and an upgrade test against a number of releases
+# unfortunately, earlier releases used 'ed', which causes a problem with the docker images
+# used by bitbucket-pipline.
+# using the --full would run backward compatibility tests
+# without --full, only the functional tests and upgrade tests against later versions
+# would be allowed
 
-repodir=$1
+full=false
+
+while [ $# -gt 0 ]; do
+    case $1 in
+        --help|-h)
+            echo "$0 [--help|-h] [--full|-f] [repodir]"
+            exit 0
+            ;;
+        --full|-f) full=true;;
+        -*) echo "unexpected option"; exit 1;;
+        *) repodir=$1;;
+    esac
+    shift
+done
 
 testdir=$(cd $(dirname ${BASH_SOURCE[0]}); pwd)
 rc=0
@@ -25,7 +45,11 @@ elif [ $(uname) = "Darwin" ]; then
     shells=( bash )
 fi
 
-versions=( 0.3 0.4.1 0.5.0.3 )
+if $full; then
+    versions=( 0.3 0.4.1 0.5.0.3 0.5.4 )
+else
+    versions=( 0.5.4 )
+fi
 
 for shell in ${shells[@]}; do  # zsh
     run $testdir/${shell}.sh
