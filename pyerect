@@ -36,7 +36,7 @@ class SpawnTask(Task):
         Subcommand( tuple(self.args), wdir=WsDir )
 
 Compile.tasks = (
-    Copy(*ReleaseFiles, dest=WsDir),
+    Copy(*ReleaseFiles, dest=WsDir, recurse=True),
     Tokenize('ws.sh', 'test/common.sh', dest=WsDir,
         tokenmap=VariableSet(
             FileVariable('SNAPSHOT', 'version'),

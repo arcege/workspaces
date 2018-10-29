@@ -1,0 +1,15 @@
+:
+
+# testing of plugins
+
+test_plugins_dir=$rundir/plugins.d
+
+source $test_plugins_dir/bitbucket
+source $test_plugins_dir/cdpath
+source $test_plugins_dir/github
+source $test_plugins_dir/java
+source $test_plugins_dir/nvm
+source $test_plugins_dir/pythonpath
+source $test_plugins_dir/vagrant
+source $test_plugins_dir/virtualenv
+source $test_plugins_dir/virtualenvwrapper

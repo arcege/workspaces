@@ -1,0 +1,50 @@
+:
+
+# test 'cdpath' plugin
+
+function test_plugin_cdpath_create {
+    ws create plugin-cdpath
+    ws leave
+}
+
+function test_plugin_cdpath_destroy {
+    ws destroy plugin-cdpath
+}
+
+function test_plugin_cdpath_enter {
+    ws enter plugin-cdpath
+}
+
+function test_plugin_cdpath_leave {
+    ws leave
+}
+
+function test_plugin_cdpath_startdir {
+    mkdir $WORKSPACE/newpath
+    test "$PWD" = "$WORKSPACE" || return 1
+    ws config set - cdpath_startdir newpath
+    ws hook run
+    test "$PWD" = "$WORKSPACE" || return 1
+    ws leave
+}
+
+function test_plugin_cdpath_cdpath {
+    :
+}
+
+function test_plugin_cdpath_cdhome {
+    :
+}
+
+function test_plugin_cdpath_nocdhome {
+    :
+}
+
+run_test create test_plugin_cdpath_create
+run_test leave test_plugin_cdpath_leave
+run_test enter test_plugin_cdpath_enter
+run_test startdir test_plugin_cdpath_startdir
+run_test cdpath test_plugin_cdpath_cdpath
+run_test cdhome test_plugin_cdpath_cdhome
+run_test no_cdhome test_plugin_cdpath_nocdhome
+run_test destroy test_plugin_cdpath_destroy
