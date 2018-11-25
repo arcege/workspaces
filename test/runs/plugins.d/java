@@ -1,0 +1,39 @@
+:
+
+# test 'java' plugin
+
+JavaDir=$TMPDIR/java
+
+function test_plugin_java_create {
+    ws create plugin-java JAVA=$JavaDir
+    ws leave
+}
+
+function test_plugin_java_enter {
+    ws enter plugin-java
+    test "$JAVA_HOME" = "$JavaDir" || return 1
+    test "$PATH" = "$JavaDir/bin:/bin:/usr/bin" || return 1
+}
+
+function test_plugin_java_leave {
+    test "$_ws__current" = "plugin-java" || return 2
+    ws leave
+    test "$PATH" = "/bin:/usr/bin" || return 2
+    test -z "$JAVA_HOME" || return 2
+}
+
+function test_plugin_java_destroy {
+    ws destroy plugin-java
+}
+
+test_plugin_java_PATH="${PATH}"
+PATH="/bin:/usr/bin"
+
+mkdir -p $JavaDir
+
+run_test create test_plugin_java_create
+run_test enter test_plugin_java_enter
+run_test leave test_plugin_java_leave
+run_test destroy test_plugin_java_destroy
+
+PATH="${test_plugin_java_PATH}"

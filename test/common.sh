@@ -35,8 +35,12 @@ source $rundir/hooks
 source $rundir/stack
 source $rundir/config
 source $rundir/plugin
+
+source $rundir/plugins
+
+# these should be last, to avoid confusion when the app is uninstalled
 source $rundir/alternate
-source $rundir/release
+#source $rundir/release
 
 aggregate_tests; rc=$?
 
