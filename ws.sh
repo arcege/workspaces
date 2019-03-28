@@ -984,18 +984,21 @@ $(cat $tmpfile)"
         source $tmpfile
     fi
     for sdir in $WS_DIR $wsdir; do
+        hookfile=
         wshook__configdir="$sdir/.ws"
         if [ -x $sdir/.ws/hook.sh ]; then
             hookfile=$sdir/.ws/hook.sh
         elif [ -f $sdir/.ws.sh ]; then  # backward compatibility
             hookfile=$sdir/.ws.sh
         fi
-        source $hookfile
-        local irc=$?
-        if [ $irc -ne 0 ]; then
-            rc=$irc
+        if [ x${hookfile:+X} = xX ]; then
+            source $hookfile
+            local irc=$?
+            if [ $irc -ne 0 ]; then
+                rc=$irc
+            fi
+            _ws_log 2 "called $hookfile $op $wsdir; rc=$rc"
         fi
-        _ws_log 2 "called $hookfile $op $wsdir; rc=$rc"
     done
     if [ -d "$wsdir/.ws/plugins" ]; then
         local has_null_glob=0
