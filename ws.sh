@@ -998,6 +998,8 @@ $(cat $tmpfile)"
                 rc=$irc
             fi
             _ws_log 2 "called $hookfile $op $wsdir; rc=$rc"
+        else
+            _ws_log 2 "No hook in $sdir"
         fi
     done
     if [ -d "$wsdir/.ws/plugins" ]; then
