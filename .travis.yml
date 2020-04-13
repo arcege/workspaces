@@ -2,8 +2,10 @@
 
 language: minimal
 
-install:
-  - apt-get install -y zsh
+addons:
+  apt:
+    packages:
+      - zsh
 
 script:
   - ./test/suite.sh --full $PWD
