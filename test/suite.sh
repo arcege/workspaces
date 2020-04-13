@@ -46,7 +46,7 @@ elif [ $(uname) = "Darwin" ]; then
 fi
 
 if $full; then
-    versions=( 0.3 0.4.1 0.5.0.3 0.5.4 )
+    versions=( 0.5.0.3 0.5.4 )
 else
     versions=( 0.5.4 )
 fi
