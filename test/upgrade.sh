@@ -23,7 +23,7 @@ if [ -z "$repodir" ]; then
     repodir=$progdir
 fi
 
-if [ ! -d $repodir/.hg ]; then
+if [ ! -d $repodir/.git ]; then
     msg "Unable to determine code repository."
     exit 1
 fi
@@ -88,7 +88,7 @@ populate_home_zsh () {
 pull_release () {
     local release=$1 extractdir=$2 progdir=$3
     #echo "Pulling $release to $extractdir"
-    hg clone -u "${release}" "${progdir}" "${extractdir}" >&2
+    git clone -s -b "${release}" "${progdir}" "${extractdir}" >&2
 }
 
 validate_release () {

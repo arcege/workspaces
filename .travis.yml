@@ -1,0 +1,25 @@
+---
+
+language: minimal
+
+matrix:
+  include:
+    - os: linux
+      dist: xenial
+    - os: linux
+      dist: bionic
+    - os: osx
+      osx_image: xcode10
+    - os: osx
+      osx_image: xcode11
+
+addons:
+  apt:
+    packages:
+      - zsh
+
+before_install:
+  - if [ "${TRAVIS_OS_NAME}" = osx ]; then brew update && brew install zsh; fi
+
+script:
+  - ./test/suite.sh --full $PWD
