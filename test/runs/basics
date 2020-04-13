@@ -37,7 +37,7 @@ function validate_global_vars {
         test "$(declare -p WS_DIR)" = "declare -- WS_DIR=\"$HOME/workspaces\"" || return 1
         test "$(declare -p WS_VERSION)" = "declare -- WS_VERSION=\"${versionstr}\"" || return 1
         test "$(declare -p _ws__current)" = 'declare -- _ws__current=""' || return 1
-        if [ ${BASH_VERSINFO[0]} -ge 5 ]; then
+        if [ ${BASH_VERSINFO[0]} -ge 5 ] || [ ${BASH_VERSINFO[0]} -eq 4 -a ${BASH_VERSINFO[1]} -ge 4 ]; then
             test "$(declare -p _ws__stack)" = "declare -a _ws__stack=()" || return 1
         else
             test "$(declare -p _ws__stack)" = "declare -a _ws__stack='()'" || return 1
