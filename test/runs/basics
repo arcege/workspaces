@@ -44,7 +44,7 @@ function validate_global_vars {
         fi
     elif [ $_ws_shell = zsh ]; then
         autoload is-at-least
-        if is-at-least 5.7; then
+        if is-at-least 5.4; then
             test "$(declare -p WS_DIR)" = "typeset -g WS_DIR=$HOME/workspaces" || return 1
             test "$(declare -p WS_VERSION)" = "typeset -g WS_VERSION=${versionstr}" || return 1
             test "$(declare -p _ws__current)" = "typeset -g _ws__current=''" || return 1
