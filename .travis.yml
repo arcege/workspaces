@@ -1,0 +1,6 @@
+---
+
+language: minimal
+
+script:
+  - ./test/suite.sh --full $PWD
